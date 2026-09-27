@@ -34,27 +34,6 @@ Voice recording, text-to-speech, and microphone permissions need a real device o
 
 A `bun.lock` is present, so Bun works as the package manager too. The commands above use `bun install` as the default path.
 
-## How it is laid out
-
-Source sits at the project root, not under `src/`, so Metro needs no extra configuration.
-
-```
-robin-talks/
-├── expo-entry.js       Entry point: registerRootComponent + SafeAreaProvider
-├── index.tsx           App root: ErrorHandler > StatusBar > AppFonts > CoreProviders > Navigation
-├── api/                Domain hooks and pure helpers (useProfile, useSessions, useMemory, useRobin, scenarios)
-├── core/               Borel-managed surface: db client, auth, legal (regenerated)
-├── navigation/         React Navigation container, root navigator, pure rootRoute decision
-├── screens/            Onboarding, Practice, Session (voice loop), Settings
-├── ui/                 Design system: theme tokens, fonts, motion, components
-├── borel-store.js      Dependency-free reactive store (useSyncExternalStore)
-├── borel-systemui.js   Native capability bridge (recording, TTS, permissions, IAP, notifications)
-├── assets/             App icon, splash, favicon
-└── docs/agent-docs/    Architecture, backend, UI, conventions, workflows, specs
-```
-
-The four screens are listed in `screens/`. `Practice` is the catalog, `Session` runs the voice loop and renders the debrief, and `Settings` edits your profile and deletes data. When no session is open the app lands on `Practice`; with one open it lands on `Session`.
-
 ## Architecture
 
 The app is client-only: no server, build step, or API layer lives in this repository. Screens read domain data through hooks in `api/` that combine `db.from(table)`, `useAuth()`, and a module-scope shared store, so every screen sees the same copy. The hooks return `{ data, loading, error, ...actions }`, and failed calls route through `plainError` from `core/db.ts`.
@@ -82,14 +61,3 @@ The backend is the Borel cloud proxy. `core/db.ts` defines the endpoints and exp
 **In-app purchases are real.** `requestPurchase()`, `restorePurchases()`, and `getProducts()` in `borel-systemui.js` call Apple's StoreKit 2 through [expo-iap](https://github.com/hyochan/expo-iap). They need a real build to run, since StoreKit does not exist in Expo Go, so use a development build (`bunx expo run:ios`) or TestFlight. The products must exist in your App Store Connect account with a price, a localization, and a review screenshot, and they must be submitted for review alongside your first version. An `extra.borelIap` block in `app.json` maps each slug your code uses to a real product id; add it and keep it in step with what you create there. Test with a Sandbox tester before shipping.
 
 **One function is deliberately not implemented:** `requestApplePay()`. The exported copy returns `{ status: "failure" }` and logs a warning instead of reporting a completed payment. Apple Pay needs a merchant identifier from your own Apple Developer account, and anything unlocked inside the app must use In-App Purchase, not Apple Pay (App Store Review Guideline 3.1.1).
-
-## Docs
-
-- [architecture.md](docs/agent-docs/architecture.md): components, providers, session lifecycle, data flow.
-- [backend-and-ai.md](docs/agent-docs/backend-and-ai.md): Borel client, tables, auth, AI, storage, moderation.
-- [ui-and-navigation.md](docs/agent-docs/ui-and-navigation.md): navigation structure, screens, design system.
-- [borel-runtime.md](docs/agent-docs/borel-runtime.md): `borel-store.js` and `borel-systemui.js`.
-- [conventions.md](docs/agent-docs/conventions.md): code style and patterns.
-- [workflows.md](docs/agent-docs/workflows.md): install, run, typecheck, test, build.
-- [directory-map.md](docs/agent-docs/directory-map.md): annotated tree of the repository.
-- [specs/260919-robin-english-practice/](docs/agent-docs/specs/260919-robin-english-practice/spec.md): the feature spec, plan, tasks, and the Borel export report.
