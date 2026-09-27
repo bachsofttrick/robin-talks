@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Robin Talks",
+    "slug": "robin-talks",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.example.robintalks"
+    },
+    "android": {
+      "package": "com.example.robintalks",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-apple-authentication",
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "This lets you pick a photo from your library for use in the app.",
+          "cameraPermission": "This lets you take a photo for use in the app."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png"
+        }
+      ],
+      "expo-sharing",
+      "expo-video"
+    ]
+  }
+}

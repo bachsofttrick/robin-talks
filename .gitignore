@@ -1,0 +1,17 @@
+# Ignore playwright
+.playwright-cli
+
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+
+# Native projects, if you run `npx expo prebuild`
+/ios
+/android
+
+# Local env
+.env
+.env.local
