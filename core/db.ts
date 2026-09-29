@@ -411,6 +411,11 @@ async function brokerFetch(path: string, body?: unknown): Promise<{ ok: boolean;
   }
 }
 
+/** 
+ * brokerAuth is built for web version (preview session), 
+ * mimicking Supabase Auth functions and returns.
+ * It does not save login session, and will be lost upon reload.
+ */
 const brokerAuth = {
   async signUp(input: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
     const r = await brokerFetch("/sign-up", {
