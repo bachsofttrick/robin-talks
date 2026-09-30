@@ -1,4 +1,5 @@
-import "./cryptoPolyfill";
+import "./lib/polyfills/cryptoPolyfill";
+import "./lib/polyfills/responsePolyfill";
 import React from "react";
 import { registerRootComponent } from "expo";
 import { SafeAreaProvider } from "react-native-safe-area-context";
