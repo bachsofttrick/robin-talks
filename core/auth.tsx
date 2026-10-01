@@ -915,9 +915,9 @@ export function SignInSheet(props: {
   const t = labelsWith(props.labels);
   return (
     <Modal visible={props.visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={props.onClose}>
-      <ScrollView contentContainerStyle={{ flex: 1, justifyContent: "center", paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ flex: 1, justifyContent: "center", paddingBottom: 75 }} keyboardShouldPersistTaps="handled">
         <SignInFlow reason={props.reason} mode={props.mode} labels={props.labels} onDone={props.onClose} />
-        <View style={{ paddingHorizontal: 20, alignItems: "center" }}>
+        <View style={{ alignItems: "center" }}>
           <LinkButton title={t.cancel} onPress={props.onClose} />
         </View>
       </ScrollView>
@@ -1060,7 +1060,7 @@ export function AccountPanel(props: {
         </View>
       ) : (
         <View>
-          {IN_PREVIEW ? <Note text={t.previewPassword} /> : <LinkButton title={t.changePassword} onPress={() => setStage("password")} />}
+          <LinkButton title={t.changePassword} onPress={() => setStage("password")} />
           <LinkButton
             title={t.signOut}
             onPress={() => {

@@ -332,6 +332,7 @@ export interface User {
 // handle; the parent preview frame keeps it across reloads via postMessage.
 // ---------------------------------------------------------------------------
 
+const BROKERED_SESSION_STORAGE_KEY = "borel-brokered-auth-session";
 let brokerToken: string | null = null;
 let brokerLoaded = false;
 let currentSession: Session = null;
@@ -349,7 +350,10 @@ function postToParent(message: Record<string, unknown>): void {
 }
 
 /** Ask the preview's parent frame for the handle it is holding for this app. Once. */
-function loadBrokerToken(): Promise<string | null> {
+async function loadBrokerToken(): Promise<string | null> {
+  brokerToken = await AsyncStorage.getItem(BROKERED_SESSION_STORAGE_KEY);
+
+  // Looking into what this does later
   if (brokerLoaded) return Promise.resolve(brokerToken);
   brokerLoaded = true;
   return new Promise<string | null>((resolve) => {
@@ -378,12 +382,16 @@ function loadBrokerToken(): Promise<string | null> {
   });
 }
 
-function setSession(session: Session, token: string | null): void {
+async function setBrokerToken(session: Session, token: string | null): Promise<void> {
   currentSession = session;
-  brokerToken = token;
   brokerLoaded = true;
   forgetModeration();
-  postToParent({ type: "preview-session:set", bps: token });
+  if (token) 
+    await AsyncStorage.setItem(BROKERED_SESSION_STORAGE_KEY, token);
+  else
+    await AsyncStorage.removeItem(BROKERED_SESSION_STORAGE_KEY);
+
+  // Looking into what this does later. This seems to be needed for login to work
   for (const fn of listeners) {
     try {
       fn(session);
@@ -425,14 +433,14 @@ const brokerAuth = {
     });
     if (!r.ok) return { data: { session: null, user: null }, error: { message: r.json?.error || "Could not sign up." } };
     const user: User | null = r.json?.user ?? null;
-    if (r.json?.session) setSession(user ? { user } : null, r.json.session);
+    if (r.json?.session) await setBrokerToken(user ? { user } : null, r.json.session);
     return { data: { session: r.json?.session && user ? { user } : null, user }, error: null };
   },
   async signInWithPassword(input: { email: string; password: string }) {
     const r = await brokerFetch("/sign-in", { email: input.email, password: input.password });
     if (!r.ok) return { data: { session: null }, error: { message: r.json?.error || "That email and password do not match." } };
     const user: User | null = r.json?.user ?? null;
-    setSession(user ? { user } : null, r.json?.session ?? null);
+    await setBrokerToken(user ? { user } : null, r.json?.session ?? null);
     return { data: { session: user ? { user } : null }, error: null };
   },
   async getSession() {
@@ -463,7 +471,7 @@ const brokerAuth = {
   },
   async signOut() {
     await brokerFetch("/sign-out", {});
-    setSession(null, null);
+    await setBrokerToken(null, null);
     return { error: null };
   },
   async resetPasswordForEmail(email: string, _options?: { redirectTo?: string }) {
@@ -476,7 +484,7 @@ const brokerAuth = {
     const r = await brokerFetch("/verify-email", { email: input.email, otp: input.token });
     if (!r.ok) return { data: { session: null, user: null }, error: { message: r.json?.error || "That code is wrong or has expired." } };
     const user: User | null = r.json?.user ?? null;
-    if (r.json?.session) setSession(user ? { user } : null, r.json.session);
+    if (r.json?.session) await setBrokerToken(user ? { user } : null, r.json.session);
     return { data: { session: r.json?.session && user ? { user } : null, user }, error: null };
   },
   async updateUser(_attributes: { password?: string }) {
