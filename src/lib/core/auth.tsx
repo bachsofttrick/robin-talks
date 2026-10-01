@@ -6,7 +6,7 @@
 // results below are already translated into what a screen needs to show.
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { db, authCall, adoptSession, appleCall } from "./db";
-import { signInWithApple as appleSheet } from "../borel-systemui";
+import { signInWithApple as appleSheet } from "../../../borel-systemui";
 
 /**
  * Kept for screens written against older versions of this file. Confirmation

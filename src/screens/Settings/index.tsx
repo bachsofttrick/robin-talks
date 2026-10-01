@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { Screen, Notice } from "../../ui";
-import { colors, fonts, radius, spacing, type } from "../../ui/theme";
-import { Bird } from "../../ui/Bird";
-import { Button } from "../../ui/Button";
-import { Field } from "../../ui/Field";
-import { SectionHeader } from "../../ui/SectionHeader";
-import { useEnter } from "../../ui/motion";
-import { useProfile } from "../../api/useProfile";
-import { useMemory } from "../../api/useMemory";
-import { useSessions } from "../../api/useSessions";
-import { AccountPanel, RequireAccount } from "../../core/auth";
-import { LegalLinks } from "../../core/legal";
-import type { Level } from "../../api/scenarios";
+import { Screen, Notice } from "../../lib/ui";
+import { colors, fonts, radius, spacing, type } from "../../lib/ui/theme";
+import { Bird } from "../../lib/ui/Bird";
+import { Button } from "../../lib/ui/Button";
+import { Field } from "../../lib/ui/Field";
+import { SectionHeader } from "../../lib/ui/SectionHeader";
+import { useEnter } from "../../lib/ui/motion";
+import { useProfile } from "../../lib/api/useProfile";
+import { useMemory } from "../../lib/api/useMemory";
+import { useSessions } from "../../lib/api/useSessions";
+import { AccountPanel, RequireAccount } from "../../lib/core/auth";
+import { LegalLinks } from "../../lib/core/legal";
+import type { Level } from "../../lib/api/scenarios";
 
 const LEVELS: Level[] = ["Beginner", "Intermediate", "Advanced"];
 

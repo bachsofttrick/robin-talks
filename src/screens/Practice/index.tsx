@@ -1,17 +1,17 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { Screen, Notice } from "../../ui";
-import { colors, fonts, radius, spacing, type } from "../../ui/theme";
-import { Paper } from "../../ui/Texture";
-import { Bird } from "../../ui/Bird";
-import { Button } from "../../ui/Button";
-import { SectionHeader } from "../../ui/SectionHeader";
-import { useEnter, useStagger } from "../../ui/motion";
-import { SCENARIOS, scenarioById, Scenario } from "../../api/scenarios";
-import { useProfile } from "../../api/useProfile";
-import { useSessions } from "../../api/useSessions";
-import { RequireAccount } from "../../core/auth";
+import { Screen, Notice } from "../../lib/ui";
+import { colors, fonts, radius, spacing, type } from "../../lib/ui/theme";
+import { Paper } from "../../lib/ui/Texture";
+import { Bird } from "../../lib/ui/Bird";
+import { Button } from "../../lib/ui/Button";
+import { SectionHeader } from "../../lib/ui/SectionHeader";
+import { useEnter, useStagger } from "../../lib/ui/motion";
+import { SCENARIOS, scenarioById, Scenario } from "../../lib/api/scenarios";
+import { useProfile } from "../../lib/api/useProfile";
+import { useSessions } from "../../lib/api/useSessions";
+import { RequireAccount } from "../../lib/core/auth";
 
 function Row({ scenario, index, onPress }: { scenario: Scenario; index: number; onPress: () => void }) {
   const enter = useStagger(index);

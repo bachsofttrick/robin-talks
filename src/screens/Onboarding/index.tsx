@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { Screen, Notice } from "../../ui";
-import { colors, fonts, radius, spacing, type } from "../../ui/theme";
-import { Paper } from "../../ui/Texture";
-import { Bird } from "../../ui/Bird";
-import { Button } from "../../ui/Button";
-import { Field } from "../../ui/Field";
-import { useEnter } from "../../ui/motion";
-import { useProfile } from "../../api/useProfile";
-import type { Level } from "../../api/scenarios";
+import { Screen, Notice } from "../../lib/ui";
+import { colors, fonts, radius, spacing, type } from "../../lib/ui/theme";
+import { Paper } from "../../lib/ui/Texture";
+import { Bird } from "../../lib/ui/Bird";
+import { Button } from "../../lib/ui/Button";
+import { Field } from "../../lib/ui/Field";
+import { useEnter } from "../../lib/ui/motion";
+import { useProfile } from "../../lib/api/useProfile";
+import type { Level } from "../../lib/api/scenarios";
 
 const LEVELS: { level: Level; blurb: string }[] = [
   { level: "Beginner", blurb: "Short sentences, everyday words" },

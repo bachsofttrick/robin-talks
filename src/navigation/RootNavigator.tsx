@@ -3,15 +3,15 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Headphones, Home, Settings as SettingsIcon } from "lucide-react-native";
-import { colors, iconStroke, spacing } from "../ui/theme";
-import { Notice, useTabBarOptions } from "../ui";
+import { colors, iconStroke, spacing } from "../lib/ui/theme";
+import { Notice, useTabBarOptions } from "../lib/ui";
 import PracticeScreen from "../screens/Practice";
 import SessionScreen from "../screens/Session";
 import SettingsScreen from "../screens/Settings";
 import OnboardingScreen from "../screens/Onboarding";
-import { useProfile } from "../api/useProfile";
-import { useSessions } from "../api/useSessions";
-import { useAuth } from "../core/auth";
+import { useProfile } from "../lib/api/useProfile";
+import { useSessions } from "../lib/api/useSessions";
+import { useAuth } from "../lib/core/auth";
 import { rootRoute } from "./rootRoute";
 
 export type RootTabParamList = {

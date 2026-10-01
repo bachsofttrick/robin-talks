@@ -1,4 +1,4 @@
-import { createStore } from "../borel-store";
+import { createStore } from "../../../borel-store";
 
 export interface StoreStatus {
   ready: boolean;

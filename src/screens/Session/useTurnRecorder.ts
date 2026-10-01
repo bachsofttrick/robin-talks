@@ -6,7 +6,7 @@ import {
   requestPermission,
   startRecording,
   stopRecording,
-} from "../../borel-systemui";
+} from "../../../borel-systemui";
 import { initialVoiceActivityState, nextVoiceActivity } from "./voiceActivity";
 import type { VoiceActivityState } from "./voiceActivity";
 

@@ -1,10 +1,10 @@
 import React from "react";
 import { StatusBar } from "expo-status-bar";
-import ErrorHandler from "./ui/ErrorHandler";
-import { AppFonts } from "./ui/fonts";
-import { CoreProviders } from "./core";
-import { NavigationContainer } from "./navigation/NavigationContainer";
-import RootNavigator from "./navigation/RootNavigator";
+import ErrorHandler from "./src/lib/ui/ErrorHandler";
+import { AppFonts } from "./src/lib/ui/fonts";
+import { CoreProviders } from "./src/lib/core";
+import { NavigationContainer } from "./src/navigation/NavigationContainer";
+import RootNavigator from "./src/navigation/RootNavigator";
 
 // Written by Borel from this app's own files, and rewritten whenever they
 // change: the error boundary outermost, the status bar in the app's own
