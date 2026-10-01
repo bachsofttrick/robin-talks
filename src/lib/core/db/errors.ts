@@ -3,8 +3,6 @@ import { IN_BROWSER, SURFACE, BOREL_USAGE_URL } from "./config";
 
 export type AiRefusal = "wallet_empty" | "daily_allowance_used" | "cloud_paused";
 
-
-
 export const CLOUD_NEUTRAL: Record<AiRefusal, string> = {
   wallet_empty: "This isn't available right now, so please try again later.",
   daily_allowance_used: "This isn't available right now, so please try again later.",
@@ -18,6 +16,7 @@ export const CLOUD_NEUTRAL: Record<AiRefusal, string> = {
 // for the person is kept; anything that reads like code or like a provider's
 // account text is replaced with the sentence for that kind of failure.
 // ---------------------------------------------------------------------------
+
 const CODE_CHARACTERS = '"{}<>[]/@_=;|#$%^*~+';
 const TECHNICAL_WORDS = new Set([
   "json", "api", "apis", "null", "undefined", "token", "tokens", "http", "https", "url", "urls", "quota", "billing",

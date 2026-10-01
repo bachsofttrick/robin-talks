@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
-
 // ---------------------------------------------------------------------------
 // Asking before anything goes to AI. App Store Review Guideline 5.1.2(i): an
 // app must "clearly disclose where personal data will be shared with third
@@ -12,6 +11,7 @@ import { Alert } from "react-native";
 // "Allow" is remembered on this device; "Don't Allow" is not, so the next use
 // asks again. Nothing is sent without it.
 // ---------------------------------------------------------------------------
+
 const AI_CONSENT_KEY = "borel.aiConsent.v1:";
 const AI_MAKERS: Record<string, string> = {"qwen3-next-80b-a3b-instruct":"Qwen by Alibaba","gpt-oss-120b":"gpt-oss by OpenAI","gpt-oss-20b":"gpt-oss by OpenAI","llama-4-maverick":"Llama by Meta","gemini-3-flash":"Gemini by Google","claude-sonnet-5":"Claude by Anthropic","claude-haiku-4-5":"Claude by Anthropic","gpt-5-mini":"GPT-5 by OpenAI","gpt-5-nano":"GPT-5 by OpenAI"};
 // The one model that hears a recording (Borel sends every recording to it).

@@ -47,6 +47,7 @@ export async function borelFetch(url: string, body: unknown, timeoutMs: number):
 // sends a token. The browser preview and Expo Go never have a push token of
 // their own for this app, so nothing is linked there.
 // ---------------------------------------------------------------------------
+
 const BOREL_PROXY = BOREL_ACCOUNT.slice(0, BOREL_ACCOUNT.lastIndexOf("/"));
 const PUSH_TOKEN_KEY = "borel.push.deviceToken";
 const PUSH_LINKED_KEY = "borel.push.linked:" + BOREL_PROXY;
@@ -262,6 +263,7 @@ watchDevice();
 // it made (adoptSession: Sign in with Apple). The preview's broker already
 // tells its own listeners.
 // ---------------------------------------------------------------------------
+
 type AuthCallback = (event: string, session: any) => void;
 const phoneSubscribers: AuthCallback[] = [];
 

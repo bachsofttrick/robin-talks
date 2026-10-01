@@ -34,6 +34,7 @@ export const IN_BROWSER = typeof document !== "undefined";
 // stamp in its config that Borel minted for it; Expo Go and the preview never
 // do. Same rule as Borel's analytics module: Expo Go is detected explicitly.
 // ---------------------------------------------------------------------------
+
 const RUNTIME = (Constants && Constants.expoConfig && Constants.expoConfig.extra && (Constants.expoConfig.extra as any).borelRuntime) || null;
 const IS_DEV_SURFACE =
   Boolean((globalThis as any).__DEV__) ||
