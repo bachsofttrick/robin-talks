@@ -1,6 +1,6 @@
 # Tasks: Split db.ts into focused modules
 
-Status: in_progress
+Status: complete
 Plan: PLAN.md
 
 ## Wave 1

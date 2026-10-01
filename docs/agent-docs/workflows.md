@@ -44,7 +44,7 @@ Runs `tsc --noEmit` against `tsconfig.json`.
 bun run test
 ```
 
-`package.json:13` defines `"test": "jest"` with the `jest-expo` preset (`package.json:67-69`). Test dependencies are `jest`, `jest-expo`, and `@types/jest` (`package.json:56-66`). Unit tests live beside the module as `*.test.ts` (8 suites, 61 tests): `api/store.test.ts`, `api/profileImport.test.ts`, `api/robinPrompt.test.ts`, `api/robinTools.test.ts`, `api/robinAgent.test.ts`, `api/scenarios.test.ts`, `screens/Session/voiceActivity.test.ts`, `navigation/rootRoute.test.ts`.
+`package.json:13` defines `"test": "jest"` with the `jest-expo` preset (`package.json:67-69`). Test dependencies are `jest`, `jest-expo`, and `@types/jest` (`package.json:56-66`). Unit tests live beside the module as `*.test.ts` (8 suites, 61 tests): `src/lib/api/store.test.ts`, `src/lib/api/profileImport.test.ts`, `src/lib/api/robinPrompt.test.ts`, `src/lib/api/robinTools.test.ts`, `src/lib/api/robinAgent.test.ts`, `src/lib/api/scenarios.test.ts`, `src/screens/Session/voiceActivity.test.ts`, `src/navigation/rootRoute.test.ts`.
 
 ## Lint
 
@@ -52,9 +52,9 @@ bun run test
 bun run lint
 ```
 
-`package.json:12` defines `"lint": "eslint ."`. The flat config in `eslint.config.mjs` spreads `eslint-config-expo/flat` (SDK 57) and ignores build output (`dist/`, `.expo/`) plus Borel-managed/generated sources (`core/`, `borel-store.js`, `borel-systemui.js`), which cannot be fixed here because they are regenerated. Dev dependencies are `eslint` 9 and `eslint-config-expo` (`package.json:61-62`). Note: ESLint 10 is not usable here because the bundled `eslint-plugin-react` 7.x supports ESLint up to 9.x.
+`package.json:12` defines `"lint": "eslint ."`. The flat config in `eslint.config.mjs` spreads `eslint-config-expo/flat` (SDK 57) and ignores build output (`dist/`, `.expo/`) plus Borel-managed/generated sources (`src/lib/core/`, `borel-store.js`, `borel-systemui.js`), which cannot be fixed here because they are regenerated. Dev dependencies are `eslint` 9 and `eslint-config-expo` (`package.json:61-62`). Note: ESLint 10 is not usable here because the bundled `eslint-plugin-react` 7.x supports ESLint up to 9.x.
 
-Lint is clean: `bun run lint` exits 0. Past findings fixed during adoption were `react-hooks/refs` in `ui/motion.ts` (now `useState` initializers for the stable `Animated.Value`s), `react-hooks/set-state-in-effect` in fetch-on-mount and session-sync effects (state updates deferred to a microtask continuation; `screens/Session/index.tsx` also destructures the stable `sessions.fetchOne`/`sessions.reload` callbacks for honest deps), plus `@typescript-eslint/array-type` (`readonly T[]` form), one unused `DarkTheme` import, and one `react-hooks/exhaustive-deps` fix.
+Lint is clean: `bun run lint` exits 0. Past findings fixed during adoption were `react-hooks/refs` in `src/lib/ui/motion.ts` (now `useState` initializers for the stable `Animated.Value`s), `react-hooks/set-state-in-effect` in fetch-on-mount and session-sync effects (state updates deferred to a microtask continuation; `src/screens/Session/index.tsx` also destructures the stable `sessions.fetchOne`/`sessions.reload` callbacks for honest deps), plus `@typescript-eslint/array-type` (`readonly T[]` form), one unused `DarkTheme` import, and one `react-hooks/exhaustive-deps` fix.
 
 ## CI/CD
 
@@ -66,7 +66,7 @@ There is no CI/CD configuration. No `.github/`, `.gitlab-ci.yml`, `eas.json`, or
 
 ## Environment variables
 
-No `.env`, `.env.local`, or example file exists. `.gitignore:12-13` ignores `.env` and `.env.local`. Backend URLs are hard-coded string constants in `core/db.ts:16-24` rather than environment variables.
+No `.env`, `.env.local`, or example file exists. `.gitignore:12-13` ignores `.env` and `.env.local`. Backend URLs are hard-coded string constants in `src/lib/core/db.ts:16-24` rather than environment variables.
 
 ## Store-publishing notes from the README
 

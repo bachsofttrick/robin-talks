@@ -19,7 +19,7 @@ Store API (`borel-store.js:403`):
 
 Options are `{ persist, storage, version, migrate }` (`:126-132`). Persisted values are written under `borel-store:<key>`, and data that fails to migrate or whose kind no longer matches `initial` is kept aside under `borel-store:<key>:backup` (`:107-117`, `:254-258`). Writes are debounced (`:210-216`). The same key always returns the same store (`:123-124`).
 
-Other exports include `usePersistedState`, `getStore`, `createCollection`, visit/first-run/milestone helpers, and `configureAppMemory` (`borel-store.js:415-864`). App code reaches `createStore` through the typed `createAppStore` wrapper in `api/store.ts:21-42`, which returns the same store per key (`:22-23`, `:40-41`). The three app stores (`robin.profile` in `api/useProfile.tsx:17`, `robin.openSession` in `api/useSessions.tsx:33`, `robin.memory` in `api/useMemory.tsx:12`) are created without `persist`, so no phone copy is kept; persistence defaults off in `createStore` (`borel-store.js:126`).
+Other exports include `usePersistedState`, `getStore`, `createCollection`, visit/first-run/milestone helpers, and `configureAppMemory` (`borel-store.js:415-864`). App code reaches `createStore` through the typed `createAppStore` wrapper in `src/lib/api/store.ts:21-42`, which returns the same store per key (`:22-23`, `:40-41`). The three app stores (`robin.profile` in `src/lib/api/useProfile.tsx:17`, `robin.openSession` in `src/lib/api/useSessions.tsx:33`, `robin.memory` in `src/lib/api/useMemory.tsx:12`) are created without `persist`, so no phone copy is kept; persistence defaults off in `createStore` (`borel-store.js:126`).
 
 ## `borel-systemui.js`
 
@@ -38,11 +38,11 @@ Exported capabilities, grouped:
 
 ### What the app actually imports
 
-`screens/Session/useTurnRecorder.ts:2-9` imports `getPermissionStatus`, `requestPermission`, `startRecording`, `stopRecording`, `cancelRecording`, and `getRecordingStatus`. `screens/Session/index.tsx:17` imports `speak` and `stopSpeaking`. `core/auth.tsx:9` imports `signInWithApple` as `appleSheet`. The remaining exports are unused by app code in this repository.
+`src/screens/Session/useTurnRecorder.ts:2-9` imports `getPermissionStatus`, `requestPermission`, `startRecording`, `stopRecording`, `cancelRecording`, and `getRecordingStatus`. `src/screens/Session/index.tsx:17` imports `speak` and `stopSpeaking`. `src/lib/core/auth.tsx:9` imports `signInWithApple` as `appleSheet`. The remaining exports are unused by app code in this repository.
 
 ### Recording and pause detection
 
-`createRecorder` requests metering up front with `isMeteringEnabled: true` on both the high preset and the low preset (`borel-systemui.js:356-368`), so `getRecordingStatus().metering` carries a real 0..1 level. `useTurnRecorder` (`screens/Session/useTurnRecorder.ts:30-148`) polls that level every 150 ms (`:27`, `:91-108`) and feeds each sample to the pure `nextVoiceActivity` detector (`screens/Session/voiceActivity.ts:46-91`), which ends the turn after 1500 ms of quiet once speech was heard, or at the 30 s ceiling (`:7-11`). A missing level counts as silence (`:20-24`, `:58-61`). The hook exposes `{ recording, denied, start, stop, cancel, enableMic }` (`:147`) and cancels the poll timer plus recording on unmount (`:134-145`).
+`createRecorder` requests metering up front with `isMeteringEnabled: true` on both the high preset and the low preset (`borel-systemui.js:356-368`), so `getRecordingStatus().metering` carries a real 0..1 level. `useTurnRecorder` (`src/screens/Session/useTurnRecorder.ts:30-148`) polls that level every 150 ms (`:27`, `:91-108`) and feeds each sample to the pure `nextVoiceActivity` detector (`src/screens/Session/voiceActivity.ts:46-91`), which ends the turn after 1500 ms of quiet once speech was heard, or at the 30 s ceiling (`:7-11`). A missing level counts as silence (`:20-24`, `:58-61`). The hook exposes `{ recording, denied, start, stop, cancel, enableMic }` (`:147`) and cancels the poll timer plus recording on unmount (`:134-145`).
 
 ### `requestApplePay` is deliberately not implemented
 
