@@ -30,7 +30,7 @@ Depends on Wave 1 (`./types`, `./constants`).
 ## Wave 3
 Depends on Wave 1 (`./constants`).
 
-- [ ] T3: Extract account UI primitives
+- [x] T3: Extract account UI primitives
   - Files: `src/lib/core/auth/controls.tsx` (create)
   - Do: Create `controls.tsx` from `auth.tsx`. Imports: `{ ActivityIndicator, Pressable, Text, TextInput, View }` from `react-native`, `Svg, { Path }` from `react-native-svg`, and `{ KIT, APPLE_LOGO_PATH }` from `./constants`. Move verbatim `Field` (563-598), `PrimaryButton` (600-621), `LinkButton` (623-629), `AppleButton` (637-671, with its doc comment 637-641), `Problem` (673-676), `Note` (678-681). Export all six. Do not modify `auth.tsx`.
   - Tests: none - presentational components with no render-testing library installed in the project
