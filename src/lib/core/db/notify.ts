@@ -5,7 +5,7 @@ import { native, authHeader } from "./auth";
 import { refusalOf, noteRefusal, looksPlain, messageOf, postToParent, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation";
 
-async function borelFetch(url: string, body: unknown, timeoutMs: number): Promise<Response> {
+export async function borelFetch(url: string, body: unknown, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -62,7 +62,7 @@ const NOTIFY_SAYS = {
 
 export type NotifyResult = { ok: boolean; error: string | null; reason: string | null };
 
-async function notify(input: {
+async function sendNotify(input: {
   userIds: string[];
   title: string;
   body: string;
@@ -95,6 +95,8 @@ async function notify(input: {
     return { ok: false, error: NOTIFY_SAYS.offline, reason: null };
   }
 }
+
+export const notify = { notify: sendNotify };
 
 let announcedToken: string | null = null;
 let linkedThisLaunch: string | null = null;
