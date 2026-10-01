@@ -3,13 +3,9 @@ import { IN_BROWSER, SURFACE, BOREL_USAGE_URL } from "./config";
 
 export type AiRefusal = "wallet_empty" | "daily_allowance_used" | "cloud_paused";
 
-const NEUTRAL_ERROR: Record<AiRefusal, string> = {
-  wallet_empty: "AI isn't available right now, so please try again later.",
-  daily_allowance_used: "AI has reached today's limit, so it's back tomorrow.",
-  cloud_paused: "This isn't available right now, so please try again later.",
-};
 
-const CLOUD_NEUTRAL: Record<AiRefusal, string> = {
+
+export const CLOUD_NEUTRAL: Record<AiRefusal, string> = {
   wallet_empty: "This isn't available right now, so please try again later.",
   daily_allowance_used: "This isn't available right now, so please try again later.",
   cloud_paused: "This isn't available right now, so please try again later.",

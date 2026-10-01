@@ -1,7 +1,6 @@
 import { BOREL_AI, IN_BROWSER } from "./config";
 import { postToParent, refusalOf, noteRefusal, looksPlain, messageOf, AiRefusal } from "./errors";
 import { askAiConsent, AI_DECLINED, AI_AUDIO_MODEL } from "./consent";
-import { authHeader } from "./auth";
 import { borelFetch } from "./notify";
 
 const NEUTRAL_ERROR: Record<AiRefusal, string> = {

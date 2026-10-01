@@ -1,7 +1,6 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
-import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, BOREL_ACCOUNT, BOREL_APPLE, IN_BROWSER, SURFACE, BUILD_STAMP, borelHeaders } from "./config";
+import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, BOREL_APPLE, IN_BROWSER, borelHeaders } from "./config";
 import { postToParent, refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation";
 import { tellScreens } from "./notify";

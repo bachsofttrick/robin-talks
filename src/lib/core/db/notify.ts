@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { BOREL_ACCOUNT, IN_BROWSER, borelHeaders } from "./config";
 import { native, authHeader } from "./auth";
-import { refusalOf, noteRefusal, looksPlain, messageOf, postToParent, CLOUD_NEUTRAL } from "./errors";
+import { refusalOf, noteRefusal, looksPlain, messageOf, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation";
 
 export async function borelFetch(url: string, body: unknown, timeoutMs: number): Promise<Response> {

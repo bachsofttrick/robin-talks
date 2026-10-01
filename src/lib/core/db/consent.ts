@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
-import { SURFACE } from "./config";
+
 
 // ---------------------------------------------------------------------------
 // Asking before anything goes to AI. App Store Review Guideline 5.1.2(i): an
