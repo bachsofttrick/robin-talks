@@ -81,7 +81,7 @@ Depends on Wave 6 (`./SignInSheet`).
 ## Wave 8
 Depends on all previous waves.
 
-- [ ] T8: Rewrite auth.tsx as the connector
+- [x] T8: Rewrite auth.tsx as the connector
   - Files: `src/lib/core/auth.tsx` (modify)
   - Do: Replace the whole file with the Borel header comment (lines 1-6, kept verbatim) plus a one-line note `// Implementation lives in ./auth/ submodules; this file is the public connector.` then explicit re-exports, preserving the exact public surface:
     ```tsx
