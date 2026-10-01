@@ -57,7 +57,7 @@ Depends on Wave 4 (`./actions`).
 ## Wave 6
 Depends on Waves 3-5 (controls, actions, context).
 
-- [ ] T6: Extract SignInFlow and SignInSheet
+- [x] T6: Extract SignInFlow and SignInSheet
   - Files: `src/lib/core/auth/SignInFlow.tsx` (create), `src/lib/core/auth/SignInSheet.tsx` (create)
   - Do: Create both from `auth.tsx`.
     - `SignInFlow.tsx` imports: `React, { useEffect, useRef, useState }` from `react`; `{ Platform, Pressable, Text, View }` from `react-native`; `import type { AuthResult } from "./types";`; `{ APPLE_SIGN_IN_AVAILABLE, IN_PREVIEW, PASSWORD_RESET_AVAILABLE, KIT }` from `./constants`; `{ labelsWith }` and `import type { AccountKitLabels }` from `./labels`; `{ Field, PrimaryButton, LinkButton, AppleButton, Note, Problem }` from `./controls`; `{ signIn, signUp, confirmEmail, resendConfirmation, sendPasswordReset, resetPassword, signInWithApple }` from `./actions`; `{ useKitSession }` from `./context`; `{ openPrivacyPolicy, openTermsOfUse }` from `../legal`; `{ db }` from `../db`. Move verbatim `SignInStep` (683) and `SignInFlow` (685-905, with doc comment). Export `SignInStep`, `SignInFlow`.
