@@ -48,7 +48,7 @@ Depends on Waves 1-3 (`./types`, `./constants`, `./errors`).
 ## Wave 5
 Depends on Wave 4 (`./actions`).
 
-- [ ] T5: Extract session provider and hooks
+- [x] T5: Extract session provider and hooks
   - Files: `src/lib/core/auth/context.tsx` (create)
   - Do: Create `context.tsx` from `auth.tsx`. Imports: `React, { createContext, useContext, useEffect, useMemo, useState }` from `react`; `{ db }` from `../db`; `import type { User, Session } from "./types";`; `{ syncProfile }` from `./actions`; and the action values `{ signUp, signIn, signOut, sendPasswordReset, updatePassword, resendConfirmation, deleteAccount, confirmEmail, resetPassword }` from `./actions`. Move verbatim `AuthState` (319-326), `AuthContextValue` (328-338), `AuthContext` (340), `AuthProvider` (342-380, with doc comment), `useAuth` (382-387, with doc comment), and `useKitSession` (527-561, with doc comment). Export `AuthState`, `AuthContextValue`, `AuthProvider`, `useAuth`, `useKitSession`; keep `AuthContext` module-private. `useKitSession` keeps its fallback subscription to `db.auth`. Do not modify `auth.tsx`.
   - Tests: none - provider/hook needs a React renderer and the runtime `db`; no render-testing library is installed
