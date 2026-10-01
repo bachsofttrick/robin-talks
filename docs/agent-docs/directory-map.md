@@ -46,7 +46,20 @@ Annotated tree of the repository, excluding `node_modules/`. Source files live u
 │   │   │   │   ├── ai.ts           ai (chat/transcribe/image/editImage), media encoding
 │   │   │   │   ├── moderation.ts   moderation (report/block/filter/check)
 │   │   │   │   └── notify.ts       notify, push device linking, borelFetch
-│   │   │   ├── auth.tsx       AuthProvider/useAuth plus SignInFlow, SignInSheet, RequireAccount, AccountPanel
+│   │   │   ├── auth.tsx       31-line connector: re-exports from `auth/` submodules
+│   │   │   ├── auth/
+│   │   │   │   ├── types.ts        User, Session, AuthResult
+│   │   │   │   ├── constants.ts    Auth URLs, availability flags, IN_PREVIEW, KIT palette, APPLE_LOGO_PATH
+│   │   │   │   ├── errors.ts       SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession
+│   │   │   │   ├── actions.ts      signUp/signIn/signOut, password and email flows, deleteAccount, signInWithApple, syncProfile
+│   │   │   │   ├── context.tsx     AuthState, AuthContextValue, AuthProvider, useAuth, useKitSession
+│   │   │   │   ├── labels.ts       AccountKitLabels, LABELS, labelsWith
+│   │   │   │   ├── controls.tsx    Field, PrimaryButton, LinkButton, AppleButton, Problem, Note
+│   │   │   │   ├── SignInFlow.tsx  SignInStep, SignInFlow (sign in / sign up / confirm / forgot / reset)
+│   │   │   │   ├── SignInSheet.tsx SignInFlow in a modal sheet
+│   │   │   │   ├── RequireAccount.tsx  Sign-in card in front of account-only content
+│   │   │   │   ├── AccountPanel.tsx    Signed-in account screen: change password, sign out, delete account
+│   │   │   │   └── errors.test.ts, labels.test.ts
 │   │   │   └── legal.tsx      LEGAL_LINKS, openPrivacyPolicy, openTermsOfUse, LegalLinks
 │   │   │
 │   │   ├── ui/                Design system

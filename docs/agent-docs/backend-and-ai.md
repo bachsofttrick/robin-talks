@@ -4,6 +4,8 @@ All cloud access is centralised in `src/lib/core/db.ts`, which is marked "Manage
 
 > **Note:** `src/lib/core/db.ts` is a barrel that re-exports from focused submodules in `src/lib/core/db/`. Line numbers in this doc refer to the pre-split file; functionality is unchanged.
 
+> **Note:** `src/lib/core/auth.tsx` is likewise a connector that re-exports from `src/lib/core/auth/` (`types`, `constants`, `errors`, `actions`, `context`, `labels`, `controls`, `SignInFlow`, `SignInSheet`, `RequireAccount`, `AccountPanel`). References below name the owning submodule; the public surface of `auth.tsx` is unchanged.
+
 ## Endpoints
 
 Borel URLs are string constants in `src/lib/core/db.ts:16-24`:
@@ -25,7 +27,7 @@ Every request carries an `X-Borel-Surface` header (`preview` / `dev` / `release`
 
 The schema is not defined in this repository; the code reads and writes four tables through `db.from(...)`:
 
-- `profiles` - upserted on sign-in with `id`, `email`, `display_name`, `avatar_url`, `updated_at` (`src/lib/core/auth.tsx:304-313`). Owned by `src/lib/core/auth.tsx`.
+- `profiles` - upserted on sign-in with `id`, `email`, `display_name`, `avatar_url`, `updated_at` (`src/lib/core/auth/actions.ts`, `syncProfile`). Owned by `src/lib/core/auth/actions.ts`.
 - `learner_profiles` - `user_id`, `display_name`, `level`; upserted `onConflict: "user_id"` (`src/lib/api/useProfile.tsx:73-78`, `:104-111`). `useProfile` keeps the row in the account-scoped non-persisted `robin.profile` store (`src/lib/api/useProfile.tsx:17`) and performs a one-time import of the legacy phone copy at `borel-store:robin.profile` when no row exists (`src/lib/api/useProfile.tsx:69-86`, `src/lib/api/profileImport.ts:3`).
 - `practice_sessions` - `id`, `user_id`, `scenario_id`, `transcript` (JSON array of `Turn`), `debrief`, `summary`, `ended_at`, `started_at` (`src/lib/api/useSessions.tsx:49-55`). One open session per user is found by `.is("ended_at", null)` (`:53`). The open session is shared through the non-persisted `robin.openSession` store (`:33`).
 - `robin_memory` - `id`, `user_id`, `kind`, `content`, `created_at` (`src/lib/api/useMemory.tsx:28-33`). Notes are shared through the non-persisted `robin.memory` store (`:12`).
@@ -40,11 +42,11 @@ The exported `db` object is the client with `auth`, `storage`, `ai`, `account`, 
 
 ## Authentication
 
-- `AuthProvider` / `useAuth` live in `src/lib/core/auth.tsx`. On mount it reads the stored session and subscribes to auth changes (`src/lib/core/auth.tsx:349-380`).
-- High-level functions: `signUp`, `signIn`, `signOut`, `sendPasswordReset`, `resetPassword`, `confirmEmail`, `updatePassword`, `resendConfirmation`, `deleteAccount`, `signInWithApple` (`src/lib/core/auth.tsx:113-294`).
-- User-facing error translation is `authErrorMessage` (`src/lib/core/auth.tsx:59-93`).
-- Prebuilt account UI: `SignInFlow`, `SignInSheet`, `RequireAccount`, `AccountPanel` (`src/lib/core/auth.tsx:689`, `:906`, `:933`, `:961`). `PASSWORD_RESET_AVAILABLE` is `false`, so the "Forgot password" link is hidden (`src/lib/core/auth.tsx:425`, `:885`). `APPLE_SIGN_IN_AVAILABLE` reads `EXPO_PUBLIC_APPLE_SIGN_IN_AVAILABLE` from the environment (`:412`, see `.env.example`).
-- Sign in with Apple runs `appleCall("/nonce")`, the native sheet, then `appleCall("/sign-in")` and `adoptSession` (`src/lib/core/auth.tsx:271-294`, `src/lib/core/db.ts:1949-1972`).
+- `AuthProvider` / `useAuth` live in `src/lib/core/auth/context.tsx`. On mount it reads the stored session and subscribes to auth changes (`src/lib/core/auth/context.tsx`, `AuthProvider`).
+- High-level functions: `signUp`, `signIn`, `signOut`, `sendPasswordReset`, `resetPassword`, `confirmEmail`, `updatePassword`, `resendConfirmation`, `deleteAccount`, `signInWithApple` (`src/lib/core/auth/actions.ts`).
+- User-facing error translation is `authErrorMessage` (`src/lib/core/auth/errors.ts`).
+- Prebuilt account UI: `SignInFlow` and `SignInSheet` (`src/lib/core/auth/SignInFlow.tsx`, `src/lib/core/auth/SignInSheet.tsx`), `RequireAccount` (`src/lib/core/auth/RequireAccount.tsx`), and `AccountPanel` (`src/lib/core/auth/AccountPanel.tsx`). `PASSWORD_RESET_AVAILABLE` is `false`, so the "Forgot password" link is hidden (`src/lib/core/auth/constants.ts`, used in `src/lib/core/auth/SignInFlow.tsx`). `APPLE_SIGN_IN_AVAILABLE` reads `EXPO_PUBLIC_APPLE_SIGN_IN_AVAILABLE` from the environment (`src/lib/core/auth/constants.ts`, see `.env.example`).
+- Sign in with Apple runs `appleCall("/nonce")`, the native sheet, then `appleCall("/sign-in")` and `adoptSession` (`src/lib/core/auth/actions.ts`, `signInWithApple`; `src/lib/core/db.ts:1949-1972`).
 
 ### Session persistence: native vs web
 
@@ -84,7 +86,7 @@ The pure modules (`src/lib/api/robinPrompt.ts:1-2`, `src/lib/api/robinTools.ts:1
 ## Moderation, account deletion, notifications
 
 - `db.moderation` implements report, block, unblock, hidden-item filtering (`visible`, `isHidden`), a report/block menu (`openMenu`), and a content check (`check`) (`src/lib/core/db.ts:980-1118`). This supports App Store Guideline 1.2 (`:893-898`).
-- `db.account.delete()` removes the account server-side (`src/lib/core/db.ts:874-891`); `deleteAccount` in `src/lib/core/auth.tsx:252-257` also signs the device out.
+- `db.account.delete()` removes the account server-side (`src/lib/core/db.ts:874-891`); `deleteAccount` in `src/lib/core/auth/actions.ts` also signs the device out.
 - `db.notify({ userIds, title, body, data })` links the device's push token to the signed-in user and sends targeted notifications (`src/lib/core/db.ts:1683-1868`).
 
 ## Refusal handling

@@ -44,7 +44,7 @@ Runs `tsc --noEmit` against `tsconfig.json`.
 bun run test
 ```
 
-`package.json:13` defines `"test": "jest"` with the `jest-expo` preset (`package.json:67-69`). Test dependencies are `jest`, `jest-expo`, and `@types/jest` (`package.json:56-66`). Unit tests live beside the module as `*.test.ts` (8 suites, 61 tests): `src/lib/api/store.test.ts`, `src/lib/api/profileImport.test.ts`, `src/lib/api/robinPrompt.test.ts`, `src/lib/api/robinTools.test.ts`, `src/lib/api/robinAgent.test.ts`, `src/lib/api/scenarios.test.ts`, `src/screens/Session/voiceActivity.test.ts`, `src/navigation/rootRoute.test.ts`.
+`package.json:13` defines `"test": "jest"` with the `jest-expo` preset (`package.json:67-69`). Test dependencies are `jest`, `jest-expo`, and `@types/jest` (`package.json:56-66`). Unit tests live beside the module as `*.test.ts` (11 suites, 87 tests): `src/lib/api/store.test.ts`, `src/lib/api/profileImport.test.ts`, `src/lib/api/robinPrompt.test.ts`, `src/lib/api/robinTools.test.ts`, `src/lib/api/robinAgent.test.ts`, `src/lib/api/scenarios.test.ts`, `src/lib/polyfills/responsePolyfill.test.ts`, `src/lib/core/auth/errors.test.ts`, `src/lib/core/auth/labels.test.ts`, `src/screens/Session/voiceActivity.test.ts`, `src/navigation/rootRoute.test.ts`.
 
 ## Lint
 

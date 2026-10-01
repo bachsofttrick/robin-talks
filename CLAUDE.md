@@ -15,7 +15,7 @@ A voice-first Expo React Native app that helps non-English speakers practise Eng
 
 ## Directory Layout
 - `src/lib/api/` - domain hooks and the scenario catalog: `useProfile`, `useSessions`, `useMemory`, `useRobin`, `scenarios.ts`; pure helpers `store`, `profileImport`, `robinPrompt`, `robinTools`, `robinAgent`, `sessionReader`, each with a colocated `*.test.ts`
-- `src/lib/core/` - Borel-managed backend surface: `db.ts` (barrel re-exporting `db/` submodules), `auth.tsx` (session + account UI), `legal.tsx`. The `db/` subfolder holds focused modules (config, errors, consent, auth, storage, ai, moderation, notify).
+- `src/lib/core/` - Borel-managed backend surface: `db.ts` (barrel re-exporting `db/` submodules), `auth.tsx` (connector re-exporting `auth/` submodules), `legal.tsx`. The `db/` subfolder holds focused modules (config, errors, consent, auth, storage, ai, moderation, notify); the `auth/` subfolder holds the implementation behind `auth.tsx` (types, constants, errors, actions, context, labels, controls, and the account UI files `SignInFlow`, `SignInSheet`, `RequireAccount`, `AccountPanel`).
 - `src/navigation/` - React Navigation container, theme, root stack/tab navigator, and the pure `rootRoute` routing decision
 - `src/screens/` - the four screens: `Onboarding`, `Practice`, `Session` (plus `useTurnRecorder` and the pure `voiceActivity` pause detector), `Settings`
 - `src/lib/ui/` - reusable design system: theme tokens, fonts, motion, and presentational components
@@ -42,7 +42,7 @@ There is no CI configuration in this repository.
 - `index.tsx` and `src/lib/ui/fonts.tsx` are also Borel-regenerated; a file that starts with `// borel: custom entry` is left alone by Borel.
 - All visual values come from `src/lib/ui/theme.ts` tokens (`colors`, `spacing`, `radius`, `fonts`, `type`, `components`). Screens spread tokens rather than restating styles.
 - Hooks return data plus `loading`/`error`; failed database calls show `plainError(res.error, "load" | "save")` from `src/lib/core/db.ts`.
-- The `db/` submodules are NOT Borel-managed and can be edited freely.
+- The `db/` and `auth/` submodules are NOT Borel-managed and can be edited freely; only the top-level `db.ts` and `auth.tsx` connectors are regenerated.
 - All user-facing error strings are one plain, non-technical sentence with a leading capital and terminal punctuation. Technical detail goes in a separate `detail` field.
 - Components are one-per-file, PascalCase filenames (`Button.tsx`); hooks and modules are camelCase (`useProfile.tsx`, `scenarios.ts`).
 - Each feature directory (`src/screens/Session/`, `src/lib/ui/ErrorHandler/`) has an `index.tsx` entry.

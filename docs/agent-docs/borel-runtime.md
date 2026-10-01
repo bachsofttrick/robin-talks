@@ -38,7 +38,7 @@ Exported capabilities, grouped:
 
 ### What the app actually imports
 
-`src/screens/Session/useTurnRecorder.ts:2-9` imports `getPermissionStatus`, `requestPermission`, `startRecording`, `stopRecording`, `cancelRecording`, and `getRecordingStatus`. `src/screens/Session/index.tsx:17` imports `speak` and `stopSpeaking`. `src/lib/core/auth.tsx:9` imports `signInWithApple` as `appleSheet`. The remaining exports are unused by app code in this repository.
+`src/screens/Session/useTurnRecorder.ts:2-9` imports `getPermissionStatus`, `requestPermission`, `startRecording`, `stopRecording`, `cancelRecording`, and `getRecordingStatus`. `src/screens/Session/index.tsx:17` imports `speak` and `stopSpeaking`. `src/lib/core/auth/actions.ts:2` imports `signInWithApple` as `appleSheet`. The remaining exports are unused by app code in this repository.
 
 ### Recording and pause detection
 

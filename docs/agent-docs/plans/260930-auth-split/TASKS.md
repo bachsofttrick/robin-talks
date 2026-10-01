@@ -1,6 +1,6 @@
 # Tasks: Split auth.tsx into focused modules
 
-Status: in progress
+Status: complete
 Plan: PLAN.md
 
 ## Wave 1
@@ -108,7 +108,7 @@ Depends on all previous waves.
 ## Wave 9
 Final verification. Depends on Wave 8.
 
-- [ ] T9: Verify the split
+- [x] T9: Verify the split (build skipped: no build script)
   - Files: none (read-only verification)
   - Do: Run in order:
     1. `bun run typecheck`

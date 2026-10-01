@@ -53,4 +53,4 @@ Reusable components are exported from `src/lib/ui/index.tsx`: `Bird`, `Button`, 
 
 ## Styling conventions
 
-Screens build `StyleSheet.create` blocks at the bottom of the file and spread `type.*` presets plus `colors.*` rather than hard-coding values. Examples: `src/screens/Practice/index.tsx:124-159`, `src/screens/Settings/index.tsx:124-146`. `src/lib/core/auth.tsx` is the exception: it defines its own `KIT` palette because it is Borel-managed (`src/lib/core/auth.tsx:414-422`).
+Screens build `StyleSheet.create` blocks at the bottom of the file and spread `type.*` presets plus `colors.*` rather than hard-coding values. Examples: `src/screens/Practice/index.tsx:124-159`, `src/screens/Settings/index.tsx:124-146`. The auth kit is the exception: it defines its own `KIT` palette in `src/lib/core/auth/constants.ts` and styles `src/lib/core/auth/` with it because the top-level `auth.tsx` is Borel-managed.
