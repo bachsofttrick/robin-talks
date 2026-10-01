@@ -1,7 +1,7 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, BOREL_APPLE, IN_BROWSER, borelHeaders } from "./config";
-import { postToParent, refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
+import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation";
 import { tellScreens } from "./notify";
 
@@ -27,36 +27,8 @@ type Listener = (session: Session) => void;
 const listeners: Listener[] = [];
 
 /** Ask the preview's parent frame for the handle it is holding for this app. Once. */
-async function loadBrokerToken(): Promise<string | null> {
+async function loadBrokerToken(): Promise<void> {
   brokerToken = await AsyncStorage.getItem(BROKERED_SESSION_STORAGE_KEY);
-
-  // Looking into what this does later
-  if (brokerLoaded) return Promise.resolve(brokerToken);
-  brokerLoaded = true;
-  return new Promise<string | null>((resolve) => {
-    if (typeof window === "undefined") {
-      resolve(null);
-      return;
-    }
-    let done = false;
-    const finish = (value: string | null) => {
-      if (done) return;
-      done = true;
-      window.removeEventListener("message", onMessage);
-      brokerToken = value;
-      resolve(value);
-    };
-    const onMessage = (event: MessageEvent) => {
-      const data = event && (event.data as { source?: string; type?: string; bps?: unknown });
-      if (data && data.source === "borel-preview" && data.type === "preview-session") {
-        finish(typeof data.bps === "string" ? data.bps : null);
-      }
-    };
-    window.addEventListener("message", onMessage);
-    postToParent({ type: "preview-session:get" });
-    // The preview may not answer (opened directly, no parent); don't hang.
-    setTimeout(() => finish(null), 600);
-  });
 }
 
 async function setBrokerToken(session: Session, token: string | null): Promise<void> {
@@ -68,7 +40,7 @@ async function setBrokerToken(session: Session, token: string | null): Promise<v
   else
     await AsyncStorage.removeItem(BROKERED_SESSION_STORAGE_KEY);
 
-  // Looking into what this does later. This seems to be needed for login to work
+  // Hand the new session to every auth-state subscriber from brokerAuth.onAuthStateChange
   for (const fn of listeners) {
     try {
       fn(session);
