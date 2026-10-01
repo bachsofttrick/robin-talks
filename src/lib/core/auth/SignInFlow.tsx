@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import type { AuthResult } from "./types";
 import { APPLE_SIGN_IN_AVAILABLE, IN_PREVIEW, PASSWORD_RESET_AVAILABLE, KIT } from "./constants";
@@ -39,15 +39,16 @@ export function SignInFlow(props: {
   // Once per sign-in: both the call that signs in and the session it changes
   // say "done", and a second onDone (navigation.goBack) would pop two screens.
   const finished = useRef(false);
-  const finish = () => {
+  const { onDone } = props;
+  const finish = useCallback(() => {
     if (finished.current) return;
     finished.current = true;
-    if (props.onDone) props.onDone();
-  };
+    if (onDone) onDone();
+  }, [onDone]);
   useEffect(() => {
     if (session.signedIn) finish();
     else finished.current = false;
-  }, [session.signedIn]);
+  }, [session.signedIn, finish]);
 
   // A different step starts clean: what the last one said does not belong there.
   const go = (next: SignInStep) => {
