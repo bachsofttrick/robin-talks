@@ -69,7 +69,7 @@ Depends on Waves 3-5 (controls, actions, context).
 ## Wave 7
 Depends on Wave 6 (`./SignInSheet`).
 
-- [ ] T7: Extract RequireAccount and AccountPanel
+- [x] T7: Extract RequireAccount and AccountPanel
   - Files: `src/lib/core/auth/RequireAccount.tsx` (create), `src/lib/core/auth/AccountPanel.tsx` (create)
   - Do: Create both from `auth.tsx`.
     - `RequireAccount.tsx` imports: `React, { useState }` from `react`; `{ Text, View }` from `react-native`; `{ labelsWith }` and `import type { AccountKitLabels }` from `./labels`; `{ PrimaryButton }` from `./controls`; `{ useKitSession }` from `./context`; `{ SignInSheet }` from `./SignInSheet`; `{ KIT }` from `./constants`. Move verbatim `RequireAccount` (928-953, with doc comment). Export `RequireAccount`.
