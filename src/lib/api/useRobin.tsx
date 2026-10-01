@@ -56,7 +56,7 @@ export function useRobin() {
       if (args.transcript.length === 0) {
         messages.push({ role: "user" as const, content: "[The scene begins. Speak first, in character.]" });
       }
-      return runRobinTurn(messages, {
+      return await runRobinTurn(messages, {
         chat: (msgs) => db.ai.chat({ messages: msgs, json: true, model: db.ai.models.fast }),
         runTool: (name, toolArgs) => runSessionTool(sessionReader, userId, name, toolArgs),
       });
