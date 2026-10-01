@@ -32,7 +32,16 @@ Annotated tree of the repository, excluding `node_modules/`. Source files sit at
 │
 ├── core/                  Borel-managed backend surface (regenerated)
 │   ├── index.tsx          CoreProviders (AuthProvider only)
-│   ├── db.ts              1970-line client: Borel URLs, db client, auth, storage, ai, account, moderation, notify
+│   ├── db.ts              28-line barrel: re-exports from `db/` submodules
+│   ├── db/
+│   │   ├── config.ts       Borel URLs, surface detection, borelHeaders
+│   │   ├── errors.ts       AiRefusal, plainError, refusalOf, noteRefusal
+│   │   ├── consent.ts      AI consent (askAiConsent)
+│   │   ├── auth.ts         User, brokerAuth, session cookies, client, authHeader
+│   │   ├── storage.ts      storage, account, upload helpers
+│   │   ├── ai.ts           ai (chat/transcribe/image/editImage), media encoding
+│   │   ├── moderation.ts   moderation (report/block/filter/check)
+│   │   └── notify.ts       notify, push device linking, borelFetch
 │   ├── auth.tsx           AuthProvider/useAuth plus SignInFlow, SignInSheet, RequireAccount, AccountPanel
 │   └── legal.tsx          LEGAL_LINKS, openPrivacyPolicy, openTermsOfUse, LegalLinks
 │

@@ -2,6 +2,8 @@
 
 All cloud access is centralised in `core/db.ts`, which is marked "Managed by Borel" and regenerated (`core/db.ts:1-2`). The app holds no server code and no API keys.
 
+> **Note:** `core/db.ts` is a barrel that re-exports from focused submodules in `core/db/`. Line numbers in this doc refer to the pre-split file; functionality is unchanged.
+
 ## Endpoints
 
 Borel URLs are string constants in `core/db.ts:16-24`:

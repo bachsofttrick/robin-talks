@@ -11,7 +11,7 @@ Observed patterns in the source. Most are descriptive, not enforced by tooling: 
 
 ## Borel-generated files
 
-Three files carry the header `// Managed by Borel. This file is generated and kept in sync automatically.` and should not be hand-edited: `core/db.ts:1-2`, `core/auth.tsx:1-2`, `core/legal.tsx:1-2`.
+Three files carry the header `// Managed by Borel. This file is generated and kept in sync automatically.` and should not be hand-edited: `core/db.ts:1-2`, `core/auth.tsx:1-2`, `core/legal.tsx:1-2`. The `core/db/` submodules are app-written and can be edited freely; only `db.ts` itself is regenerated.
 
 `index.tsx:9-13`, `ui/fonts.tsx:10-15`, and several `ui/` components note that they were "Written by Borel" and may be rewritten. A custom root can be protected by placing `// borel: custom entry` at the top of the file (`index.tsx:12`).
 
