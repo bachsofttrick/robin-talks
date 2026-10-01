@@ -322,7 +322,7 @@ const inFlightImages = new Map<string, Promise<AiImageResult>>();
 
 export const ai = {
   /** Curated ids. Do not invent others. Both answer today; "smart" is a stronger model for harder asks. */
-  models: { fast: "qwen3-next-80b-a3b-instruct", smart: "gemini-3-flash" },
+  models: { fast: "openai/gpt-6-luna", smart: "openai/gpt-6-luna" },
   // json: true asks for JSON only and reads the reply into data (fences and
   // words around it are fine); an answer that can't be read is asked for once more.
   async chat(input: { model?: string; messages: ChatMessage[]; temperature?: number; max_tokens?: number; json?: boolean }): Promise<AiChatResult> {
