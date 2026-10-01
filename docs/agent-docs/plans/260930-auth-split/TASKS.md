@@ -39,7 +39,7 @@ Depends on Wave 1 (`./constants`).
 ## Wave 4
 Depends on Waves 1-3 (`./types`, `./constants`, `./errors`).
 
-- [ ] T4: Extract auth actions
+- [x] T4: Extract auth actions
   - Files: `src/lib/core/auth/actions.ts` (create)
   - Do: Create `actions.ts` from `auth.tsx`. Imports: `{ db, authCall, adoptSession, appleCall }` from `../db`; `{ signInWithApple as appleSheet }` from `../../../../borel-systemui` (note the four levels up from `auth/`); `import type { User, AuthResult } from "./types";`; `{ SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession }` from `./errors`; `{ AUTH_REDIRECT_URL, APPLE_IN_PREVIEW, WRONG_CURRENT_PASSWORD }` from `./constants`. Move verbatim `signUp` (102-141), `signIn` (148-165), `signOut` (167-174), `sendPasswordReset` (176-186), `resetPassword` (188-195), `confirmEmail` (197-211), `updatePassword` (217-234), `resendConfirmation` (236-240), `deleteAccount` (242-257), `signInWithApple` (262-294), and the module-level `synced` set plus `syncProfile` (296-317). Export every function including `syncProfile`. Keep all comments. Do not modify `auth.tsx`.
   - Tests: none - imports the runtime `../db` client; unit-testing would require mocking the whole Borel client, and the logic is a verbatim move
