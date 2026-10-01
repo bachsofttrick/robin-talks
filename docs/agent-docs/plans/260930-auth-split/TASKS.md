@@ -6,7 +6,7 @@ Plan: PLAN.md
 ## Wave 1
 No dependencies. Foundation types and constants.
 
-- [ ] T1: Extract auth contracts and constants
+- [x] T1: Extract auth contracts and constants (commit 932f6b3)
   - Files: `src/lib/core/auth/types.ts` (create), `src/lib/core/auth/constants.ts` (create)
   - Do: Create both files from `src/lib/core/auth.tsx`, moving blocks verbatim with their doc comments.
     - `types.ts`: `User` (lines 18-25), `Session` (27-31), `AuthResult` (33-45). Exports `User`, `Session`, `AuthResult`. `AuthResult` imports nothing; keep the `/** ... */` doc comments.
@@ -18,7 +18,7 @@ No dependencies. Foundation types and constants.
 ## Wave 2
 Depends on Wave 1 (`./types`, `./constants`).
 
-- [ ] T2: Extract error translation and labels
+- [x] T2: Extract error translation and labels
   - Files: `src/lib/core/auth/errors.ts` (create), `src/lib/core/auth/labels.ts` (create)
   - Do: Create both files from `auth.tsx`, verbatim except imports/exports.
     - `errors.ts` imports `import type { AuthResult } from "./types";`. Contains `SUCCESS` (47), `failed` (49-51), `authErrorMessage` (53-93, with its doc comment), `displayNameFor` (95-100), `madeWithoutSession` (143-146). Export all five.
