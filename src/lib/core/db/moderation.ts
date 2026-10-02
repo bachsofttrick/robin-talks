@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Alert } from "react-native";
 import { BOREL_ACCOUNT, borelHeaders } from "./config";
 import { authHeader } from "./auth";
+import { hiddenContent, blockedAuthors, moderationListeners, moderationChanged, loadModeration } from "./moderation-state";
+export { forgetModeration } from "./moderation-state";
 
 export type ReportReason = "spam" | "abuse" | "sexual" | "violence" | "other";
 
@@ -20,27 +22,6 @@ export interface ModerationTarget {
 }
 
 const BOREL_MODERATION = BOREL_ACCOUNT.slice(0, BOREL_ACCOUNT.lastIndexOf("/")) + "/moderation";
-const hiddenContent = new Set<string>();
-const blockedAuthors = new Set<string>();
-const moderationListeners = new Set<() => void>();
-let moderationLoaded: Promise<void> | null = null;
-// Bumped whenever the person may have changed, so a load still on its way for
-// the last person cannot fill the sets in for the next one.
-let moderationEpoch = 0;
-
-function moderationChanged(): void {
-  for (const listener of moderationListeners) listener();
-}
-
-/** What one person reported and blocked is theirs: forgotten on every sign-in and sign-out, and loaded again for whoever is next. */
-export function forgetModeration(): void {
-  moderationEpoch++;
-  moderationLoaded = null;
-  if (hiddenContent.size === 0 && blockedAuthors.size === 0) return;
-  hiddenContent.clear();
-  blockedAuthors.clear();
-  moderationChanged();
-}
 
 async function moderationCall(path: string, body?: unknown): Promise<{ ok: boolean; json: any }> {
   try {
@@ -58,21 +39,8 @@ async function moderationCall(path: string, body?: unknown): Promise<{ ok: boole
   }
 }
 
-function loadModeration(): Promise<void> {
-  if (!moderationLoaded) {
-    const epoch = moderationEpoch;
-    moderationLoaded = moderationCall("/state").then(({ ok, json }) => {
-      if (epoch !== moderationEpoch) return;
-      if (!ok) {
-        moderationLoaded = null;
-        return;
-      }
-      for (const id of json.reported || []) hiddenContent.add(String(id));
-      for (const id of json.blocked || []) blockedAuthors.add(String(id));
-      moderationChanged();
-    });
-  }
-  return moderationLoaded;
+function loadState(): Promise<void> {
+  return loadModeration(() => moderationCall("/state"));
 }
 
 const REASON_LABELS: [ReportReason, string][] = [
@@ -116,12 +84,12 @@ export const moderation = {
   },
   /** Account ids this person blocked, for a "Blocked people" list. */
   blockedIds(): string[] {
-    void loadModeration();
+    void loadState();
     return [...blockedAuthors];
   },
   /** True when this item was reported by, or its author blocked by, this person. */
   isHidden(target: { contentId?: string | null; authorId?: string | null }): boolean {
-    void loadModeration();
+    void loadState();
     return Boolean(
       (target.contentId && hiddenContent.has(String(target.contentId))) || (target.authorId && blockedAuthors.has(String(target.authorId))),
     );
@@ -136,7 +104,7 @@ export const moderation = {
     useEffect(() => {
       const listener = () => setTick((n) => n + 1);
       moderationListeners.add(listener);
-      void loadModeration();
+      void loadState();
       return () => {
         moderationListeners.delete(listener);
       };

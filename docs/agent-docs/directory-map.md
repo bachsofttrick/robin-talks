@@ -41,6 +41,7 @@ robin-talks/
 │       │   │   ├── storage.ts    File upload/presign and account deletion.
 │       │   │   ├── ai.ts         OpenRouter chat/transcribe + Borel image/editImage.
 │       │   │   ├── moderation.ts Report/block/check content.
+│       │   │   ├── moderation-state.ts  Report/block cache, shared with auth.
 │       │   │   └── notify.ts     borelFetch, push notify, device linking.
 │       │   └── auth/
 │       │       ├── types.ts      User, Session, AuthResult.

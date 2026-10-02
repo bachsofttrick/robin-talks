@@ -2,7 +2,7 @@ import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, BOREL_APPLE, IN_BROWSER, borelHeaders } from "./config";
 import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
-import { forgetModeration } from "./moderation";
+import { forgetModeration } from "./moderation-state";
 
 type Session = { user: User } | null;
 export interface User {
