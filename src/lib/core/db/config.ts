@@ -9,6 +9,7 @@ export const BOREL_ACCOUNT = process.env.EXPO_PUBLIC_BOREL_ACCOUNT ?? "";
 export const BOREL_APPLE = process.env.EXPO_PUBLIC_BOREL_APPLE ?? "";
 export const BOREL_USAGE_URL = process.env.EXPO_PUBLIC_BOREL_USAGE_URL ?? "";
 export const BOREL_INVITE_URL = process.env.EXPO_PUBLIC_BOREL_INVITE_URL ?? "";
+export const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "";
 
 /**
  * The link to share for one of this app's invite codes (a group's join code,

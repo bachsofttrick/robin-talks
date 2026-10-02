@@ -13,35 +13,39 @@ import { Alert } from "react-native";
 // ---------------------------------------------------------------------------
 
 const AI_CONSENT_KEY = "borel.aiConsent.v1:";
-const AI_MAKERS: Record<string, string> = {"openai/gpt-6-luna":"GPT-6 by OpenAI"};
-// The one model that hears a recording (Borel sends every recording to it).
-export const AI_AUDIO_MODEL = "gemini-3-flash";
+const AI_MAKERS: Record<string, string> = {
+  "openai/gpt-6-luna": "GPT-6 by OpenAI",
+  "qwen/qwen3-asr-0.6b": "Qwen3 ASR by Alibaba",
+};
+// The one model that hears a recording (OpenRouter sends every recording to it).
+export const AI_AUDIO_MODEL = "qwen/qwen3-asr-0.6b";
 export const AI_DECLINED = "This feature shares what you send with AI, so it needs your permission. Use it again and tap Allow to turn it on.";
 const aiConsentGiven = new Set<string>();
 const aiConsentAsking = new Map<string, Promise<boolean>>();
 
 type AiConsentKind = "chat" | "photoChat" | "audio" | "image" | "editImage";
 
-function aiConsentWording(kind: AiConsentKind, model: string): { key: string; message: string } {
+export function aiConsentWording(kind: AiConsentKind, model: string): { key: string; message: string } {
   if (kind === "audio") {
     // A voice is its own kind of personal data, so it is asked about on its own.
     const maker = AI_MAKERS[AI_AUDIO_MODEL] || "an AI model";
     return {
-      key: "neon:audio:" + maker,
-      message: "To answer, this app sends your recording to Neon, which runs " + maker + ". They use it only to create the answer.",
+      key: "openrouter:audio",
+      message: "To answer, this app sends your recording to OpenRouter.ai, which runs " + maker + ". They use it only to create the answer.",
     };
   }
   if (kind === "chat") {
-    const maker = AI_MAKERS[model] || AI_MAKERS["qwen3-next-80b-a3b-instruct"] || "an AI model";
+    const maker = AI_MAKERS[model] || "an AI model";
     return {
-      key: "neon:" + maker,
-      message: "To answer, this app sends what you type to Neon, which runs " + maker + ". They use it only to create the answer.",
+      key: "openrouter:chat",
+      message: "To answer, this app sends what you type to OpenRouter.ai, which runs " + maker + ". They use it only to create the answer.",
     };
   }
   if (kind === "photoChat") {
+    const maker = AI_MAKERS[model] || "an AI model";
     return {
-      key: "openai:chat",
-      message: "To answer, this app sends what you type and the photos you add to OpenAI. OpenAI uses them only to create the answer.",
+      key: "openrouter:photo",
+      message: "To answer, this app sends what you type and the photos you add to OpenRouter.ai, which runs " + maker + ". They use them only to create the answer.",
     };
   }
   if (kind === "image") {

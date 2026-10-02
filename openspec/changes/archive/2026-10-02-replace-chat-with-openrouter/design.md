@@ -58,4 +58,10 @@ The current 75 s existed because Borel ran a fallback model server-side; direct-
 
 ## Open Questions
 
-- Exact behavior of the STT endpoint on silence (empty `text` vs 400) and its accepted `format` values for `m4a`/`webm`: resolved by the spike task, without changing the specs' observable contracts (silence → "no words" sentence, unreadable → "record again" sentence already hold for either outcome).
+Resolved by the STT spike (task 1.1), probed against the live endpoint with the capped key. None of these change the specs' observable contracts.
+
+- `input_audio` shape: the request body is `{ model, input_audio: { data, format } }` and both fields are required. A body without `format` or without `input_audio` returns 400.
+- `input_audio.data` is raw base64, never a `data:` URL. A data URL is rejected with 400 "Provider could not process the audio input (unsupported or malformed audio)". `sendableAudio` returns data URLs on all branches, so `transcribe` strips the `data:<type>;base64,` prefix before sending.
+- `format` is a short alphanumeric audio name matching `/^[a-zA-Z0-9][a-zA-Z0-9+._-]{0,15}$/`: `wav`, `mp3`, `flac`, `m4a`, `ogg`, `webm`, `aac`. The MIME form `audio/m4a` is rejected. `audioFormatOf` already produces the short names, and `m4a` is accepted, so expo-audio's m4a recordings go straight through.
+- Silence: a digitally silent wav returned a non-empty filler (`"嗯。"`) rather than empty `text`; a non-speech tone returned `{"text":""}`. The "text is empty after trim" check catches the tone case and any API that answers with no words, which is what the "no words were heard" scenario requires; a hallucinated filler on digital silence is the model's own output, not an error the app can detect.
+- Model availability: `qwen/qwen3-asr-0.6b` is absent from the `/models` list but resolves through `/models/qwen/qwen3-asr-0.6b/endpoints` with an `stt` workload, and `openai/gpt-6-luna` appears in the list with text+image input. Both are live.
