@@ -1,9 +1,10 @@
 import React from "react";
+import { StyleSheet, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Headphones, Home, Settings as SettingsIcon } from "lucide-react-native";
 import { colors, iconStroke } from "../lib/ui/theme";
-import { useTabBarOptions } from "../lib/ui";
+import { Bird, useTabBarOptions } from "../lib/ui";
 import PracticeScreen from "../screens/Practice";
 import SessionScreen from "../screens/Session";
 import SettingsScreen from "../screens/Settings";
@@ -20,6 +21,7 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Tabs: undefined;
   Onboarding: undefined;
+  Practice: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -53,10 +55,32 @@ function Tabs() {
   );
 }
 
+// The stored session and the learner profile are both read asynchronously, so
+// neither `user` nor `onboarded` means anything yet during that gap. Rendering
+// through it would flash the signed-out screen, then Onboarding, before the
+// real destination. Hold on the splash until both answers have landed.
+function Splash() {
+  return (
+    <View style={styles.splash}>
+      <Bird size={36} />
+    </View>
+  );
+}
+
 export default function RootNavigator() {
-  const { user } = useAuth();
-  const { data } = useProfile();
-  const needsOnboarding = !!user && !data.onboarded;
+  const { user, loading: authLoading } = useAuth();
+  const { data, loading: profileLoading } = useProfile();
+
+  if (authLoading || (user && profileLoading)) return <Splash />;
+
+  if (!user) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Practice" component={PracticeScreen} />
+      </Stack.Navigator>
+    );
+  }
+  const needsOnboarding = !data.onboarded;
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {needsOnboarding ? (
@@ -67,3 +91,7 @@ export default function RootNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
+});

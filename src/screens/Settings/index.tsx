@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Screen, Notice } from "../../lib/ui";
 import { colors, fonts, radius, spacing, type } from "../../lib/ui/theme";
 import { Bird } from "../../lib/ui/Bird";
@@ -94,7 +94,9 @@ function SettingsBody() {
       <Button label="Save" onPress={saveProfile} loading={saving} />
 
       <SectionHeader title="Your data" />
-      {inSession ? (
+      {memory.loading || sessions.loading ? (
+        <ActivityIndicator color={colors.accent} style={styles.dataLoading} />
+      ) : inSession ? (
         <Text style={styles.hint}>Finish the open scene before deleting anything.</Text>
       ) : (
         <>
@@ -143,4 +145,5 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   saved: { ...type.secondary, color: colors.accent },
   hint: { ...type.secondary, color: colors.textSecondary },
+  dataLoading: { paddingVertical: spacing.lg },
 });
