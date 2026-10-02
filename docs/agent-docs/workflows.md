@@ -1,73 +1,100 @@
 # Workflows
 
-Commands below are taken from `package.json`, `README.md`, and `app.json`. Nothing is inferred.
+Commands are taken from `package.json`, `eslint.config.mjs`, and the Jest config
+block in `package.json`. Bun is the package manager (`bun.lock` is present).
 
 ## Install
 
-```
+```bash
 bun install
 ```
 
-`README.md` documents `bun install` and requires Node.js 20 or newer; `bunx expo` fetches the Expo CLI on demand. A `bun.lock` file is present at the root.
+Add a dependency with `bun add <pkg>`; the lockfile is `bun.lock`. `README.md`
+states Node.js 20 or newer is required (Expo fetches its CLI on demand with
+`bunx expo`).
 
 ## Run
 
-```
-bunx expo start
-```
-
-Scripts in `package.json:6-14`:
-
-| Command | Effect |
-|---|---|
-| `bun start` | `expo start` |
-| `bun run ios` | `expo start --ios` |
-| `bun run android` | `expo start --android` |
-| `bun run web` | `expo start --web` |
-| `bun run typecheck` | `tsc --noEmit` |
-| `bun run lint` | `eslint .` with the `eslint-config-expo` flat config |
-| `bun run test` | `jest` with the `jest-expo` preset |
-
-`README.md` describes scanning the QR code with Expo Go, or pressing `i`, `a`, or `w`. The app entry is `expo-entry.js` (`package.json:5`).
-
-## Typecheck
-
-```
-bun run typecheck
+```bash
+bun start          # ELECTRON_DISABLE_SANDBOX=1 expo start
+bun run android    # expo start --android
+bun run ios        # expo start --ios
+bun run web        # expo start --web
 ```
 
-Runs `tsc --noEmit` against `tsconfig.json`.
+`package.json` sets `"main": "expo-entry.js"`, so Expo boots through
+`expo-entry.js` (polyfills, `SafeAreaProvider`) and then `src/index.tsx`.
+Voice recording, text-to-speech, and microphone permissions need a real device or
+simulator; the web preview is the weakest target for the voice loop.
 
 ## Test
 
-```
-bun run test
+```bash
+bun run test       # jest
 ```
 
-`package.json:13` defines `"test": "jest"` with the `jest-expo` preset (`package.json:67-69`). Test dependencies are `jest`, `jest-expo`, and `@types/jest` (`package.json:56-66`). Unit tests live beside the module as `*.test.ts` (11 suites, 87 tests): `src/lib/api/store.test.ts`, `src/lib/api/profileImport.test.ts`, `src/lib/api/robinPrompt.test.ts`, `src/lib/api/robinTools.test.ts`, `src/lib/api/robinAgent.test.ts`, `src/lib/api/scenarios.test.ts`, `src/lib/polyfills/responsePolyfill.test.ts`, `src/lib/core/auth/errors.test.ts`, `src/lib/core/auth/labels.test.ts`, `src/screens/Session/voiceActivity.test.ts`, `src/navigation/rootRoute.test.ts`.
+Uses the `jest-expo` preset (`package.json` `"jest"` block) with a
+`transformIgnorePatterns` list that must keep `@openrouter/sdk` (and `zod`)
+transpilable. Test files are colocated with source as `*.test.ts`:
+
+| File | Covers |
+|---|---|
+| `src/lib/core/db/ai.test.ts` | chat transport, error mapping, JSON retry, photo encoding, transcribe |
+| `src/lib/core/db/consent.test.ts` | consent wording/keys and the ask-once flow |
+| `src/lib/core/auth/errors.test.ts` | `authErrorMessage` translation |
+| `src/lib/core/auth/labels.test.ts` | `labelsWith` overrides |
+| `src/lib/polyfills/responsePolyfill.test.ts` | `Response.json` polyfill |
+
+Current totals: 5 suites, 53 tests. Tests mock `./config`, `./notify`,
+`./consent`, and `@openrouter/sdk` rather than making network calls.
 
 ## Lint
 
+```bash
+bun run lint       # eslint .
 ```
-bun run lint
+
+`eslint.config.mjs` uses `eslint-config-expo/flat.js` and ignores `dist/*`,
+`.expo/*`, `core/*`, `borel-store.js`, and `borel-systemui.js`. Note the
+`core/*` pattern does not match the generated files under `src/lib/core/`, so
+those files are still linted despite the config comment.
+
+## Typecheck
+
+```bash
+bun run typecheck  # tsc --noEmit
 ```
 
-`package.json:12` defines `"lint": "eslint ."`. The flat config in `eslint.config.mjs` spreads `eslint-config-expo/flat` (SDK 57) and ignores build output (`dist/`, `.expo/`) plus Borel-managed/generated sources (`src/lib/core/`, `borel-store.js`, `borel-systemui.js`), which cannot be fixed here because they are regenerated. Dev dependencies are `eslint` 9 and `eslint-config-expo` (`package.json:61-62`). Note: ESLint 10 is not usable here because the bundled `eslint-plugin-react` 7.x supports ESLint up to 9.x.
+`tsconfig.json` extends `expo/tsconfig.base`, sets `strict: true`, includes all
+`.ts`/`.tsx`, and adds `jest` to `types`.
 
-Lint is clean: `bun run lint` exits 0. Past findings fixed during adoption were `react-hooks/refs` in `src/lib/ui/motion.ts` (now `useState` initializers for the stable `Animated.Value`s), `react-hooks/set-state-in-effect` in fetch-on-mount and session-sync effects (state updates deferred to a microtask continuation; `src/screens/Session/index.tsx` also destructures the stable `sessions.fetchOne`/`sessions.reload` callbacks for honest deps), plus `@typescript-eslint/array-type` (`readonly T[]` form), one unused `DarkTheme` import, and one `react-hooks/exhaustive-deps` fix.
+## Configuration
 
-## CI/CD
+Environment variables are read from `EXPO_PUBLIC_*` values (Expo inlines them
+with static dot access only). `.env.example` lists the full set:
 
-There is no CI/CD configuration. No `.github/`, `.gitlab-ci.yml`, `eas.json`, or equivalent is present. `README.md` suggests `bunx eas build` for store builds, but no EAS config file exists in the repository.
+- Borel: `EXPO_PUBLIC_DATA_API_URL`, `EXPO_PUBLIC_AUTH_URL`,
+  `EXPO_PUBLIC_PREVIEW_AUTH_URL`, `EXPO_PUBLIC_BOREL_STORAGE`,
+  `EXPO_PUBLIC_BOREL_AI`, `EXPO_PUBLIC_BOREL_ACCOUNT`, `EXPO_PUBLIC_BOREL_APPLE`,
+  `EXPO_PUBLIC_BOREL_USAGE_URL`, `EXPO_PUBLIC_BOREL_INVITE_URL`
+- `EXPO_PUBLIC_APPLE_SIGN_IN_AVAILABLE` (`"true"` to offer Apple sign-in)
+- `EXPO_PUBLIC_OPENROUTER_API_KEY` (chat and speech-to-text)
 
-## Native builds and in-app purchases
+A local `.env` exists and is git-ignored. Missing `EXPO_PUBLIC_OPENROUTER_API_KEY`
+makes `ai.chat` and `ai.transcribe` resolve the neutral error without a request.
 
-`README.md` states StoreKit does not exist in Expo Go, so real in-app purchases require a development build (`bunx expo run:ios`) or TestFlight. `app.json` lists `expo-apple-authentication`, `expo-audio`, `expo-image-picker`, and `expo-notifications` under `plugins` (`app.json:29-45`); `expo-iap` is a dependency and is loaded lazily by `borel-systemui.js:721`, but it is not listed in `app.json` plugins.
+## Build and release
 
-## Environment variables
+There is no build script in `package.json` and no EAS config file. `app.json`
+holds the Expo config (name, slug, icon/splash, plugins, `newArchEnabled: true`)
+and ships placeholder identifiers `com.example.robintalks`. `README.md` says to
+change the bundle identifier, replace the assets, and build with
+`bunx eas build`. `dist/` and `.expo/` are generated output and git-ignored.
 
-No `.env`, `.env.local`, or example file exists. `.gitignore:12-13` ignores `.env` and `.env.local`. Backend URLs are hard-coded string constants in `src/lib/core/db.ts:16-24` rather than environment variables.
+## Spec workflow
 
-## Store-publishing notes from the README
+- OpenSpec: changes under `openspec/changes/` and synced specs under
+  `openspec/specs/`; config is `openspec/config.yaml`.
+- sdd/pdd artifacts: `docs/agent-docs/specs/` and `docs/agent-docs/plans/`.
 
-`README.md` lists remaining manual steps: change the placeholder bundle identifier `com.example.robintalks` in `app.json:17`/`:20`, replace the assets in `assets/`, and build with EAS. `README.md` notes that IAP products must exist in the owner's App Store Connect account and that `extra.borelIap` in `app.json` maps slugs to product ids; that `extra` block is not present in the current `app.json`.
+These are working artifacts, not documentation pages.

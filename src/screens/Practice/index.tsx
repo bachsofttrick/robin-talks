@@ -81,9 +81,6 @@ function Catalog() {
         </View>
         <Text style={styles.heroTitle}>{suggested.title}</Text>
         <Text style={styles.heroLead}>Pick a scene and Robin will meet you there</Text>
-        <Text style={styles.rowDetail}>{suggested.description}</Text>
-        <Text style={styles.rowGoal}>Goal: {suggested.goal}</Text>
-        <Text style={styles.tag}>{suggested.level}</Text>
         <Button
           label={starting === suggested.id ? "Opening" : "Start this scene"}
           onPress={() => start(suggested.id)}
@@ -108,7 +105,7 @@ function Catalog() {
         </Pressable>
       ) : null}
 
-      <SectionHeader title="All scenes" count={SCENARIOS.length} />
+      <SectionHeader title="All scenes" count={rest.length} />
       {rest.map((scenario, index) => (
         <Row key={scenario.id} scenario={scenario} index={index} onPress={() => start(scenario.id)} />
       ))}
@@ -130,7 +127,7 @@ const styles = StyleSheet.create({
   eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   eyebrow: { ...type.caption, fontFamily: fonts.bodyMedium, color: colors.accent },
   heroTitle: { ...type.display, color: colors.text },
-  heroLead: { ...type.body, color: colors.textSecondary, maxWidth: 300 },
+  heroLead: { ...type.body, color: colors.textSecondary },
   heroButton: { marginTop: spacing.md, alignSelf: "flex-start", minWidth: 200 },
   resume: {
     flexDirection: "row",

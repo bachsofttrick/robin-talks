@@ -1,5 +1,5 @@
 import React from "react";
-import { DefaultTheme, NavigationContainer as RNNavigationContainer } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer as RNNavigationContainer } from "@react-navigation/native";
 
 // Written by Borel when this app was first built, from the app's own colours,
 // and an ordinary file in it now. React Navigation 7 needs a theme built from

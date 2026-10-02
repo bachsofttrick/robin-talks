@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { db, plainError } from "../core/db";
 import { useAuth } from "../core/auth";
-import { createAppStore } from "./store";
 
 export interface MemoryNote {
   id: string;
@@ -9,19 +8,15 @@ export interface MemoryNote {
   content: string;
 }
 
-const memoryStore = createAppStore<MemoryNote[]>("robin.memory", []);
-let prevUserId: string | null | undefined = undefined;
-
 export function useMemory() {
   const { user } = useAuth();
-  const data = memoryStore.use();
+  const [data, setData] = useState<MemoryNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const userId = user?.id ?? null;
 
   const reload = useCallback(async () => {
     if (!user) {
-      memoryStore.set([]);
+      setData([]);
       setLoading(false);
       return;
     }
@@ -35,33 +30,28 @@ export function useMemory() {
     if (res.error) setError(plainError(res.error, "load"));
     else {
       setError(null);
-      memoryStore.set((res.data ?? []) as MemoryNote[]);
+      setData((res.data ?? []) as MemoryNote[]);
     }
     setLoading(false);
   }, [user]);
 
   useEffect(() => {
-    if (prevUserId !== userId) {
-      prevUserId = userId;
-      memoryStore.reset();
-    }
-    void Promise.resolve().then(() => reload());
-  }, [userId, reload]);
+    void reload();
+  }, [reload]);
 
   const remember = useCallback(
     async (kind: string, content: string) => {
       if (!user || !content.trim()) return;
       await db.from("robin_memory").insert({ user_id: user.id, kind, content: content.trim() });
-      await reload();
     },
-    [user, reload],
+    [user],
   );
 
   const clearAll = useCallback(async () => {
     if (!user) return "You need an account first.";
     const res = await db.from("robin_memory").delete().eq("user_id", user.id);
     if (res.error) return plainError(res.error, "save");
-    memoryStore.set([]);
+    setData([]);
     return null;
   }, [user]);
 

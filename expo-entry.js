@@ -5,7 +5,7 @@ import React from "react";
 import { registerRootComponent } from "expo";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import App from "./index";
+import App from "./src/index";
 
 // registerRootComponent calls AppRegistry.registerComponent("main", () => Root)
 // and makes the app work the same whether it is loaded in Expo Go or in a

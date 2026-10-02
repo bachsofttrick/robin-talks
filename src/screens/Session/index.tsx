@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Keyboard, Mic, Send, Square, Volume2 } from "lucide-react-native";
-import { deleteAsync } from "expo-file-system/legacy";
 import { Screen, Notice, EmptyState } from "../../lib/ui";
 import { colors, fonts, iconStroke, radius, spacing, type } from "../../lib/ui/theme";
 import { Bird } from "../../lib/ui/Bird";
@@ -14,9 +13,14 @@ import { useMemory } from "../../lib/api/useMemory";
 import { useSessions, Turn } from "../../lib/api/useSessions";
 import { useRobin, Debrief } from "../../lib/api/useRobin";
 import { db } from "../../lib/core/db";
-import { speak, stopSpeaking } from "../../../borel-systemui";
-import { useTurnRecorder } from "./useTurnRecorder";
-import type { TurnRecording } from "./useTurnRecorder";
+import {
+  getPermissionStatus,
+  requestPermission,
+  speak,
+  startRecording,
+  stopRecording,
+  stopSpeaking,
+} from "../../../borel-systemui";
 
 export default function SessionScreen() {
   const route = useRoute<any>();
@@ -24,18 +28,18 @@ export default function SessionScreen() {
   const { data: profile } = useProfile();
   const { data: memory, remember, reload: reloadMemory } = useMemory();
   const sessions = useSessions();
-  const sessionsFetchOne = sessions.fetchOne;
-  const sessionsReload = sessions.reload;
   const robin = useRobin();
 
   const [sessionId, setSessionId] = useState<string | null>(route.params?.sessionId ?? null);
   const [scenarioId, setScenarioId] = useState<string | null>(route.params?.scenarioId ?? null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [thinking, setThinking] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [typing, setTyping] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [micDenied, setMicDenied] = useState(false);
   const [debrief, setDebrief] = useState<Debrief | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -43,64 +47,22 @@ export default function SessionScreen() {
   const enter = useEnter();
   const scenario = scenarioId ? scenarioById(scenarioId) : undefined;
 
-  // Guards so late async work never touches a dead screen or a past session.
-  const mountedRef = useRef(true);
-  const sessionRef = useRef<string | null>(sessionId);
-  const typingRef = useRef(typing);
-  const transcriptRef = useRef<Turn[]>(transcript);
-  const advanceRef = useRef<(next: Turn[]) => Promise<void>>(async () => {});
-  const startMicRef = useRef<() => Promise<void>>(async () => {});
-  const sendClipRef = useRef<(clip: TurnRecording | null) => void>(() => {});
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    sessionRef.current = sessionId;
-  }, [sessionId]);
-
-  useEffect(() => {
-    typingRef.current = typing;
-  }, [typing]);
-
-  useEffect(() => {
-    transcriptRef.current = transcript;
-  }, [transcript]);
-
-  // One shared path for every finished voice turn. The pause detector and
-  // the manual stop both land here through the recorder hook.
-  const recorder = useTurnRecorder({
-    onTurnEnd: useCallback((clip: TurnRecording | null) => {
-      sendClipRef.current(clip);
-    }, []),
-  });
-  const { recording, denied: micDenied, start: startMic, stop: stopMic, cancel: cancelMic, enableMic } = recorder;
-
   useEffect(() => {
     if (route.params?.sessionId) {
-      cancelMic();
-      const nextId = route.params.sessionId;
-      const nextScenarioId = route.params.scenarioId ?? null;
-      void Promise.resolve().then(() => {
-        setSessionId(nextId);
-        setScenarioId(nextScenarioId);
-        setTranscript([]);
-        setDebrief(null);
-        setReady(false);
-      });
+      setSessionId(route.params.sessionId);
+      setScenarioId(route.params.scenarioId ?? null);
+      setTranscript([]);
+      setDebrief(null);
+      setReady(false);
     }
-  }, [route.params?.sessionId, route.params?.scenarioId, cancelMic]);
+  }, [route.params?.sessionId, route.params?.scenarioId]);
 
   useEffect(() => {
     let active = true;
     (async () => {
       if (sessionId) {
-        const row = await sessionsFetchOne(sessionId);
-        if (!active || !mountedRef.current) return;
+        const row = await sessions.fetchOne(sessionId);
+        if (!active) return;
         if (row) {
           setScenarioId(row.scenario_id);
           setTranscript(row.transcript);
@@ -108,91 +70,53 @@ export default function SessionScreen() {
         setReady(true);
         return;
       }
-      await sessionsReload();
-      if (!active || !mountedRef.current) return;
+      await sessions.reload();
+      if (!active) return;
       setReady(true);
     })();
     return () => {
       active = false;
     };
-  }, [sessionId, sessionsFetchOne, sessionsReload]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId && sessions.open) {
-      const next = sessions.open;
-      void Promise.resolve().then(() => {
-        setSessionId(next.id);
-        setScenarioId(next.scenario_id);
-        setTranscript(next.transcript);
-      });
+      setSessionId(sessions.open.id);
+      setScenarioId(sessions.open.scenario_id);
+      setTranscript(sessions.open.transcript);
     }
   }, [sessions.open, sessionId]);
 
-  // Leaving the screen stops the voice and drops any live recording.
-  useEffect(() => {
-    const maybeUnsubscribe =
-      typeof navigation.addListener === "function"
-        ? navigation.addListener("blur", () => {
-            cancelMic();
-            void stopSpeaking();
-          })
-        : undefined;
-    return () => {
-      cancelMic();
-      void stopSpeaking();
-      if (typeof maybeUnsubscribe === "function") maybeUnsubscribe();
-    };
-  }, [navigation, cancelMic]);
+  useEffect(() => () => void stopSpeaking(), []);
 
-  // A refused microphone falls back to typing so the scene can continue.
-  useEffect(() => {
-    if (micDenied) {
-      void Promise.resolve().then(() => setTyping(true));
+  const say = useCallback((text: string) => {
+    void speak(text, { language: "en-US", rate: profile.level === "Beginner" ? 0.85 : 1 });
+  }, [profile.level]);
+
+  const openMic = useCallback(async () => {
+    const status = await getPermissionStatus("microphone");
+    if (status === "denied") {
+      setMicDenied(true);
+      setTyping(true);
+      return;
     }
-  }, [micDenied]);
-
-  const say = useCallback(
-    (text: string) => {
-      return speak(text, { language: "en-US", rate: profile.level === "Beginner" ? 0.85 : 1 });
-    },
-    [profile.level],
-  );
-
-  const finish = useCallback(
-    async (final: Turn[]) => {
-      if (!scenario || !sessionId) return;
-      const mySession = sessionId;
-      // Cancel so no half spoken turn is transcribed on the way out.
-      cancelMic();
-      void stopSpeaking();
-      if (mountedRef.current) setFinishing(true);
-      const result = await robin.debrief(scenario, profile.level, final);
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
-      if (!result.debrief) {
-        setFinishing(false);
-        setError(result.error);
-        return;
-      }
-      setDebrief(result.debrief);
-      await sessions.finish(mySession, final, JSON.stringify(result.debrief), result.debrief.summary);
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
-      for (const note of result.debrief.memory) await remember("profile", note);
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
-      void reloadMemory();
-      setFinishing(false);
-    },
-    [scenario, sessionId, profile.level, robin, sessions, remember, reloadMemory, cancelMic],
-  );
+    const started = await startRecording({ maxDurationMs: 30000 });
+    if (!started.started) {
+      setMicDenied(true);
+      setTyping(true);
+      return;
+    }
+    setMicDenied(false);
+    setRecording(true);
+  }, []);
 
   const advance = useCallback(
     async (next: Turn[]) => {
       if (!scenario || !sessionId) return;
-      const mySession = sessionId;
       setTranscript(next);
       setThinking(true);
       setError(null);
       const recent = await sessions.recent();
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
       const recap = recent
         .map((s) => "- " + (scenarioById(s.scenario_id)?.title ?? s.scenario_id) + ": " + (s.summary ?? ""))
         .join("\n");
@@ -204,7 +128,6 @@ export default function SessionScreen() {
         recap,
         transcript: next,
       });
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
       if (!reply.text) {
         setThinking(false);
         setError(reply.error);
@@ -213,95 +136,73 @@ export default function SessionScreen() {
       const withRobin = [...next, { role: "robin" as const, text: reply.text }];
       setTranscript(withRobin);
       setThinking(false);
-      await sessions.saveTranscript(mySession, withRobin);
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
+      await sessions.saveTranscript(sessionId, withRobin);
       if (reply.remember) {
         await remember("fact", reply.remember);
-        if (!mountedRef.current || sessionRef.current !== mySession) return;
         void reloadMemory();
       }
-      // Let Robin finish speaking before anything else. The mic opens only
-      // after speech ends, so it never records Robin's own voice.
-      await say(reply.text);
-      if (!mountedRef.current || sessionRef.current !== mySession) return;
+      say(reply.text);
       if (reply.complete) {
-        await finish(withRobin);
-      } else if (!typingRef.current) {
-        await startMic();
+        void finish(withRobin);
+      } else {
+        void openMic();
       }
     },
-    [scenario, sessionId, profile, memory, robin, sessions, remember, reloadMemory, say, finish, startMic],
+    [scenario, sessionId, profile, memory, robin, sessions, remember, reloadMemory, say, openMic],
   );
 
   useEffect(() => {
-    advanceRef.current = advance;
-  }, [advance]);
-
-  useEffect(() => {
-    startMicRef.current = startMic;
-  }, [startMic]);
-
-  useEffect(() => {
     if (ready && sessionId && scenario && transcript.length === 0 && !thinking && !debrief) {
-      void Promise.resolve().then(() => advance([]));
+      void advance([]);
     }
-  }, [ready, sessionId, scenario, transcript.length, thinking, debrief, advance]);
+  }, [ready, sessionId, scenario, transcript.length, thinking, debrief]);
 
-  // Transcribe one finished clip and send it as the user's turn, the same
-  // way for a pause ended turn and a manual stop. Audio is never stored.
-  useEffect(() => {
-    sendClipRef.current = (clip: TurnRecording | null) => {
-      void (async () => {
-        const mySession = sessionRef.current;
-        if (!mySession || !mountedRef.current) return;
-        if (!clip) {
-          setNotice("Did not catch that. Try again.");
-          return;
-        }
-        setThinking(true);
-        const heard = await db.ai.transcribe({ audio: clip, language: "en" });
-        const uri = typeof clip.uri === "string" && clip.uri ? clip.uri : null;
-        if (uri) {
-          try {
-            await deleteAsync(uri, { idempotent: true });
-          } catch {
-            // The temp file is best effort cleanup only.
-          }
-        }
-        if (!mountedRef.current || sessionRef.current !== mySession) return;
-        setThinking(false);
-        if (!heard.text || !heard.text.trim()) {
-          setNotice(heard.error ?? "Did not catch that. Try again.");
-          if (!typingRef.current) void startMicRef.current();
-          return;
-        }
-        setNotice(null);
-        void advanceRef.current([...transcriptRef.current, { role: "user", text: heard.text.trim() }]);
-      })();
-    };
-  }, []);
-
-  const stopAndSend = () => {
-    void stopMic();
-  };
-
-  const openMic = () => {
-    void startMic();
+  const stopAndSend = async () => {
+    setRecording(false);
+    const clip = await stopRecording();
+    if (!clip) {
+      setNotice("Did not catch that. Try again.");
+      return;
+    }
+    setThinking(true);
+    const heard = await db.ai.transcribe({ audio: clip, language: "en" });
+    setThinking(false);
+    if (!heard.text || !heard.text.trim()) {
+      setNotice(heard.error ?? "Did not catch that. Try again.");
+      void openMic();
+      return;
+    }
+    setNotice(null);
+    void advance([...transcript, { role: "user", text: heard.text.trim() }]);
   };
 
   const sendTyped = () => {
     const text = draft.trim();
     if (!text) return;
-    // Drop any live recording so it cannot send after the typed turn.
-    cancelMic();
     setDraft("");
     setNotice(null);
     void advance([...transcript, { role: "user", text }]);
   };
 
-  const switchToTyping = () => {
-    cancelMic();
-    setTyping(true);
+  const finish = async (final: Turn[]) => {
+    if (!scenario || !sessionId) return;
+    void stopSpeaking();
+    if (recording) {
+      setRecording(false);
+      await stopRecording();
+    }
+    setFinishing(true);
+    const result = await robin.debrief(scenario, profile.level, final);
+    if (!result.debrief) {
+      setFinishing(false);
+      setError(result.error);
+      return;
+    }
+    setDebrief(result.debrief);
+    await sessions.finish(sessionId, final, JSON.stringify(result.debrief), result.debrief.summary);
+    for (const note of result.debrief.memory) await remember("profile", note);
+    void reloadMemory();
+    setFinishing(false);
   };
 
   const confirmFinish = () => {
@@ -309,6 +210,14 @@ export default function SessionScreen() {
       { text: "Keep going", style: "cancel" },
       { text: "Finish", style: "destructive", onPress: () => void finish(transcript) },
     ]);
+  };
+
+  const enableMic = async () => {
+    const result = await requestPermission("microphone");
+    if (result === "allow") {
+      setMicDenied(false);
+      void openMic();
+    }
   };
 
   if (!sessionId || !scenario) {
@@ -386,7 +295,7 @@ export default function SessionScreen() {
               <Bird size={18} />
               <View style={styles.robinText}>
                 <Text style={styles.robinLine}>{turn.text}</Text>
-                <Pressable onPress={() => void say(turn.text)} hitSlop={10} style={styles.replay}>
+                <Pressable onPress={() => say(turn.text)} hitSlop={10} style={styles.replay}>
                   <Volume2 size={16} color={colors.textSecondary} strokeWidth={iconStroke} />
                   <Text style={styles.replayLabel}>Play again</Text>
                 </Pressable>
@@ -450,7 +359,7 @@ export default function SessionScreen() {
               style={styles.grow}
             />
           )}
-          <Pressable onPress={switchToTyping} hitSlop={8} style={styles.switchButton}>
+          <Pressable onPress={() => setTyping(true)} hitSlop={8} style={styles.switchButton}>
             <Keyboard size={20} color={colors.textSecondary} strokeWidth={iconStroke} />
           </Pressable>
           {recording ? (
