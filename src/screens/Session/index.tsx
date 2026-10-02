@@ -56,10 +56,13 @@ export default function SessionScreen() {
   const enter = useEnter();
   const scenario = scenarioId ? scenarioById(scenarioId) : undefined;
 
-  // Reset state for a new session. The async wrapper keeps these updates off
-  // the effect's synchronous path, which the React Compiler lint flags.
+  // Reset state only when the navigation names a different session. Re-opening
+  // the session already on screen keeps its conversation, because the load
+  // effect reloads it instead of clearing it. The async wrapper keeps these
+  // updates off the effect's synchronous path, which the React Compiler lint
+  // flags.
   useEffect(() => {
-    if (route.params?.sessionId) {
+    if (route.params?.sessionId && route.params.sessionId !== sessionId) {
       (async () => {
         setSessionId(route.params.sessionId);
         setScenarioId(route.params.scenarioId ?? null);
@@ -68,16 +71,20 @@ export default function SessionScreen() {
         setReady(false);
       })();
     }
-  }, [route.params?.sessionId, route.params?.scenarioId]);
+  }, [route.params?.sessionId, route.params?.scenarioId, sessionId]);
 
-  // Load the session row or the open session. The async wrapper keeps the
-  // state updates off the effect's synchronous path; the active flag keeps them
-  // off an unmounted screen.
+  // Load the session named by the route param, or the open session when the
+  // screen is opened with no params. Keying on the route param rather than the
+  // state it writes means every navigation that names a session triggers a
+  // load, including re-opening the session already on screen. The async wrapper
+  // keeps the state updates off the effect's synchronous path; the active flag
+  // keeps them off an unmounted screen.
   useEffect(() => {
     let active = true;
+    const targetSessionId = route.params?.sessionId ?? null;
     (async () => {
-      if (sessionId) {
-        const row = await fetchOne(sessionId);
+      if (targetSessionId) {
+        const row = await fetchOne(targetSessionId);
         if (!active) return;
         if (row) {
           setScenarioId(row.scenario_id);
@@ -93,7 +100,7 @@ export default function SessionScreen() {
     return () => {
       active = false;
     };
-  }, [sessionId, fetchOne, reloadSessions]);
+  }, [route.params?.sessionId, fetchOne, reloadSessions]);
 
   // Adopt the open session once it arrives. The async wrapper keeps these
   // updates off the effect's synchronous path, which the React Compiler lint
