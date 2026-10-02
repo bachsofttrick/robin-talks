@@ -37,11 +37,11 @@ robin-talks/
 │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders.
 │       │   │   ├── errors.ts     Neutral error sentences, plainError, looksPlain, refusals.
 │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
-│       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native).
+│       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native), tellScreens.
 │       │   │   ├── storage.ts    File upload/presign and account deletion.
 │       │   │   ├── ai.ts         OpenRouter chat/transcribe + Borel image/editImage.
 │       │   │   ├── moderation.ts Report/block/check content.
-│       │   │   └── notify.ts     borelFetch, push notify, device linking, tellScreens.
+│       │   │   └── notify.ts     borelFetch, push notify, device linking.
 │       │   └── auth/
 │       │       ├── types.ts      User, Session, AuthResult.
 │       │       ├── constants.ts  Labels/URLs, APPLE_SIGN_IN_AVAILABLE, KIT colours.

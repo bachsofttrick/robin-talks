@@ -3,7 +3,6 @@ import Constants from "expo-constants";
 import { BOREL_ACCOUNT, IN_BROWSER, borelHeaders } from "./config";
 import { native, authHeader } from "./auth";
 import { refusalOf, noteRefusal, looksPlain, messageOf, CLOUD_NEUTRAL } from "./errors";
-import { forgetModeration } from "./moderation";
 
 export async function borelFetch(url: string, body: unknown, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -252,77 +251,3 @@ function watchDevice(): void {
 }
 watchDevice();
 
-// ---------------------------------------------------------------------------
-// Telling the screens who is signed in, on a phone
-//
-// The sign-in adapter reports the session once, when a screen subscribes, and
-// never again: a sign-in, a confirmed code or a sign-out in this same app
-// reached no screen until it was mounted again, so a Sign in button could look
-// like it did nothing. So this file tells every subscriber itself, after each
-// call that changes who is signed in - and after Borel hands the app a session
-// it made (adoptSession: Sign in with Apple). The preview's broker already
-// tells its own listeners.
-// ---------------------------------------------------------------------------
-
-type AuthCallback = (event: string, session: any) => void;
-const phoneSubscribers: AuthCallback[] = [];
-
-export async function tellScreens(): Promise<void> {
-  if (IN_BROWSER) return;
-  forgetModeration();
-  let session: any = null;
-  try {
-    const { data } = await native().auth.getSession({ forceFetch: true });
-    session = data && data.session ? data.session : null;
-  } catch {
-    session = null;
-  }
-  for (const fn of phoneSubscribers.slice()) {
-    try {
-      fn(session ? "SIGNED_IN" : "SIGNED_OUT", session);
-    } catch {
-      // a screen's own handler throwing is not our problem
-    }
-  }
-}
-
-function announceSessionChanges(): void {
-  if (IN_BROWSER) return;
-  try {
-    const auth: any = native().auth;
-    for (const name of ["signInWithPassword", "signUp", "verifyOtp", "signOut"]) {
-      if (!auth || typeof auth[name] !== "function") continue;
-      const original = auth[name].bind(auth);
-      auth[name] = async (...args: any[]) => {
-        const result = await original(...args);
-        await tellScreens();
-        return result;
-      };
-    }
-    if (auth && typeof auth.onAuthStateChange === "function") {
-      const subscribe = auth.onAuthStateChange.bind(auth);
-      auth.onAuthStateChange = (callback: AuthCallback) => {
-        phoneSubscribers.push(callback);
-        const inner = subscribe(callback);
-        return {
-          data: {
-            subscription: {
-              unsubscribe() {
-                const i = phoneSubscribers.indexOf(callback);
-                if (i >= 0) phoneSubscribers.splice(i, 1);
-                try {
-                  if (inner && inner.data && inner.data.subscription) inner.data.subscription.unsubscribe();
-                } catch {
-                  // already gone
-                }
-              },
-            },
-          },
-        };
-      };
-    }
-  } catch {
-    // An auth client that cannot be watched still signs in and out as before.
-  }
-}
-announceSessionChanges();

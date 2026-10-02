@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, BOREL_APPLE, IN_BROWSER, borelHeaders } from "./config";
 import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation";
-import { tellScreens } from "./notify";
 
 type Session = { user: User } | null;
 export interface User {
@@ -375,6 +374,36 @@ export async function authHeader(): Promise<string> {
 
 type AuthCallback = (event: string, session: any) => void;
 const phoneSubscribers: AuthCallback[] = [];
+
+/**
+ * Tell every subscribed screen who is signed in, on a phone.
+ *
+ * The sign-in adapter reports the session once, when a screen subscribes, and
+ * never again: a sign-in, a confirmed code or a sign-out in this same app
+ * reached no screen until it was mounted again, so a Sign in button could look
+ * like it did nothing. So this file tells every subscriber itself, after each
+ * call that changes who is signed in - and after Borel hands the app a session
+ * it made (adoptSession: Sign in with Apple). The preview's broker already
+ * tells its own listeners.
+ */
+export async function tellScreens(): Promise<void> {
+  if (IN_BROWSER) return;
+  forgetModeration();
+  let session: any = null;
+  try {
+    const { data } = await native().auth.getSession({ forceFetch: true });
+    session = data && data.session ? data.session : null;
+  } catch {
+    session = null;
+  }
+  for (const fn of phoneSubscribers.slice()) {
+    try {
+      fn(session ? "SIGNED_IN" : "SIGNED_OUT", session);
+    } catch {
+      // a screen's own handler throwing is not our problem
+    }
+  }
+}
 
 function announceSessionChanges(): void {
   if (IN_BROWSER) return;
