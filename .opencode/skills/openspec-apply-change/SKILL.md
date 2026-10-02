@@ -1,6 +1,6 @@
 ---
 name: openspec-apply-change
-description: Implement tasks from an OpenSpec change. Use when the user wants to start implementing, continue implementation, or work through tasks. Also use when the user says "openspec apply", "opsx apply", or "openspec implement".
+description: Implement tasks from an OpenSpec change. Use when the user wants to start implementing, continue implementation, or work through tasks. Also use when the user says "openspec apply", "opsx apply", or "openspec implement". Supports splitting independent tasks to parallel implementation subagents.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
@@ -104,7 +104,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
 6. **Implement tasks (loop until done or blocked)**
 
-   For each pending task:
+   For each pending task (directly in this session, or delegated to a subagent as described below):
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
@@ -112,6 +112,18 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - Mark the task complete at its returned `sourcePath` and `line`: `- [ ]` → `- [x]`
    - Rerun the apply instructions and confirm that task is now done and progress changed
    - Continue to next task
+
+   **Splitting tasks to subagents**
+
+   When more than one pending task is independent, delegate implementation to subagents instead of implementing each task yourself.
+
+   - **Decide independence first.** Two tasks are independent when neither edits a file the other edits, and neither needs code, types, or output the other task produces. Task order in the tasks artifact implies sequence: when in doubt, or when a task depends on an earlier task's changes, implement it sequentially in the main session.
+   - **Batch and dispatch.** Group the independent pending tasks into one batch and launch one implementation subagent per task, in parallel. Tasks that fail the independence test stay in the main session, in task order.
+   - **Write self-contained prompts.** Each subagent prompt must carry everything the task needs: the change name, the task description, the concrete file paths to create or change, the relevant requirements from the context files (paths or excerpts of proposal/specs/design), the project conventions that apply, and reference code worth imitating. Add to every prompt: keep changes minimal and scoped to the task; do not run any git command; do not edit anything under `openspec/`; end the report with the exact list of files created or modified, whether the task's requirements were fully met, and anything that blocked completion.
+   - **Keep CLI control in the main session.** Subagents never run `openspec` commands and never edit the tasks file. Checkbox marking, apply-instruction reruns, and progress confirmation stay in the main session.
+   - **Verify before marking.** After the batch returns, verify each reported task: confirm the reported files exist and satisfy the task's requirements, and run the project's lint, typecheck, and tests when available. Only then mark the task complete at its `sourcePath` and `line` and rerun the apply instructions to confirm progress changed. A subagent's report is never by itself proof that a task is complete.
+   - **Handle incomplete work.** If a subagent's work is wrong or incomplete, send one correction to a new subagent naming the specific gaps, or finish the task in the main session. Subagents report issues; the main session applies the pause rules below and decides.
+   - **Stop splitting when it stops fitting.** When remaining tasks are dependent, ambiguous, or a single task is left, implement them directly.
 
    **Pause if:**
    - Task is unclear → ask for clarification
@@ -137,9 +149,9 @@ Working on task 3/7: <task description>
 [...implementation happening...]
 ✓ Task complete
 
-Working on task 4/7: <task description>
-[...implementation happening...]
-✓ Task complete
+Working on tasks 4 and 5 in parallel via subagents (independent): <task descriptions>
+[...subagents implementing...]
+✓ Task 4 complete, ✓ Task 5 complete
 ```
 
 **Output On Completion**
@@ -196,6 +208,13 @@ What would you like to do?
 - Consider every guidance entry; explain any inapplicable or conflicting advice
 - Do not copy runtime context or operation guidance into implementation files or planning artifacts
 - Preserve CLI-controlled blocked/ready/all-done behavior and completion criteria
+
+**Subagent Splitting Guardrails**
+- Only dispatch independent tasks in parallel; dependent or file-overlapping tasks run sequentially in the main session
+- One subagent per task, with a self-contained prompt; never assume a subagent can see this conversation or the change's artifacts
+- Subagents implement only: they never run `openspec` commands, never edit the tasks file, and never mark checkboxes
+- A subagent report is not proof of completion; verify the work and only then mark `- [x]`
+- Subagent-reported issues surface in the main session under the same pause rules; do not let a subagent narrow, defer, or simplify away specified behavior
 
 **Fluid Workflow Integration**
 

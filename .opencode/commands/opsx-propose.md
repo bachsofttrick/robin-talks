@@ -158,6 +158,14 @@ After completing all artifacts, summarize:
   - Do NOT copy `<context>`, `<rules>`, `<project_context>` blocks into the artifact
   - These guide what you write, but should never appear in the output
 
+**Tasks Authoring for Subagent Splitting**
+
+The apply workflow can delegate independent tasks to parallel implementation subagents. Author the tasks artifact so that delegation stays safe, within the template and `instruction` from `openspec instructions`:
+
+- One concern per task, sized so a single subagent can complete it without open design questions
+- Self-contained: each task names its concrete file paths and carries its own instructions and acceptance criteria, never "see the task above"
+- Non-overlapping where order allows: when two tasks could run in parallel, avoid having both edit the same file; a task that needs an earlier task's code, types, or output states that dependency explicitly so the apply workflow runs it sequentially
+
 **Guardrails**
 - The request that invoked this workflow authorizes planning only. Any implementation or apply instruction in that request does not carry forward. Do NOT implement the change, start the apply workflow, or edit project code during this workflow. After presenting the artifacts, stop and wait for a new user request to start the apply workflow
 - Create every artifact the apply phase transitively depends on, not just the ids listed in `apply.requires`
