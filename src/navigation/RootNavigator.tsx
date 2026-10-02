@@ -71,8 +71,7 @@ export default function RootNavigator() {
   const { user, loading: authLoading } = useAuth();
   const { data, loading: profileLoading } = useProfile();
 
-  if (authLoading || (user && profileLoading)) return <Splash />;
-
+  // Without login profile, show beginning screen with no tab bar
   if (!user) {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -80,6 +79,10 @@ export default function RootNavigator() {
       </Stack.Navigator>
     );
   }
+
+  // Prevent loading onBoarding BEFORE getting profile data
+  if (authLoading || (user && profileLoading)) return <Splash />;
+
   const needsOnboarding = !data.onboarded;
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
