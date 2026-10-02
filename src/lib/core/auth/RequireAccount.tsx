@@ -6,6 +6,7 @@ import { PrimaryButton } from "./controls";
 import { useKitSession } from "./context";
 import { SignInSheet } from "./SignInSheet";
 import { KIT } from "./constants";
+import { Bird } from "../../ui";
 
 /**
  * Sign-in in front of what genuinely needs an account, and nothing else.
@@ -27,6 +28,7 @@ export function RequireAccount(props: {
   if (session.signedIn) return <>{props.children}</>;
   return (
     <View style={[{ flex: 1, padding: 20, alignItems: "center", justifyContent: "center" }, props.style as never]}>
+      <Bird size={48} />
       <Text style={{ color: KIT.text, fontSize: 16, marginBottom: 12, textAlign: "center" }}>{props.reason ? t.signInPrompt + " " + props.reason : t.signInPrompt}</Text>
       <PrimaryButton title={t.signIn} onPress={() => setOpen(true)} />
       <SignInSheet visible={open} onClose={() => setOpen(false)} reason={props.reason} labels={props.labels} />

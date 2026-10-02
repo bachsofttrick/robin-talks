@@ -62,7 +62,7 @@ function Tabs() {
 function Splash() {
   return (
     <View style={styles.splash}>
-      <Bird size={36} />
+      <Bird size={72} />
     </View>
   );
 }
