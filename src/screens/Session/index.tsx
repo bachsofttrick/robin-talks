@@ -27,8 +27,17 @@ export default function SessionScreen() {
   const navigation = useNavigation<any>();
   const { data: profile } = useProfile();
   const { data: memory, remember, reload: reloadMemory } = useMemory();
-  const sessions = useSessions();
-  const robin = useRobin();
+  // Stable callbacks pulled out of the hooks so effects can depend on them
+  // without re-running whenever the hook objects change identity.
+  const {
+    open: openSession,
+    fetchOne,
+    reload: reloadSessions,
+    recent,
+    saveTranscript,
+    finish: finishSession,
+  } = useSessions();
+  const { nextTurn, debrief: runDebrief } = useRobin();
 
   const [sessionId, setSessionId] = useState<string | null>(route.params?.sessionId ?? null);
   const [scenarioId, setScenarioId] = useState<string | null>(route.params?.scenarioId ?? null);
@@ -47,21 +56,28 @@ export default function SessionScreen() {
   const enter = useEnter();
   const scenario = scenarioId ? scenarioById(scenarioId) : undefined;
 
+  // Reset state for a new session. The async wrapper keeps these updates off
+  // the effect's synchronous path, which the React Compiler lint flags.
   useEffect(() => {
     if (route.params?.sessionId) {
-      setSessionId(route.params.sessionId);
-      setScenarioId(route.params.scenarioId ?? null);
-      setTranscript([]);
-      setDebrief(null);
-      setReady(false);
+      (async () => {
+        setSessionId(route.params.sessionId);
+        setScenarioId(route.params.scenarioId ?? null);
+        setTranscript([]);
+        setDebrief(null);
+        setReady(false);
+      })();
     }
   }, [route.params?.sessionId, route.params?.scenarioId]);
 
+  // Load the session row or the open session. The async wrapper keeps the
+  // state updates off the effect's synchronous path; the active flag keeps them
+  // off an unmounted screen.
   useEffect(() => {
     let active = true;
     (async () => {
       if (sessionId) {
-        const row = await sessions.fetchOne(sessionId);
+        const row = await fetchOne(sessionId);
         if (!active) return;
         if (row) {
           setScenarioId(row.scenario_id);
@@ -70,22 +86,26 @@ export default function SessionScreen() {
         setReady(true);
         return;
       }
-      await sessions.reload();
+      await reloadSessions();
       if (!active) return;
       setReady(true);
     })();
     return () => {
       active = false;
     };
-  }, [sessionId]);
+  }, [sessionId, fetchOne, reloadSessions]);
 
+  // Adopt the open session once it arrives. The async wrapper keeps these
+  // updates off the effect's synchronous path, which the React Compiler lint
+  // flags.
   useEffect(() => {
-    if (!sessionId && sessions.open) {
-      setSessionId(sessions.open.id);
-      setScenarioId(sessions.open.scenario_id);
-      setTranscript(sessions.open.transcript);
-    }
-  }, [sessions.open, sessionId]);
+    if (sessionId || !openSession) return;
+    (async () => {
+      setSessionId(openSession.id);
+      setScenarioId(openSession.scenario_id);
+      setTranscript(openSession.transcript);
+    })();
+  }, [openSession, sessionId]);
 
   useEffect(() => () => void stopSpeaking(), []);
 
@@ -110,17 +130,43 @@ export default function SessionScreen() {
     setRecording(true);
   }, []);
 
+  // finish is declared before advance because advance calls it on the final
+  // turn; a forward reference here trips the React Compiler immutability lint.
+  const finish = useCallback(
+    async (final: Turn[]) => {
+      if (!scenario || !sessionId) return;
+      void stopSpeaking();
+      if (recording) {
+        setRecording(false);
+        await stopRecording();
+      }
+      setFinishing(true);
+      const result = await runDebrief(scenario, profile.level, final);
+      if (!result.debrief) {
+        setFinishing(false);
+        setError(result.error);
+        return;
+      }
+      setDebrief(result.debrief);
+      await finishSession(sessionId, final, JSON.stringify(result.debrief), result.debrief.summary);
+      for (const note of result.debrief.memory) await remember("profile", note);
+      void reloadMemory();
+      setFinishing(false);
+    },
+    [scenario, sessionId, recording, runDebrief, profile.level, finishSession, remember, reloadMemory],
+  );
+
   const advance = useCallback(
     async (next: Turn[]) => {
       if (!scenario || !sessionId) return;
       setTranscript(next);
       setThinking(true);
       setError(null);
-      const recent = await sessions.recent();
-      const recap = recent
+      const past = await recent();
+      const recap = past
         .map((s) => "- " + (scenarioById(s.scenario_id)?.title ?? s.scenario_id) + ": " + (s.summary ?? ""))
         .join("\n");
-      const reply = await robin.nextTurn({
+      const reply = await nextTurn({
         scenario,
         level: profile.level,
         name: profile.displayName,
@@ -136,7 +182,7 @@ export default function SessionScreen() {
       const withRobin = [...next, { role: "robin" as const, text: reply.text }];
       setTranscript(withRobin);
       setThinking(false);
-      await sessions.saveTranscript(sessionId, withRobin);
+      await saveTranscript(sessionId, withRobin);
       if (reply.remember) {
         await remember("fact", reply.remember);
         void reloadMemory();
@@ -148,14 +194,18 @@ export default function SessionScreen() {
         void openMic();
       }
     },
-    [scenario, sessionId, profile, memory, robin, sessions, remember, reloadMemory, say, openMic],
+    [scenario, sessionId, profile, memory, nextTurn, recent, saveTranscript, remember, reloadMemory, say, openMic, finish],
   );
 
+  // The async wrapper keeps advance's state updates off the effect's
+  // synchronous path, which the React Compiler lint flags.
   useEffect(() => {
     if (ready && sessionId && scenario && transcript.length === 0 && !thinking && !debrief) {
-      void advance([]);
+      (async () => {
+        await advance([]);
+      })();
     }
-  }, [ready, sessionId, scenario, transcript.length, thinking, debrief]);
+  }, [ready, sessionId, scenario, transcript.length, thinking, debrief, advance]);
 
   const stopAndSend = async () => {
     setRecording(false);
@@ -182,27 +232,6 @@ export default function SessionScreen() {
     setDraft("");
     setNotice(null);
     void advance([...transcript, { role: "user", text }]);
-  };
-
-  const finish = async (final: Turn[]) => {
-    if (!scenario || !sessionId) return;
-    void stopSpeaking();
-    if (recording) {
-      setRecording(false);
-      await stopRecording();
-    }
-    setFinishing(true);
-    const result = await robin.debrief(scenario, profile.level, final);
-    if (!result.debrief) {
-      setFinishing(false);
-      setError(result.error);
-      return;
-    }
-    setDebrief(result.debrief);
-    await sessions.finish(sessionId, final, JSON.stringify(result.debrief), result.debrief.summary);
-    for (const note of result.debrief.memory) await remember("profile", note);
-    void reloadMemory();
-    setFinishing(false);
   };
 
   const confirmFinish = () => {

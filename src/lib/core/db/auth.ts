@@ -21,7 +21,6 @@ export interface User {
 
 const BROKERED_SESSION_STORAGE_KEY = "borel-brokered-auth-session";
 let brokerToken: string | null = null;
-let brokerLoaded = false;
 let currentSession: Session = null;
 type Listener = (session: Session) => void;
 const listeners: Listener[] = [];
@@ -33,7 +32,6 @@ async function loadBrokerToken(): Promise<void> {
 
 async function setBrokerToken(session: Session, token: string | null): Promise<void> {
   currentSession = session;
-  brokerLoaded = true;
   forgetModeration();
   if (token)
     await AsyncStorage.setItem(BROKERED_SESSION_STORAGE_KEY, token);

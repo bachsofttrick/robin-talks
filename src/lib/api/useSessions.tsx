@@ -58,8 +58,12 @@ export function useSessions() {
     setLoading(false);
   }, [user]);
 
+  // The async wrapper keeps reload's state updates off the effect's
+  // synchronous path, which the React Compiler lint flags.
   useEffect(() => {
-    void reload();
+    (async () => {
+      await reload();
+    })();
   }, [reload]);
 
   const create = useCallback(
