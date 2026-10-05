@@ -54,6 +54,9 @@ export default function SessionScreen() {
   const [finishing, setFinishing] = useState(false);
   const [ready, setReady] = useState(false);
   const scroller = useRef<ScrollView | null>(null);
+  // Which session's opening turn was already requested, so a failed opening
+  // never re-fires from the auto-start effect below.
+  const openedRef = useRef<string | null>(null);
   const aliveRef = useRef(true);
   const turnRef = useRef(0);
   const enter = useEnter();
@@ -72,6 +75,7 @@ export default function SessionScreen() {
         setTranscript([]);
         setDebrief(null);
         setReady(false);
+        openedRef.current = null;
       })();
     }
   }, [route.params?.sessionId, route.params?.scenarioId, sessionId]);
@@ -227,13 +231,16 @@ export default function SessionScreen() {
   );
 
   // The async wrapper keeps advance's state updates off the effect's
-  // synchronous path, which the React Compiler lint flags.
+  // synchronous path, which the React Compiler lint flags. The ref guard keeps
+  // a failed opening request from re-firing this effect when thinking flips
+  // back to false with an empty transcript.
   useEffect(() => {
-    if (ready && sessionId && scenario && transcript.length === 0 && !thinking && !debrief) {
-      (async () => {
-        await advance([]);
-      })();
-    }
+    if (!ready || !sessionId || !scenario || transcript.length !== 0 || thinking || debrief) return;
+    if (openedRef.current === sessionId) return;
+    openedRef.current = sessionId;
+    (async () => {
+      await advance([]);
+    })();
   }, [ready, sessionId, scenario, transcript.length, thinking, debrief, advance]);
 
   const stopAndSend = async () => {
