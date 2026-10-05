@@ -178,16 +178,17 @@ export type AiChatResult = {
   detail: string | null;
 };
 
-const JSON_ONLY = "Reply with valid JSON only: no code fences, and no words before or after it.";
-
-/** The JSON-only instruction, added to the first system message (or as one) so there is still only one. */
-function asksForJson(messages: ChatMessage[]): ChatMessage[] {
-  const first = messages[0];
-  if (first && first.role === "system" && typeof first.content === "string") {
-    return [{ role: "system", content: first.content + String.fromCharCode(10, 10) + JSON_ONLY }, ...messages.slice(1)];
-  }
-  return [{ role: "system", content: JSON_ONLY }, ...messages];
-}
+/**
+ * An OpenRouter structured-output schema. With one, the reply is forced to
+ * match `schema` (OpenRouter's response_format json_schema), so it parses
+ * without the guesswork readJson() otherwise falls back on.
+ */
+export type AiJsonSchema = {
+  /** Schema name (a-z, A-Z, 0-9, underscores, dashes, max 64 chars). */
+  name: string;
+  /** The JSON Schema object the reply must satisfy. */
+  schema: Record<string, unknown>;
+};
 
 /** Where the object or list that starts at `start` ends, skipping brackets inside strings; -1 when it never does. */
 function balancedEnd(s: string, start: number): number {
@@ -306,7 +307,13 @@ function openRouterDetail(err: any, said: string | null): string | null {
 }
 
 /** One request to OpenRouter's chat completions, settled with a plain sentence whatever happens. */
-async function chatOnce(body: { model: string; messages: ChatMessage[]; temperature?: number; max_tokens?: number }): Promise<AiChatResult> {
+async function chatOnce(body: {
+  model: string;
+  messages: ChatMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  response_format?: ChatRequest["responseFormat"];
+}): Promise<AiChatResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
@@ -318,6 +325,8 @@ async function chatOnce(body: { model: string; messages: ChatMessage[]; temperat
           messages: toOpenRouterMessages(body.messages),
           temperature: body.temperature ?? undefined,
           maxTokens: body.max_tokens ?? undefined,
+          responseFormat: body.response_format ?? undefined,
+          provider: { only: ["openai"]},
         },
       },
       { signal: controller.signal, ...OPENROUTER_OPTIONS },
@@ -418,8 +427,10 @@ export const ai = {
   /** Curated ids. Do not invent others. Both answer today; "smart" is a stronger model for harder asks. */
   models: { fast: "openai/gpt-6-luna", smart: "openai/gpt-6-luna" },
   // json: true asks for JSON only and reads the reply into data (fences and
-  // words around it are fine); an answer that can't be read is asked for once more.
-  async chat(input: { model?: string; messages: ChatMessage[]; temperature?: number; max_tokens?: number; json?: boolean }): Promise<AiChatResult> {
+  // words around it are fine); pass a schema to force the reply through
+  // OpenRouter's structured outputs; an answer that can't be read is asked for
+  // once more.
+  async chat(input: { model?: string; messages: ChatMessage[]; temperature?: number; max_tokens?: number; jsonSchema?: AiJsonSchema }): Promise<AiChatResult> {
     try {
       if (!OPENROUTER_API_KEY) return chatFailure(AI_SAYS.failed, 0, { detail: "EXPO_PUBLIC_OPENROUTER_API_KEY is not set." });
       const withPhoto = input.messages.some((m) => typeof m.content !== "string" && m.content.some((part) => part.type === "image_url"));
@@ -445,9 +456,25 @@ export const ai = {
         const detail = err instanceof Error ? err.message : null;
         return chatFailure(detail === NO_PHOTO ? NO_PHOTO : AI_SAYS.photo, 0, { detail });
       }
-      if (input.json) messages = asksForJson(messages);
-      const body = { model: input.model || ai.models.fast, messages, temperature: input.temperature, max_tokens: input.max_tokens };
-      if (!input.json) return await chatOnce(body);
+      const schema = input.jsonSchema;
+      const response_format: ChatRequest["responseFormat"] | undefined = schema
+        ? {
+            type: "json_schema",
+            jsonSchema: {
+              name: schema.name,
+              strict: true,
+              schema: schema.schema
+            },
+          }
+        : undefined;
+      const body = {
+        model: input.model || ai.models.fast,
+        messages,
+        temperature: input.temperature,
+        max_tokens: input.max_tokens,
+        response_format,
+      };
+      if (!input.jsonSchema) return await chatOnce(body);
       let last: AiChatResult = chatFailure(AI_SAYS.unreadable, 0);
       for (let attempt = 0; attempt < 2; attempt++) {
         const r = await chatOnce(body);

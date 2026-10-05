@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { db } from "../core/db";
+import { db, AiJsonSchema } from "../core/db";
 import type { Scenario } from "./scenarios";
 import type { Turn } from "./useSessions";
 import type { MemoryNote } from "./useMemory";
@@ -18,6 +18,46 @@ export interface Debrief {
   memory: string[];
 }
 
+// Every field is required and additionalProperties is closed so OpenAI's
+// strict mode accepts the schema; optional values are unions with null.
+const TURN_SCHEMA: AiJsonSchema = {
+  name: "robin_turn",
+  schema: {
+    type: "object",
+    properties: {
+      text: { type: "string", description: "Robin's spoken turn, in character." },
+      complete: { type: "boolean", description: "True only when the scene's goal is finished." },
+      remember: { anyOf: [{ type: "string" }, { type: "null" }], description: "A durable fact about the learner to store, or null." },
+    },
+    required: ["text", "complete", "remember"],
+    additionalProperties: false,
+  },
+};
+
+const DEBRIEF_SCHEMA: AiJsonSchema = {
+  name: "robin_debrief",
+  schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string", description: "One or two sentences about the scene." },
+      mistakes: {
+        type: "array",
+        description: "Up to 5 corrections from the scene.",
+        items: {
+          type: "object",
+          properties: { said: { type: "string" }, better: { type: "string" } },
+          required: ["said", "better"],
+          additionalProperties: false,
+        },
+      },
+      tips: { type: "array", description: "2 to 3 short targeted tips.", items: { type: "string" } },
+      memory: { type: "array", description: "Up to 3 durable notes about the learner.", items: { type: "string" } },
+    },
+    required: ["summary", "mistakes", "tips", "memory"],
+    additionalProperties: false,
+  },
+};
+
 function systemPrompt(scenario: Scenario, level: string, name: string, memory: MemoryNote[], recap: string) {
   const mem = memory.length ? memory.map((m) => "- " + m.content).join("\n") : "Nothing yet.";
   return [
@@ -34,7 +74,6 @@ function systemPrompt(scenario: Scenario, level: string, name: string, memory: M
     "Keep each turn under 45 words.",
     "What you remember about this learner:\n" + mem,
     recap ? "Notes from their recent practice:\n" + recap : "",
-    'Reply as JSON: { "text": your spoken turn, "complete": true only when the scene\'s goal is finished, "remember": a durable fact about the learner to store, or null }.',
   ]
     .filter(Boolean)
     .join("\n");
@@ -63,7 +102,7 @@ export function useRobin() {
       if (args.transcript.length === 0) {
         messages.push({ role: "user" as const, content: "[The scene begins. Speak first, in character.]" });
       }
-      const res = await db.ai.chat({ messages, json: true, model: db.ai.models.fast });
+      const res = await db.ai.chat({ messages, jsonSchema: TURN_SCHEMA, model: db.ai.models.fast });
       const data = res.data as { text?: string; complete?: boolean; remember?: string | null } | null;
       if (!data || typeof data.text !== "string") {
         return { text: null, complete: false, remember: null, error: res.error ?? "Robin could not answer just now." };
@@ -81,7 +120,7 @@ export function useRobin() {
   const debrief = useCallback(async (scenario: Scenario, level: string, transcript: Turn[]) => {
     const script = transcript.map((t) => (t.role === "robin" ? "Robin: " : "Learner: ") + t.text).join("\n");
     const res = await db.ai.chat({
-      json: true,
+      jsonSchema: DEBRIEF_SCHEMA,
       model: db.ai.models.smart,
       messages: [
         {
@@ -91,7 +130,7 @@ export function useRobin() {
             level +
             " level scene (" +
             scenario.title +
-            "). Reply as JSON: { \"summary\": one or two sentences about the scene, \"mistakes\": up to 5 objects with said and better, \"tips\": 2 to 3 short targeted tips, \"memory\": up to 3 short durable notes about this learner's recurring mistakes, vocabulary or preferences }.",
+            ").",
         },
         { role: "user", content: script || "The learner ended before speaking." },
       ],
