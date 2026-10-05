@@ -54,11 +54,11 @@ import { Linking, Platform, Share } from "react-native";
 // to this.
 const loadedNativeModules = new Map();
 
-function nativeModule(nativeName, load) {
+function nativeModule(nativeName, load, web = false) {
   if (loadedNativeModules.has(nativeName)) return loadedNativeModules.get(nativeName);
   let loaded = null;
   try {
-    if (requireOptionalNativeModule(nativeName)) loaded = load() ?? null;
+    if ((web && Platform.OS === "web") || requireOptionalNativeModule(nativeName)) loaded = load() ?? null;
   } catch {
     loaded = null;
   }
@@ -73,8 +73,8 @@ const notificationsModule = () => nativeModule("ExpoNotificationScheduler", () =
 const clipboardModule = () => nativeModule("ExpoClipboard", () => require("expo-clipboard"));
 const locationModule = () => nativeModule("ExpoLocation", () => require("expo-location"));
 const appleAuthenticationModule = () => nativeModule("ExpoAppleAuthentication", () => require("expo-apple-authentication"));
-const audioModule = () => nativeModule("ExpoAudio", () => require("expo-audio"));
-const speechModule = () => nativeModule("ExpoSpeech", () => require("expo-speech"));
+const audioModule = () => nativeModule("ExpoAudio", () => require("expo-audio"), true);
+const speechModule = () => nativeModule("ExpoSpeech", () => require("expo-speech"), true);
 
 // Registered once at module load (this file is always imported, see App.js)
 // so a locally-scheduled notification actually shows a banner while the app
@@ -353,16 +353,19 @@ let recordingLimit = null;
 // applies the option-normalising prototype patch the hook relies on.
 function createRecorder(audio, options) {
   const { AudioModule, RecordingPresets } = audio;
+  // Native exposes AudioModule.AudioRecorder; expo-audio's web build exposes
+  // AudioRecorderWeb instead, so resolve whichever this platform has once.
+  const Recorder = AudioModule.AudioRecorder ?? AudioModule.AudioRecorderWeb;
   // Metering has to be requested up front. Without isMeteringEnabled the
   // status never carries a level, and the pause detector that reads
   // getRecordingStatus().metering has nothing to work with.
   if (options?.quality !== "low")
-    return new AudioModule.AudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
+    return new Recorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
   // expo-audio's low preset records Android as AMR in a 3GP file: not the
   // audio/m4a this shim reports, and not audio Borel AI can hear. AAC in M4A,
   // as on iOS, at the preset's own low bit rate, is both.
   const low = RecordingPresets.LOW_QUALITY;
-  return new AudioModule.AudioRecorder({
+  return new Recorder({
     ...low,
     // Same flag as the high preset above, so this preset reports a level too.
     isMeteringEnabled: true,
@@ -397,10 +400,14 @@ async function finalizeRecording(recorder, durationMs) {
   const uri = recorder.uri;
   if (!uri) return null;
   let size = 0;
+  let mimeType = "audio/m4a";
   try {
     const response = await fetch(uri);
     const blob = await response.blob();
     size = blob.size;
+    // The web recorder produces audio/webm rather than the native audio/m4a,
+    // so trust the blob's own type when it names an audio format.
+    if (typeof blob.type === "string" && blob.type.startsWith("audio/")) mimeType = blob.type;
   } catch {
     size = 0;
   }
@@ -412,8 +419,8 @@ async function finalizeRecording(recorder, durationMs) {
     uri,
     base64,
     durationMs,
-    mimeType: "audio/m4a",
-    fileName: "recording.m4a",
+    mimeType,
+    fileName: mimeType === "audio/webm" ? "recording.webm" : "recording.m4a",
     fileSize: size || (base64 ? Math.floor((base64.length * 3) / 4) : 0),
   };
 }
