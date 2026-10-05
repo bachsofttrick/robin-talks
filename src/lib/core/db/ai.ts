@@ -92,6 +92,7 @@ export type AiAudioInput = string | AiAudioRecording | { canceled?: boolean; rec
 // Said when there is no recording at all: recordAudio() was cancelled, or
 // stopRecording() found nothing to stop.
 const NO_RECORDING = "No recording was made.";
+const EMPTY_RECORDING = "empty-recording";
 const RECORDING_TOO_LONG = "That recording is too long to send, so try a shorter one.";
 const RECORDING_UNREADABLE = "That recording couldn't be read, so please record it again.";
 // The base64 of 3 MB: the most a phone encodes, and the most Borel forwards.
@@ -136,7 +137,7 @@ async function sendableAudio(input: AiAudioInput): Promise<{ data: string; forma
     if ((recording.fileSize || 0) > MAX_AUDIO_BYTES) throw new Error(RECORDING_TOO_LONG);
     return sendableAudio(recording.uri);
   }
-  throw new Error(NO_RECORDING);
+  throw new Error(EMPTY_RECORDING);
 }
 
 /** One request to one model: a minute is generous, and the app owns the retry loop. */
@@ -502,9 +503,11 @@ export const ai = {
         clip = await sendableAudio(input ? input.audio : null);
       } catch (err) {
         const detail = err instanceof Error ? err.message : null;
+        if (detail === EMPTY_RECORDING) return transcribeFailure(AI_SAYS.noSpeech, 0, detail);
         const said = detail === NO_RECORDING || detail === RECORDING_TOO_LONG ? detail : RECORDING_UNREADABLE;
         return transcribeFailure(said, 0, detail);
       }
+      if (!base64Body(clip.data).trim()) return transcribeFailure(AI_SAYS.noSpeech, 0, "The recording had no audio in it.");
       if (!(await askAiConsent("audio", AI_AUDIO_MODEL))) return transcribeFailure(AI_DECLINED, 0);
       return await transcribeOnce(clip);
     } catch (err) {

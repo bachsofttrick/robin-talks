@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { Keyboard, Mic, Send, Square, Volume2 } from "lucide-react-native";
+import { Keyboard, Mic, Send, Volume2, X } from "lucide-react-native";
 import { Screen, Notice, EmptyState } from "../../lib/ui";
 import { colors, fonts, iconStroke, radius, spacing, type } from "../../lib/ui/theme";
 import { Bird } from "../../lib/ui/Bird";
@@ -14,6 +14,7 @@ import { useSessions, Turn } from "../../lib/api/useSessions";
 import { useRobin, Debrief } from "../../lib/api/useRobin";
 import { db } from "../../lib/core/db";
 import {
+  cancelRecording,
   getPermissionStatus,
   requestPermission,
   speak,
@@ -53,6 +54,8 @@ export default function SessionScreen() {
   const [finishing, setFinishing] = useState(false);
   const [ready, setReady] = useState(false);
   const scroller = useRef<ScrollView | null>(null);
+  const aliveRef = useRef(true);
+  const turnRef = useRef(0);
   const enter = useEnter();
   const scenario = scenarioId ? scenarioById(scenarioId) : undefined;
 
@@ -114,13 +117,29 @@ export default function SessionScreen() {
     })();
   }, [openSession, sessionId]);
 
-  useEffect(() => () => void stopSpeaking(), []);
+  useEffect(
+    () => () => {
+      aliveRef.current = false;
+      cancelRecording();
+      void stopSpeaking();
+    },
+    [],
+  );
 
-  const say = useCallback((text: string) => {
-    void speak(text, { language: "en-US", rate: profile.level === "Beginner" ? 0.85 : 1 });
-  }, [profile.level]);
+  const say = useCallback(
+    (text: string) => speak(text, { language: "en-US", rate: profile.level === "Beginner" ? 0.85 : 1 }),
+    [profile.level],
+  );
+
+  const cancelAndDiscard = useCallback(() => {
+    void stopSpeaking();
+    cancelRecording();
+    setRecording(false);
+    setNotice(null);
+  }, []);
 
   const openMic = useCallback(async () => {
+    await stopSpeaking();
     const status = await getPermissionStatus("microphone");
     if (status === "denied") {
       setMicDenied(true);
@@ -141,6 +160,7 @@ export default function SessionScreen() {
   // turn; a forward reference here trips the React Compiler immutability lint.
   const finish = useCallback(
     async (final: Turn[]) => {
+      turnRef.current++;
       if (!scenario || !sessionId) return;
       void stopSpeaking();
       if (recording) {
@@ -194,7 +214,9 @@ export default function SessionScreen() {
         await remember("fact", reply.remember);
         void reloadMemory();
       }
-      say(reply.text);
+      const turn = ++turnRef.current;
+      await say(reply.text);
+      if (!aliveRef.current || turnRef.current !== turn) return;
       if (reply.complete) {
         void finish(withRobin);
       } else {
@@ -395,11 +417,26 @@ export default function SessionScreen() {
               style={styles.grow}
             />
           )}
-          <Pressable onPress={() => setTyping(true)} hitSlop={8} style={styles.switchButton}>
+          <Pressable
+            onPress={() => {
+              if (recording) cancelAndDiscard();
+              setTyping(true);
+            }}
+            hitSlop={8}
+            style={styles.switchButton}
+          >
             <Keyboard size={20} color={colors.textSecondary} strokeWidth={iconStroke} />
           </Pressable>
           {recording ? (
-            <Square size={16} color={colors.accent2} strokeWidth={iconStroke} style={styles.recDot} />
+            <Pressable
+              onPress={cancelAndDiscard}
+              hitSlop={8}
+              style={styles.switchButton}
+              accessibilityRole="button"
+              accessibilityLabel="Stop recording and discard"
+            >
+              <X size={20} color={colors.accent2} strokeWidth={iconStroke} />
+            </Pressable>
           ) : null}
         </View>
       )}

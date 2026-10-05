@@ -228,6 +228,20 @@ describe("ai.transcribe transport", () => {
     expect(res.error).toBe(AI_NO_SPEECH);
   });
 
+  test("an empty base64 recording reports no words without any request", async () => {
+    const res = await ai.transcribe({ audio: { base64: "", mimeType: "audio/m4a" } });
+    expect(res.error).toBe(AI_NO_SPEECH);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("a uri-only recording that reads back empty reports no words without a request", async () => {
+    fetchMock.mockResolvedValue({ blob: async () => new Blob([]), size: 0 });
+    const res = await ai.transcribe({ audio: { uri: "file://empty.m4a", fileSize: 0 } });
+    expect(res.error).toBe(AI_NO_SPEECH);
+    const transcriptionCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes("audio/transcriptions"));
+    expect(transcriptionCalls).toHaveLength(0);
+  });
+
   test("an oversized recording is refused before any request", async () => {
     const res = await ai.transcribe({ audio: { uri: "file://big.m4a", fileSize: 4000000 } });
     expect(res.error).toBe(RECORDING_TOO_LONG);
