@@ -1,5 +1,6 @@
 # Ignore playwright
 .playwright-cli
+.playwright-mcp
 
 node_modules/
 .expo/
