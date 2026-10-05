@@ -21,7 +21,7 @@ import {
   startRecording,
   stopRecording,
   stopSpeaking,
-} from "../../../borel-systemui";
+} from "../../lib/core/borel/borel-systemui";
 
 export default function SessionScreen() {
   const route = useRoute<any>();

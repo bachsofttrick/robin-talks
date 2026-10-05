@@ -19,8 +19,7 @@ export default defineConfig([
       "src/lib/core/auth.tsx",
       "src/lib/core/legal.tsx",
       "src/lib/ui/fonts.tsx",
-      "borel-store.js",
-      "borel-systemui.js",
+      "src/lib/core/borel/*",
     ],
   },
 ]);

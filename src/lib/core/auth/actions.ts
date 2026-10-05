@@ -1,5 +1,5 @@
 import { db, authCall, adoptSession, appleCall } from "../db";
-import { signInWithApple as appleSheet } from "../../../../borel-systemui";
+import { signInWithApple as appleSheet } from "../borel/borel-systemui";
 import type { User, AuthResult } from "./types";
 import { SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession } from "./errors";
 import { AUTH_REDIRECT_URL, APPLE_IN_PREVIEW, WRONG_CURRENT_PASSWORD } from "./constants";

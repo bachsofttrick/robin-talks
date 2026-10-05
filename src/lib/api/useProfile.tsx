@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { db, plainError } from "../core/db";
 import { useAuth } from "../core/auth";
-import { createStore } from "../../../borel-store";
+import { createStore } from "../core/borel/borel-store";
 import type { Level } from "./scenarios";
 
 export interface Profile {
