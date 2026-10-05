@@ -151,16 +151,18 @@ describe("ai.chat error mapping", () => {
 });
 
 describe("ai.chat JSON replies", () => {
+  const SCHEMA = { name: "test", schema: { type: "object" } };
+
   test("json reads an object surrounded by words", async () => {
     sendMock.mockResolvedValue(choice('Here you go: {"action":"reply","text":"hi"}'));
-    const res = await ai.chat({ messages: [{ role: "user", content: "hi" }], jsonSchema: true });
+    const res = await ai.chat({ messages: [{ role: "user", content: "hi" }], jsonSchema: SCHEMA });
     expect(res.error).toBeNull();
     expect(res.data).toEqual({ action: "reply", text: "hi" });
   });
 
   test("two unreadable replies resolve as the unreadable sentence", async () => {
     sendMock.mockResolvedValue(choice("not json at all"));
-    const res = await ai.chat({ messages: [{ role: "user", content: "hi" }], jsonSchema: true });
+    const res = await ai.chat({ messages: [{ role: "user", content: "hi" }], jsonSchema: SCHEMA });
     expect(res.error).toBe(AI_UNREADABLE);
     expect(res.data).toBeNull();
     expect(sendMock).toHaveBeenCalledTimes(2);
@@ -168,7 +170,7 @@ describe("ai.chat JSON replies", () => {
 
   test("a truncated JSON reply reports the too long sentence", async () => {
     sendMock.mockResolvedValue(choice('{"action":"rep', "length"));
-    const res = await ai.chat({ messages: [{ role: "user", content: "hi" }], jsonSchema: true });
+    const res = await ai.chat({ messages: [{ role: "user", content: "hi" }], jsonSchema: SCHEMA });
     expect(res.error).toBe(AI_TOO_LONG);
     expect(res.data).toBeNull();
   });
@@ -183,7 +185,7 @@ describe("ai.chat JSON replies", () => {
       type: "json_schema",
       jsonSchema: { name: "robin_turn", strict: true, schema: { type: "object" } },
     });
-    expect(request.provider).toEqual({ requireParameters: true });
+    expect(request.provider).toEqual({ only: ["openai"] });
   });
 });
 
