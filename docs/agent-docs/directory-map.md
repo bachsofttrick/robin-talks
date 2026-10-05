@@ -13,7 +13,7 @@ robin-talks/
 │   ├── navigation/
 │   │   ├── index.tsx          Barrel for the navigation module.
 │   │   ├── NavigationContainer.tsx  React Navigation theme built from the app colours.
-│   │   └── RootNavigator.tsx  Native stack (Onboarding vs Tabs) and the bottom tab navigator.
+│   │   └── RootNavigator.tsx  Native stack (signed-out Practice, Splash, Onboarding vs Tabs) and the bottom tab navigator.
 │   ├── screens/
 │   │   ├── index.tsx          Barrel exporting the four screens.
 │   │   ├── Onboarding/index.tsx  Name + level form; saves the learner profile.
@@ -39,9 +39,9 @@ robin-talks/
 │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
 │       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native), tellScreens.
 │       │   │   ├── storage.ts    File upload/presign and account deletion.
-│       │   │   ├── ai.ts         OpenRouter chat/transcribe + Borel image/editImage.
-│       │   │   ├── moderation.ts Report/block/check content.
-│       │   │   ├── moderation-state.ts  Report/block cache, shared with auth.
+│       │   │   ├── ai.ts         OpenRouter chat/transcribe (AiJsonSchema structured output) + Borel image/editImage.
+│       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration.
+│       │   │   ├── moderation-state.ts  Reported/blocked cache, imported by db/auth.ts.
 │       │   │   └── notify.ts     borelFetch, push notify, device linking.
 │       │   └── auth/
 │       │       ├── types.ts      User, Session, AuthResult.
@@ -53,7 +53,7 @@ robin-talks/
 │       │       ├── controls.tsx  Field, PrimaryButton, LinkButton, AppleButton, Problem, Note.
 │       │       ├── SignInFlow.tsx   Multi-step sign in / sign up / confirm / reset.
 │       │       ├── SignInSheet.tsx  SignInFlow in a modal.
-│       │       ├── RequireAccount.tsx  Signed-out card gate.
+│       │       ├── RequireAccount.tsx  Signed-out bird + sign-in card gate.
 │       │       └── AccountPanel.tsx    Signed-in account screen.
 │       ├── ui/                Shared visual kit (see ui-kit.md).
 │       │   ├── index.tsx      Barrel for all components.

@@ -79,4 +79,4 @@ chat and speech-to-text go directly to OpenRouter.
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: b36073d36b262aabd3094853852dee07850d6e21 -->
+<!-- docs-baseline: 9bc1122b0d701b6734b5a06e8b6e2ec77009c209 -->

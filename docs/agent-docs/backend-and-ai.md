@@ -51,10 +51,17 @@ tables' row-level security policies.
   still use `borelFetch` and Borel's refusal handling.
 - **Moderation** (`BOREL_ACCOUNT`'s sibling `/moderation`,
   `src/lib/core/db/moderation.ts`): report, block/unblock, load state, and
-  `check(text)`.
+  `check(text)`. The reported/blocked cache lives in
+  `src/lib/core/db/moderation-state.ts`, which `db/auth.ts` imports directly so
+  `auth` can forget a person's state on sign-in and sign-out without importing
+  the client, which needs auth for its bearer token. `moderation.ts` re-exports
+  `forgetModeration` from there.
 - **Notifications** (`src/lib/core/db/notify.ts`): `borelFetch(url, body,
   timeoutMs)` (used by image generation), `notify.notify(input)` to push to named
-  users, and device-token linking that follows the signed-in user.
+  users, and device-token linking that follows the signed-in user. This file also
+  runs `watchDevice()` at import time. Telling the screens who is signed in
+  lives in `db/auth.ts` as `tellScreens` and `announceSessionChanges`, because
+  it has to wrap the auth client's own methods.
 
 ## OpenRouter AI (`src/lib/core/db/ai.ts`)
 
@@ -70,11 +77,17 @@ generation stays on Borel.
   `openai/gpt-6-luna`. Transcribed audio uses `AI_AUDIO_MODEL`
   (`qwen/qwen3-asr-0.6b`, `src/lib/core/db/consent.ts:21`).
 - **Chat:** `chat(input)` sends one request with a 60 s `AbortController` timeout.
-  With `json: true` it appends a JSON-only instruction (`asksForJson`), parses the
-  reply with `readJson` (code fences and surrounding words tolerated; balanced
-  object/list search), and retries once on an unreadable reply. A `finishReason
-  === "length"` reply sets `truncated`. Photos in message parts are turned into
+  It takes `jsonSchema?: AiJsonSchema`, which becomes OpenRouter's
+  `response_format` `{ type: "json_schema", jsonSchema: { name, strict: true,
+  schema } }`; every request also pins `provider: { only: ["openai"] }`. With a
+  schema, the reply is parsed with `readJson` (code fences and surrounding words
+  tolerated; balanced object/list search) and retried once when it cannot be
+  read; without one the reply comes back as plain text. A `finishReason ===
+  "length"` reply sets `truncated`. Photos in message parts are turned into
   `data:` URLs by `sendableImage` before sending.
+- **Schema type:** `AiJsonSchema` (`{ name, schema }`) is exported from
+  `ai.ts`, so callers describe the shape they want instead of asking for JSON in
+  prose. `src/lib/api/useRobin.tsx` is its only current caller.
 - **Transcribe:** `transcribe(input)` turns a recording into raw base64 with a
   short format name (`sendableAudio`, `audioFormatOf`), enforces a 3 MB / 4 MB
   cap client-side, then POSTs `{ model, input_audio: { data, format } }` to

@@ -30,7 +30,7 @@ Voice recording, text-to-speech, and microphone permissions need a real device o
 | `bun run ios` / `bun run android` / `bun run web` | Start on one platform |
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run lint` | `eslint .` with the `eslint-config-expo` flat config |
-| `bun run test` | `jest` with the `jest-expo` preset (5 suites, 53 tests) |
+| `bun run test` | `jest` with the `jest-expo` preset (5 suites, 54 tests) |
 
 A `bun.lock` is present, so Bun is the package manager. The commands above use `bun install` as the default path.
 

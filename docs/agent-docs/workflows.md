@@ -39,13 +39,13 @@ transpilable. Test files are colocated with source as `*.test.ts`:
 
 | File | Covers |
 |---|---|
-| `src/lib/core/db/ai.test.ts` | chat transport, error mapping, JSON retry, photo encoding, transcribe |
+| `src/lib/core/db/ai.test.ts` | chat transport, error mapping, JSON read and retry, structured-output response format, photo encoding, transcribe |
 | `src/lib/core/db/consent.test.ts` | consent wording/keys and the ask-once flow |
 | `src/lib/core/auth/errors.test.ts` | `authErrorMessage` translation |
 | `src/lib/core/auth/labels.test.ts` | `labelsWith` overrides |
 | `src/lib/polyfills/responsePolyfill.test.ts` | `Response.json` polyfill |
 
-Current totals: 5 suites, 53 tests. Tests mock `./config`, `./notify`,
+Current totals: 5 suites, 54 tests. Tests mock `./config`, `./notify`,
 `./consent`, and `@openrouter/sdk` rather than making network calls.
 
 ## Lint
@@ -55,9 +55,10 @@ bun run lint       # eslint .
 ```
 
 `eslint.config.mjs` uses `eslint-config-expo/flat.js` and ignores `dist/*`,
-`.expo/*`, `core/*`, `borel-store.js`, and `borel-systemui.js`. Note the
-`core/*` pattern does not match the generated files under `src/lib/core/`, so
-those files are still linted despite the config comment.
+`.expo/*`, `borel-store.js`, `borel-systemui.js`, and the five Borel-managed
+files by path (`src/index.tsx`, `src/lib/core/db.ts`, `src/lib/core/auth.tsx`,
+`src/lib/core/legal.tsx`, `src/lib/ui/fonts.tsx`). The implementation in
+`src/lib/core/db/` and `src/lib/core/auth/` is linted.
 
 ## Typecheck
 

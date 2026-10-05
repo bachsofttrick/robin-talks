@@ -25,6 +25,11 @@ Re-exports types (`User`, `Session`, `AuthResult`), constants
 - `useAuth()` throws outside the provider. `useKitSession()` is the providerless
   variant: it reads the context when present, otherwise subscribes on its own, so
   account UI also works in apps that never mount `AuthProvider`.
+- `loading` is what the rest of the app gates on: `RootNavigator` holds its
+  splash while it is true, so a launch with a stored session never flashes the
+  signed-out screen. Settings waits on `memory.loading` and `sessions.loading`
+  before showing the "Your data" counts, so those numbers never read as zero
+  while the reads are in flight.
 
 ## Actions (`src/lib/core/auth/actions.ts`)
 
@@ -66,12 +71,25 @@ failure.
   the Data API client returns the handle or `"bps_anon"`.
 - `adoptSession(setCookie)` is used by Sign in with Apple to keep Borel's session
   like a normal one.
+- **Telling the screens (`tellScreens`):** the sign-in adapter reports the session
+  once, when a screen subscribes, so a sign-in, a confirmed code, or a sign-out
+  reached no mounted screen. `announceSessionChanges()` runs at import and wraps
+  `signInWithPassword`, `signUp`, `verifyOtp`, and `signOut` so each calls
+  `tellScreens()` afterwards, and wraps `onAuthStateChange` so subscribers are
+  held in `phoneSubscribers`. `tellScreens` calls `forgetModeration()` (imported
+  from `moderation-state`, so the two modules do not import each other), forces a
+  fresh `getSession({ forceFetch: true })`, then notifies every subscriber with
+  `SIGNED_IN` or `SIGNED_OUT`. It returns early in the browser, where the broker
+  announces its own listeners.
 
 ## Account UI
 
 - `RequireAccount` (`RequireAccount.tsx`) renders `null` while loading, the
-  children when signed in, and otherwise a short sign-in card with a button that
-  opens `SignInSheet`. Used by Practice and Settings.
+  children when signed in, and otherwise a centred card holding the Robin `Bird`
+  mark, the `signInPrompt` label with the optional `reason` appended, and a button
+  that opens `SignInSheet`. Practice passes "to practise with Robin" and Settings
+  "to manage your practice". It reads `useKitSession()`, so it works with or
+  without `AuthProvider` above it.
 - `SignInFlow` (`SignInFlow.tsx`) is one component with steps `signIn`, `signUp`,
   `confirm`, `forgot`, `reset`. It shows the Terms and Privacy links on the
   sign-up step, and the `Continue with Apple` button when

@@ -36,6 +36,11 @@ radii, hairline edges. Exported tokens:
 - `EmptyState`, `SectionHeader`, `Bird` (the Robin SVG mark), `Texture` (`Paper`,
   the grain overlay), `ErrorHandler` (a class error boundary that reports to
   `globalThis.__borelRenderError` when present).
+- `Bird` marks the app brand in every screen: the hero and resume card in
+  Practice, the header and each active level in Onboarding, the empty state and
+  each Robin turn in Session, the Settings header, the `RootNavigator` splash
+  (`src/navigation/RootNavigator.tsx:62-68`), and the signed-out card
+  (`src/lib/core/auth/RequireAccount.tsx:31`).
 - `TabBar` (`TabBar.tsx`): `useTabBarOptions({ background, border, active,
   inactive })` returns bottom-tab `screenOptions` with a 62 pt bar composed with
   the device's bottom inset.
