@@ -26,5 +26,5 @@ export const PASSWORD_RESET_AVAILABLE = true;
 /** Where a subscription is cancelled. Deleting an account here does not cancel one. */
 export const MANAGE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
 
-/** True in Borel's browser preview, where the session is held for the app. */
+/** True in a browser (Expo web preview). There the app uses the backend session, not a Borel-held one. */
 export const IN_PREVIEW = typeof document !== "undefined";

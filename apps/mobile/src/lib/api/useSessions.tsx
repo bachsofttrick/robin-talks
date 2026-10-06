@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { db, plainError } from "../core/db";
-import { IN_BROWSER } from "../core/db/config";
+import { plainError } from "../core/db";
 import {
   createSession,
   deleteAllSessions,
@@ -53,24 +52,9 @@ export function useSessions() {
     setLoading(true);
     let next: PracticeSession | null = null;
     let failure: string | null = null;
-    if (IN_BROWSER) {
-      const res = await db
-        .from("practice_sessions")
-        .select("id, scenario_id, transcript, debrief, ended_at, started_at, summary")
-        .eq("user_id", user.id)
-        .is("ended_at", null)
-        .order("started_at", { ascending: false })
-        .limit(1);
-      if (res.error) failure = plainError(res.error, "load");
-      else {
-        const rows = (res.data ?? []) as Record<string, unknown>[];
-        next = rows.length ? asSession(rows[0]) : null;
-      }
-    } else {
-      const res = await getOpenSession();
-      if (res.error) failure = plainError(res.error, "load");
-      else next = res.data ? asSession(res.data as unknown as Record<string, unknown>) : null;
-    }
+    const res = await getOpenSession();
+    if (res.error) failure = plainError(res.error, "load");
+    else next = res.data ? asSession(res.data as unknown as Record<string, unknown>) : null;
     setError(failure);
     setOpen(next);
     setLoading(false);
@@ -87,13 +71,7 @@ export function useSessions() {
   const create = useCallback(
     async (scenarioId: string) => {
       if (!user) return { id: null as string | null, error: "You need an account first." };
-      const res = IN_BROWSER
-        ? await db
-            .from("practice_sessions")
-            .insert({ user_id: user.id, scenario_id: scenarioId, transcript: [] })
-            .select("id")
-            .single()
-        : await createSession(scenarioId);
+      const res = await createSession(scenarioId);
       if (res.error) return { id: null as string | null, error: plainError(res.error, "save") };
       return { id: String((res.data as { id: string }).id), error: null as string | null };
     },
@@ -101,57 +79,31 @@ export function useSessions() {
   );
 
   const fetchOne = useCallback(async (id: string) => {
-    if (IN_BROWSER) {
-      const res = await db
-        .from("practice_sessions")
-        .select("id, scenario_id, transcript, debrief, ended_at, started_at, summary")
-        .eq("id", id)
-        .maybeSingle();
-      if (res.error || !res.data) return null;
-      return asSession(res.data as Record<string, unknown>);
-    }
     const res = await getSession(id);
     if (res.error || !res.data) return null;
     return asSession(res.data as unknown as Record<string, unknown>);
   }, []);
 
   const saveTranscript = useCallback(async (id: string, transcript: Turn[]) => {
-    const res = IN_BROWSER
-      ? await db.from("practice_sessions").update({ transcript }).eq("id", id)
-      : await updateSession(id, { transcript });
+    const res = await updateSession(id, { transcript });
     return res.error ? plainError(res.error, "save") : null;
   }, []);
 
   const finish = useCallback(async (id: string, transcript: Turn[], debrief: string, summary: string) => {
-    const res = IN_BROWSER
-      ? await db
-          .from("practice_sessions")
-          .update({ transcript, debrief, summary, ended_at: new Date().toISOString() })
-          .eq("id", id)
-      : await updateSession(id, { transcript, debrief, summary, ended_at: new Date().toISOString() });
+    const res = await updateSession(id, { transcript, debrief, summary, ended_at: new Date().toISOString() });
     return res.error ? plainError(res.error, "save") : null;
   }, []);
 
   const recent = useCallback(async () => {
     if (!user) return [] as PracticeSession[];
-    const res = IN_BROWSER
-      ? await db
-          .from("practice_sessions")
-          .select("id, scenario_id, transcript, debrief, ended_at, started_at, summary")
-          .eq("user_id", user.id)
-          .not("ended_at", "is", null)
-          .order("started_at", { ascending: false })
-          .limit(5)
-      : await getRecentSessions();
+    const res = await getRecentSessions();
     if (res.error || !res.data) return [] as PracticeSession[];
-    return (res.data as Record<string, unknown>[]).map(asSession);
+    return (res.data as unknown as Record<string, unknown>[]).map(asSession);
   }, [user]);
 
   const clearAll = useCallback(async () => {
     if (!user) return "You need an account first.";
-    const res = IN_BROWSER
-      ? await db.from("practice_sessions").delete().eq("user_id", user.id)
-      : await deleteAllSessions();
+    const res = await deleteAllSessions();
     if (res.error) return plainError(res.error, "save");
     setOpen(null);
     return null;

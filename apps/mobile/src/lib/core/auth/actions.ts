@@ -1,5 +1,4 @@
 import { db, authCall } from "../db";
-import { IN_BROWSER } from "../db/config";
 import { upsertProfile } from "../db/data";
 import type { User, AuthResult } from "./types";
 import { SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession } from "./errors";
@@ -112,8 +111,7 @@ export async function confirmEmail(email: string, code: string): Promise<AuthRes
 }
 
 /**
- * The live better-auth client behind the Supabase-shaped auth adapter. Borel's
- * browser preview has no such instance, so its callers fall back to a message.
+ * The live better-auth client behind the Supabase-shaped auth adapter.
  */
 function betterAuthInstance(): any {
   return (db.auth as unknown as { getBetterAuthInstance?: () => any }).getBetterAuthInstance?.();
@@ -127,8 +125,7 @@ export async function updatePassword(password: string, currentPassword?: string)
   if (!currentPassword) return failed("Enter your current password first.");
   try {
     const better = betterAuthInstance();
-    // Only the preview has no password change of its own (the session lives on Borel there).
-    if (!better || !better.changePassword) return failed("You can change your password in the app on your phone.");
+    if (!better || !better.changePassword) return failed("Your password couldn't be changed. Please try again.");
     const res = await better.changePassword({ newPassword: password, currentPassword, revokeOtherSessions: false });
     if (!res || !res.error) return SUCCESS;
     const said = String(res.error.message || res.error.code || "").toLowerCase().replace(/_/g, " ");
@@ -175,24 +172,11 @@ export async function syncProfile(user: User | null | undefined): Promise<void> 
   if (!user || !user.id || synced.has(user.id)) return;
   synced.add(user.id);
   try {
-    if (IN_BROWSER) {
-      await db.from("profiles").upsert(
-        {
-          id: user.id,
-          email: user.email ?? null,
-          display_name: (user.name as string | undefined) ?? null,
-          avatar_url: (user.image as string | undefined) ?? null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      );
-    } else {
-      await upsertProfile({
-        email: user.email ?? null,
-        display_name: (user.name as string | undefined) ?? null,
-        avatar_url: (user.image as string | undefined) ?? null,
-      });
-    }
+    await upsertProfile({
+      email: user.email ?? null,
+      display_name: (user.name as string | undefined) ?? null,
+      avatar_url: (user.image as string | undefined) ?? null,
+    });
   } catch {
     synced.delete(user.id);
   }

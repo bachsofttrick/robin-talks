@@ -3,6 +3,7 @@ import { useMemory } from "./useMemory";
 import { useProfile } from "./useProfile";
 import { useSessions } from "./useSessions";
 import { syncProfile } from "../core/auth/actions";
+import { db } from "../core/db";
 import * as data from "../core/db/data";
 
 jest.mock("../core/auth", () => {
@@ -17,7 +18,14 @@ jest.mock("../core/db/config", () => ({
 
 jest.mock("../core/db", () => {
   const { plainError } = jest.requireActual("../core/db/errors");
-  return { db: {}, plainError };
+  return {
+    db: {
+      from: jest.fn(() => {
+        throw new Error("Borel db.from reached");
+      }),
+    },
+    plainError,
+  };
 });
 
 jest.mock("../core/db/data", () => ({
@@ -65,6 +73,8 @@ const listMemoryMock = data.listMemory as unknown as jest.Mock;
 const addMemoryMock = data.addMemory as unknown as jest.Mock;
 const deleteAllMemoryMock = data.deleteAllMemory as unknown as jest.Mock;
 const upsertProfileMock = data.upsertProfile as unknown as jest.Mock;
+
+const fromMock = (db as unknown as { from: jest.Mock }).from;
 
 const LOAD_FAILED = "Couldn't load this right now, so please try again.";
 const SAVE_FAILED = "That didn't save, so check your connection and try again.";
@@ -205,6 +215,49 @@ describe("useSessions", () => {
         "recent",
         "clearAll",
       ].sort(),
+    );
+  });
+});
+
+describe("backend data client on both surfaces", () => {
+  test("useProfile reaches ../core/db/data and never Borel db.from", async () => {
+    const { result } = await renderHook(() => useProfile());
+    await waitFor(() => expect(getProfileMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(Object.keys(result.current).sort()).toEqual(
+      ["data", "loading", "error", "reload", "save"].sort(),
+    );
+  });
+
+  test("useSessions reaches ../core/db/data and never Borel db.from", async () => {
+    const { result } = await renderHook(() => useSessions());
+    await waitFor(() => expect(getOpenSessionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(Object.keys(result.current).sort()).toEqual(
+      [
+        "open",
+        "loading",
+        "error",
+        "reload",
+        "create",
+        "fetchOne",
+        "saveTranscript",
+        "finish",
+        "recent",
+        "clearAll",
+      ].sort(),
+    );
+  });
+
+  test("useMemory reaches ../core/db/data and never Borel db.from", async () => {
+    const { result } = await renderHook(() => useMemory());
+    await waitFor(() => expect(listMemoryMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(Object.keys(result.current).sort()).toEqual(
+      ["data", "loading", "error", "reload", "remember", "clearAll"].sort(),
     );
   });
 });
