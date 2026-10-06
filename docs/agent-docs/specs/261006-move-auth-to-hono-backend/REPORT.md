@@ -3,7 +3,7 @@
 Feature: `261006-move-auth-to-hono-backend`
 Method: Spec-Driven Development (sdd), no plan mode, no human acceptance gates.
 Review authority: `adversaral-agent` at every phase gate (spec, plan, tasks).
-Status: `SPEC.md` verified, `TASKS.md` complete, with one verified update recorded in the spec's Change Log.
+Status: `SPEC.md` verified, `TASKS.md` complete, with two verified updates recorded in the spec's Change Log.
 
 ## Summary
 
@@ -17,10 +17,19 @@ longer depends on Borel for auth or its data (AC-15 through AC-20).
 
 All 20 acceptance criteria passed verification. All quality gates are green:
 backend `lint`, `typecheck`, `test` (78 tests), `build`; mobile `lint`, `typecheck`,
-`test` (104 tests). File storage, AI image generation, moderation, notifications, and
-the browser preview remain on Borel and are not called by the app's screens.
+`test` (104 tests).
 
-## Adversarial review passes: 17 total
+A second update then moved the browser preview off Borel as well: its brokered session
+and Borel `db.from` reads/writes were replaced by the same backend better-auth client
+and authenticated `/api/data/*` data client the device app uses, and the backend now
+serves CORS with credentials on `/api/data/*` (AC-21 through AC-29). All 29 acceptance
+criteria are verified. The final gates are backend `lint`, `typecheck`, `test`
+(84 tests), `build`; mobile `lint`, `typecheck`, `test` (10 suites, 122 tests). File
+storage, AI image generation, moderation, notifications, and the account/usage/invite
+links remain on Borel and are not called by the app's screens; chat and speech-to-text
+go straight to OpenRouter.
+
+## Adversarial review passes: 30 total
 
 Original feature (11):
 
@@ -48,6 +57,24 @@ Update: mobile repoint and data migration (6):
 | Spec | 4 | **Approved as amendment.** |
 | Tasks | 1 | Not approved. 5 blockers (B1-B5): drizzle camelCase response keys, missing 401 test, vague isolation test, delete-by-id vs delete-all mismatch, mobile test cannot import the data client. |
 | Tasks | 2 | **Approved as-is.** |
+
+Update: browser preview (13):
+
+| Phase | Pass | Session result |
+|---|---|---|
+| Spec | 1 | Not approved. 9 blockers (B1-B9): AC-15/AC-18 still asserted the old browser bindings, browser auth-state notification missing, no CORS on `/api/data`, Jest cannot load the ESM SDK, runtime-only AC-22 claims, AC-25 disposal disjunction, wrong `actions.ts` citations, `getBetterAuthInstance` omitted, imprecise AC-26. |
+| Spec | 2 | Not approved. 3 blockers: AC-21/AC-28 mutually unsatisfiable (same-tab `onAuthStateChange`), AC-26/AC-29 unreachable without `TRUSTED_ORIGINS`, scope ranges still said AC-27. |
+| Spec | 3 | Not approved. 1 blocker: extending `transformIgnorePatterns` cannot load the ESM `.mjs` adapter. |
+| Spec | 4 | Not approved. 3 blockers: `db/auth.ts` cannot load under Jest (AsyncStorage), the URL assertion was vacuous, AC-13 did not cover change-password/delete-user. |
+| Spec | 5 | Not approved. 2 blockers: "no plugins" did not pin `credentials`, AC-13 `changePassword` needed a body (else GET). |
+| Spec | 6 | Not approved. 1 blocker: `createClient` dereferences `dataApi`, so an auth-only config throws. |
+| Spec | 7 | **Approved.** |
+| Plan | 1 | Not approved. 5 blockers: `browser-auth.ts` import contradiction, non-hermetic backend origin test, stale comments/dead imports, unpinned `credentials`/cross-tab mechanisms, AC-27 had no plan item. |
+| Plan | 2 | Not approved. 1 blocker: a third CORS mechanism that asserted nothing. |
+| Plan | 3 | **Approved.** |
+| Tasks | 1 | Not approved. 5 blockers: T16 lacked the non-403 acceptance proof, `delete-user` routing in the wrong file, T20 missing the SDK mock, T21 browser cases unreachable, T16 Do/Done-when contradiction. |
+| Tasks | 2 | Not approved. 5 blockers: T21 `actions.test.ts` transitively loads the ESM SDK, `isolateModules` causes a duplicate React, vacuous constants assertions, T16 Done-when unsatisfiable, coverage map self-inconsistent. |
+| Tasks | 3 | **Approved.** |
 
 Every blocking issue was fixed and re-reviewed until the reviewer approved, with no
 human sign-off used.
@@ -165,6 +192,60 @@ One `codebase-explorer` subagent updated `CLAUDE.md`, `README.md`,
 `directory-map.md`, and `workflows.md` to remove the "not repointed" claims and
 document the backend data API. Committed with the spec artifacts as `43bc143`.
 
+## Update: browser preview auth and data
+
+The request moved the browser preview's auth to the backend (the requester also chose
+to move its app data, since the Borel broker token that authorized `db.from`
+disappears once auth moves). Classified as an **update** to a verified feature:
+`SPEC.md` was reopened to `draft`, extended with AC-21 through AC-29 and revised
+Overview/User Stories/Edge Cases/Non-Goals/Q-1 (plus AC-13/AC-15/AC-18 supersession
+notes), and approved by the reviewer before any code changed.
+
+### Phase 1-3 (browser update)
+
+1. Scoped the change by reading the browser branches: `IN_BROWSER` selects `brokerAuth`
+   and the Borel `db.from` client in `db/auth.ts`/`db.ts`, and the hooks plus
+   `syncProfile` branch on it.
+2. Amended `SPEC.md` (AC-21 browser auth repoint, AC-22 browser cookies, AC-23 browser
+   data layer, AC-24 unified `authCall`/account actions, AC-25 Borel auth no longer
+   selected, AC-26 browser origin/CORS, AC-27 gates, AC-28 browser auth-state
+   notification, AC-29 data CORS). Seven adversarial passes resolved: the Jest ESM
+   transform trap (mock the SDK or split `browser-auth.ts`), the same-tab
+   `onAuthStateChange` gap, the mandatory `dataApi` client key, the
+   `TRUSTED_ORIGINS` test mechanism, and precise non-vacuous assertions.
+3. Appended an "Update" section to `PLAN.md` and waves T16-T22 to `TASKS.md`; three
+   review passes resolved the `browser-auth.ts` import list (`moderation-state`), the
+   hermetic CORS test, the `data-hooks.test.tsx`/`actions.test.ts` mock set, and the
+   coverage map.
+
+### Phase 4-5 (browser update)
+
+| Task | Commit | Content |
+|---|---|---|
+| T16 | `01a85a9` | `cors` on `/api/data/*`, origin/preflight/evil-origin tests, `delete-user` routing |
+| T17 | `ebf8cc3` | `change-password`/`delete-user` conformance recording |
+| T18 | `368f540` | `browser-auth.ts` wrapper + `browser-auth.test.ts` |
+| T19 | `453186a` | Browser data requests use `credentials: "include"` |
+| T20 | `737d7c4` | `db/auth.ts` drops the broker, re-exports the wrapper, `authCall` backend-wide |
+| T21 | `b2d6955` | Hooks and `syncProfile` use the backend on both surfaces |
+| T22 | verified, no changes | Root lint/typecheck/test/build all green |
+
+Verification: AC-13 pass (conformance 1/1, app 20/20), AC-15 pass (browser `authCall`
+backend), AC-18 pass (browser credentials include), AC-21 pass (`browser-auth` 6/6),
+AC-22 pass, AC-23 pass (`data-hooks` 19/19), AC-24 pass (`actions` 6/6), AC-25 pass
+(source + `auth` 3/3), AC-26 pass (hermetic helper + spawned subprocess), AC-27 pass
+(backend 84, mobile 10 suites / 122, build exit 0), AC-28 pass (notify + unsubscribe),
+AC-29 pass (`/api/data` CORS). `SPEC.md` set to `Status: verified` with a Verification
+(browser update) section and a Change Log entry.
+
+### Phase 6 (browser update)
+
+One `codebase-explorer` subagent updated `CLAUDE.md` (AGENTS.md symlink intact),
+`README.md`, and `docs/agent-docs/` (`api-layer.md`, `architecture.md`, `auth.md`,
+`backend-and-ai.md`, `conventions.md`, `directory-map.md`, `workflows.md`) to describe
+the backend serving both surfaces, `browser-auth.ts`, and the `/api/data/*` CORS.
+Committed as `1f4a0dc`.
+
 ## Key technical decisions
 
 - better-auth 1.6.23 pinned to match the committed drizzle schema and the mobile client.
@@ -181,5 +262,12 @@ document the backend data API. Committed with the spec artifacts as `43bc143`.
   writes to `user_id = session.user.id`; deletes are delete-all scoped to the caller.
 - The four app tables carry `ON DELETE CASCADE` FKs to `"user"(id)`, so account
   deletion clears them; `session.freshAge: 0` keeps a long-lived session able to delete.
-- The browser preview keeps Borel's `brokerAuth` and `db.from`, so native and browser
-  remain separate stores.
+- The browser preview now uses the backend: `browser-auth.ts` wraps a neon-js client
+  with the browser cookie jar (`credentials: "include"`, no `sessionPlugin`) and its
+  own `onAuthStateChange`, because the neon-js adapter only notifies on cross-tab
+  broadcasts. It is imported and re-exported by `db/auth.ts` so the Borel-managed
+  `db.ts` stays untouched.
+- `/api/data/*` carries the same CORS-with-credentials middleware as `/api/auth/*`, so
+  the credentialed browser data requests reach the handler.
+- The untracked root `.env` carries `TRUSTED_ORIGINS=http://localhost:8081` for the
+  local preview; the origin tests stay hermetic through a spawned `bun` subprocess.
