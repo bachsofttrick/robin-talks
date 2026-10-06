@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { AuthResult } from "./types";
-import { APPLE_SIGN_IN_AVAILABLE, IN_PREVIEW, PASSWORD_RESET_AVAILABLE, KIT } from "./constants";
+import { PASSWORD_RESET_AVAILABLE, KIT } from "./constants";
 import { labelsWith } from "./labels";
 import type { AccountKitLabels } from "./labels";
-import { Field, PrimaryButton, LinkButton, AppleButton, Note, Problem } from "./controls";
-import { signIn, signUp, confirmEmail, resendConfirmation, sendPasswordReset, resetPassword, signInWithApple } from "./actions";
+import { Field, PrimaryButton, LinkButton, Note, Problem } from "./controls";
+import { signIn, signUp, confirmEmail, resendConfirmation, sendPasswordReset, resetPassword } from "./actions";
 import { useKitSession } from "./context";
 import { openPrivacyPolicy, openTermsOfUse } from "../legal";
 import { db } from "../db";
@@ -16,7 +16,7 @@ export type SignInStep = "signIn" | "signUp" | "confirm" | "forgot" | "reset";
  * The whole sign-in flow: sign in, create an account, confirm an emailed code,
  * and reset a forgotten password. Place it on a screen, or open it as a sheet
  * with <SignInSheet />. It shows the terms and privacy links where an account
- * is created, because Apple looks for them there.
+ * is created.
  */
 export function SignInFlow(props: {
   mode?: "signIn" | "signUp";
@@ -136,26 +136,6 @@ export function SignInFlow(props: {
       },
     );
 
-  // Apple's sheet exists on an iPhone. The preview shows the button too, so the
-  // owner sees the screen people will see, and says where it works.
-  const showApple = APPLE_SIGN_IN_AVAILABLE && (Platform.OS === "ios" || IN_PREVIEW);
-  const onApple = async () => {
-    if (IN_PREVIEW) {
-      setError(null);
-      setNote(t.appleInPreview);
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    const result = await signInWithApple();
-    setBusy(false);
-    if (result.ok) {
-      finish();
-      return;
-    }
-    if (!result.cancelled) setError(result.error);
-  };
-
   const heading =
     step === "signUp" ? t.signUp : step === "confirm" ? t.confirmTitle : step === "forgot" || step === "reset" ? t.resetTitle : t.signIn;
 
@@ -189,16 +169,6 @@ export function SignInFlow(props: {
         </View>
       ) : (
         <View>
-          {showApple ? (
-            <View style={{ marginBottom: 16 }}>
-              <AppleButton title={t.continueWithApple} onPress={onApple} busy={busy} />
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 16 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: KIT.line }} />
-                <Text style={{ color: KIT.muted, fontSize: 13, marginHorizontal: 10 }}>{t.or}</Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: KIT.line }} />
-              </View>
-            </View>
-          ) : null}
           <Field label={t.email} value={email} onChangeText={setEmail} keyboard="email-address" textContentType="emailAddress" autoComplete="email" />
           <Field
             label={t.password}

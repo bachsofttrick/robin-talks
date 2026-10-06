@@ -1,4 +1,4 @@
-import { WRONG_CURRENT_PASSWORD, APPLE_IN_PREVIEW } from "./constants";
+import { WRONG_CURRENT_PASSWORD } from "./constants";
 
 export interface AccountKitLabels {
   signIn: string;
@@ -39,9 +39,6 @@ export interface AccountKitLabels {
   wrongCurrentPassword: string;
   previewPassword: string;
   signInPrompt: string;
-  continueWithApple: string;
-  or: string;
-  appleInPreview: string;
 }
 
 export const LABELS: AccountKitLabels = {
@@ -83,9 +80,6 @@ export const LABELS: AccountKitLabels = {
   wrongCurrentPassword: WRONG_CURRENT_PASSWORD,
   previewPassword: "You can change your password in the app on your phone.",
   signInPrompt: "Sign in",
-  continueWithApple: "Continue with Apple",
-  or: "or",
-  appleInPreview: APPLE_IN_PREVIEW,
 };
 
 export function labelsWith(custom?: Partial<AccountKitLabels>): AccountKitLabels {

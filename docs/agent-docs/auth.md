@@ -9,11 +9,10 @@ surface from the subfolder; implementation lives in `src/lib/core/auth/`.
 ## Connector surface (`src/lib/core/auth.tsx`)
 
 Re-exports types (`User`, `Session`, `AuthResult`), constants
-(`AUTH_REDIRECT_URL`, `APPLE_IN_PREVIEW`, `APPLE_SIGN_IN_AVAILABLE`,
-`PASSWORD_RESET_AVAILABLE`), `authErrorMessage`, the context (`AuthProvider`,
-`useAuth`, and types), the actions (`signUp`, `signIn`, `signOut`,
-`sendPasswordReset`, `resetPassword`, `confirmEmail`, `updatePassword`,
-`resendConfirmation`, `deleteAccount`, `signInWithApple`), and the UI
+(`AUTH_REDIRECT_URL`, `PASSWORD_RESET_AVAILABLE`), `authErrorMessage`, the
+context (`AuthProvider`, `useAuth`, and types), the actions (`signUp`, `signIn`,
+`signOut`, `sendPasswordReset`, `resetPassword`, `confirmEmail`,
+`updatePassword`, `resendConfirmation`, `deleteAccount`), and the UI
 (`SignInFlow`, `SignInSheet`, `RequireAccount`, `AccountPanel`).
 
 ## Provider and hooks (`src/lib/core/auth/context.tsx`)
@@ -48,11 +47,6 @@ Re-exports types (`User`, `Session`, `AuthResult`), constants
 - `resendConfirmation(email)`: `/email-otp/send-verification-otp`.
 - `deleteAccount()`: `db.account.delete()` then `signOut()`. Required by Apple
   Guideline 5.1.1(v).
-- `signInWithApple()`: fetches a nonce from the Borel Apple proxy
-  (`appleCall("/nonce")`), opens Apple's sheet via `signInWithApple` from
-  `src/lib/core/borel/borel-systemui.js`, then posts the identity token to
-  `/sign-in` and adopts the returned session cookie. Unavailable in the browser
-  preview.
 - `syncProfile(user)`: upserts one row into `profiles` (id, email, display_name,
   avatar_url, updated_at).
 
@@ -72,8 +66,6 @@ failure.
   opaque handle is held by the parent preview frame and passed by
   `postMessage`/AsyncStorage; the browser never holds a real JWT. `getToken` in
   the Data API client returns the handle or `"bps_anon"`.
-- `adoptSession(setCookie)` is used by Sign in with Apple to keep Borel's session
-  like a normal one.
 - **Telling the screens (`tellScreens`):** the sign-in adapter reports the session
   once, when a screen subscribes, so a sign-in, a confirmed code, or a sign-out
   reached no mounted screen. `announceSessionChanges()` runs at import and wraps
@@ -95,15 +87,12 @@ failure.
   without `AuthProvider` above it.
 - `SignInFlow` (`SignInFlow.tsx`) is one component with steps `signIn`, `signUp`,
   `confirm`, `forgot`, `reset`. It shows the Terms and Privacy links on the
-  sign-up step, and the `Continue with Apple` button when
-  `APPLE_SIGN_IN_AVAILABLE` is true and the platform is iOS or the preview.
+  sign-up step.
 - `SignInSheet` wraps `SignInFlow` in a modal. `AccountPanel`
   (`AccountPanel.tsx`) shows the signed-in email with change-password, sign-out,
   and a two-step delete-account flow.
 - Labels are centralised in `src/lib/core/auth/labels.ts` (`AccountKitLabels`,
   `LABELS`, `labelsWith`). Auth UI uses its own `KIT` colour constants
   (`src/lib/core/auth/constants.ts`) rather than the app theme.
-- `APPLE_SIGN_IN_AVAILABLE` reads `EXPO_PUBLIC_APPLE_SIGN_IN_AVAILABLE` with
-  static dot access, since Expo inlines only that form.
 
 Tests for the pure helpers are `errors.test.ts` and `labels.test.ts`.

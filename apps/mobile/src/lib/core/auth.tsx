@@ -7,7 +7,7 @@
 //
 // Implementation lives in ./auth/ submodules; this file is the public connector.
 export type { User, Session, AuthResult } from "./auth/types";
-export { AUTH_REDIRECT_URL, APPLE_IN_PREVIEW, APPLE_SIGN_IN_AVAILABLE, PASSWORD_RESET_AVAILABLE } from "./auth/constants";
+export { AUTH_REDIRECT_URL, PASSWORD_RESET_AVAILABLE } from "./auth/constants";
 export { authErrorMessage } from "./auth/errors";
 export type { AuthState, AuthContextValue } from "./auth/context";
 export { AuthProvider, useAuth } from "./auth/context";
@@ -23,7 +23,6 @@ export {
   updatePassword,
   resendConfirmation,
   deleteAccount,
-  signInWithApple,
 } from "./auth/actions";
 export { SignInFlow } from "./auth/SignInFlow";
 export { SignInSheet } from "./auth/SignInSheet";

@@ -1,8 +1,7 @@
-import { db, authCall, adoptSession, appleCall } from "../db";
-import { signInWithApple as appleSheet } from "../borel/borel-systemui";
+import { db, authCall } from "../db";
 import type { User, AuthResult } from "./types";
 import { SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession } from "./errors";
-import { AUTH_REDIRECT_URL, APPLE_IN_PREVIEW, WRONG_CURRENT_PASSWORD } from "./constants";
+import { AUTH_REDIRECT_URL, WRONG_CURRENT_PASSWORD } from "./constants";
 
 /**
  * Create an account.
@@ -149,40 +148,6 @@ export async function deleteAccount(): Promise<AuthResult> {
   const result = await db.account.delete();
   if (!result.ok) return failed(result.error || "Your account couldn't be deleted. Please try again.");
   await signOut();
-  return SUCCESS;
-}
-
-/**
- * Sign in with Apple: Apple's own sheet, then an account in this app's cloud.
- *
- * Borel issues a one-time nonce, Apple signs it into the identity token, and
- * Borel checks the token and signs the person in (the first time making their
- * account), handing back a session this app keeps like its own. On ok the
- * person is signed in. `cancelled` means they closed Apple's sheet: show
- * nothing. Otherwise `error` is a sentence to show.
- */
-export async function signInWithApple(): Promise<AuthResult & { cancelled?: boolean }> {
-  if (typeof document !== "undefined") return failed(APPLE_IN_PREVIEW);
-  const issued = await appleCall("/nonce", {});
-  const nonce = issued.json && typeof issued.json.nonce === "string" ? issued.json.nonce : null;
-  if (!issued.ok || !nonce) {
-    return failed(typeof issued.json?.error === "string" ? issued.json.error : "Sign in with Apple isn't available right now, so please sign in with your email.");
-  }
-  const sheet: any = await appleSheet({ nonce });
-  if (!sheet || sheet.status === "cancelled") return { ok: false, needsEmailConfirmation: false, error: null, cancelled: true };
-  if (sheet.status !== "success" || !sheet.identityToken) {
-    return failed("Sign in with Apple isn't available on this device, so please sign in with your email.");
-  }
-  const answer = await appleCall("/sign-in", {
-    identityToken: sheet.identityToken,
-    nonce,
-    authorizationCode: sheet.authorizationCode ?? null,
-    fullName: sheet.fullName ?? null,
-  });
-  if (!answer.ok || !answer.json || !Array.isArray(answer.json.setCookie)) {
-    return failed(typeof answer.json?.error === "string" ? answer.json.error : "Sign-in couldn't be finished right now, so please try again in a moment.");
-  }
-  await adoptSession(answer.json.setCookie);
   return SUCCESS;
 }
 

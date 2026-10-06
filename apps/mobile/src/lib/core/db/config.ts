@@ -6,7 +6,6 @@ export const PREVIEW_AUTH_URL = process.env.EXPO_PUBLIC_PREVIEW_AUTH_URL ?? "";
 export const BOREL_STORAGE = process.env.EXPO_PUBLIC_BOREL_STORAGE ?? "";
 export const BOREL_AI = process.env.EXPO_PUBLIC_BOREL_AI ?? "";
 export const BOREL_ACCOUNT = process.env.EXPO_PUBLIC_BOREL_ACCOUNT ?? "";
-export const BOREL_APPLE = process.env.EXPO_PUBLIC_BOREL_APPLE ?? "";
 export const BOREL_USAGE_URL = process.env.EXPO_PUBLIC_BOREL_USAGE_URL ?? "";
 export const BOREL_INVITE_URL = process.env.EXPO_PUBLIC_BOREL_INVITE_URL ?? "";
 export const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "";

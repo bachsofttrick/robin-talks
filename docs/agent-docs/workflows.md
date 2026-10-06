@@ -150,9 +150,8 @@ with static dot access only). The root `.env.example` lists the full set:
 
 - Borel: `EXPO_PUBLIC_DATA_API_URL`, `EXPO_PUBLIC_AUTH_URL`,
   `EXPO_PUBLIC_PREVIEW_AUTH_URL`, `EXPO_PUBLIC_BOREL_STORAGE`,
-  `EXPO_PUBLIC_BOREL_AI`, `EXPO_PUBLIC_BOREL_ACCOUNT`, `EXPO_PUBLIC_BOREL_APPLE`,
+  `EXPO_PUBLIC_BOREL_AI`, `EXPO_PUBLIC_BOREL_ACCOUNT`,
   `EXPO_PUBLIC_BOREL_USAGE_URL`, `EXPO_PUBLIC_BOREL_INVITE_URL`
-- `EXPO_PUBLIC_APPLE_SIGN_IN_AVAILABLE` (`"true"` to offer Apple sign-in)
 - `EXPO_PUBLIC_OPENROUTER_API_KEY` (chat and speech-to-text)
 
 The root `.env` exists, is git-ignored, and is shared through the two workspace

@@ -1,6 +1,6 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, BOREL_APPLE, IN_BROWSER, borelHeaders } from "./config";
+import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, IN_BROWSER, borelHeaders } from "./config";
 import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation-state";
 
@@ -382,9 +382,8 @@ const phoneSubscribers: AuthCallback[] = [];
  * never again: a sign-in, a confirmed code or a sign-out in this same app
  * reached no screen until it was mounted again, so a Sign in button could look
  * like it did nothing. So this file tells every subscriber itself, after each
- * call that changes who is signed in - and after Borel hands the app a session
- * it made (adoptSession: Sign in with Apple). The preview's broker already
- * tells its own listeners.
+ * call that changes who is signed in. The preview's broker already tells its
+ * own listeners.
  */
 export async function tellScreens(): Promise<void> {
   if (IN_BROWSER) return;
@@ -445,33 +444,3 @@ function announceSessionChanges(): void {
   }
 }
 announceSessionChanges();
-
-/**
- * A session Borel made for this person on this app's cloud (Sign in with
- * Apple, in core/auth), kept exactly as the app's own email sign-in keeps its
- * session - the same cookies under the same key - and told to every screen.
- */
-export async function adoptSession(setCookie: string[]): Promise<boolean> {
-  if (IN_BROWSER || !Array.isArray(setCookie) || setCookie.length === 0) return false;
-  await loadSessionCookies();
-  sessionCookies = {};
-  rememberCookies(setCookie);
-  saveSessionCookies();
-  await tellScreens();
-  return true;
-}
-
-/** One call to Borel's Sign in with Apple endpoints for this app. core/auth's signInWithApple uses it; screens never do. */
-export async function appleCall(path: string, body: Record<string, unknown>): Promise<{ ok: boolean; status: number; json: any }> {
-  try {
-    const res = await fetch(BOREL_APPLE + path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...borelHeaders() },
-      body: JSON.stringify(body),
-    });
-    const json = await res.json().catch(() => ({}));
-    return { ok: res.ok, status: res.status, json };
-  } catch {
-    return { ok: false, status: 0, json: { error: "Couldn't reach the sign-in service, so check your connection and try again." } };
-  }
-}

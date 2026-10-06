@@ -57,9 +57,8 @@ export function AccountPanel(props: {
     const result = await updatePassword(next, current);
     setBusy(false);
     if (result.error === WRONG_CURRENT_PASSWORD) {
-      // Nothing on the session tells an account made with Apple (whose
-      // password only Borel holds) from a mistyped password, so this says
-      // both, in place of a form that cannot succeed for the first.
+      // A wrong current password gets the same reset-and-note treatment as a
+      // changed one, in place of a form that cannot succeed.
       setCurrent("");
       setNext("");
       setStage("idle");

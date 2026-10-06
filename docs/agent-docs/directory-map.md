@@ -68,12 +68,12 @@ robin-talks/
 │   │   │       │   │   └── notify.ts     borelFetch, push notify, device linking.
 │   │   │       │   └── auth/
 │   │   │       │       ├── types.ts      User, Session, AuthResult.
-│   │   │       │       ├── constants.ts  Labels/URLs, APPLE_SIGN_IN_AVAILABLE, KIT colours.
+│   │   │       │       ├── constants.ts  Labels/URLs, KIT colours.
 │   │   │       │       ├── errors.ts     authErrorMessage and error helpers.
-│   │   │       │       ├── actions.ts    signUp/signIn/signOut/reset/Apple/deleteAccount/syncProfile.
+│   │   │       │       ├── actions.ts    signUp/signIn/signOut/reset/deleteAccount/syncProfile.
 │   │   │       │       ├── context.tsx   AuthProvider, useAuth, useKitSession.
 │   │   │       │       ├── labels.ts     AccountKitLabels and LABELS.
-│   │   │       │       ├── controls.tsx  Field, PrimaryButton, LinkButton, AppleButton, Problem, Note.
+│   │   │       │       ├── controls.tsx  Field, PrimaryButton, LinkButton, Problem, Note.
 │   │   │       │       ├── SignInFlow.tsx   Multi-step sign in / sign up / confirm / reset.
 │   │   │       │       ├── SignInSheet.tsx  SignInFlow in a modal.
 │   │   │       │       ├── RequireAccount.tsx  Signed-out bird + sign-in card gate.

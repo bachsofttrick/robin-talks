@@ -72,7 +72,6 @@ const localAuthenticationModule = () => nativeModule("ExpoLocalAuthentication", 
 const notificationsModule = () => nativeModule("ExpoNotificationScheduler", () => require("expo-notifications"));
 const clipboardModule = () => nativeModule("ExpoClipboard", () => require("expo-clipboard"));
 const locationModule = () => nativeModule("ExpoLocation", () => require("expo-location"));
-const appleAuthenticationModule = () => nativeModule("ExpoAppleAuthentication", () => require("expo-apple-authentication"));
 const audioModule = () => nativeModule("ExpoAudio", () => require("expo-audio"), true);
 const speechModule = () => nativeModule("ExpoSpeech", () => require("expo-speech"), true);
 
@@ -1419,58 +1418,6 @@ export async function getCurrentLocation(options) {
     };
   } catch {
     return { status: "unavailable", location: null };
-  }
-}
-
-// Real Sign in with Apple, through Apple's own system sheet — the browser
-// preview simulates this same flow (see src/SystemUI/AppleID/AppleID.tsx) and
-// resolves the same shape, so generated code needs no branch for which one
-// it's running under.
-//
-// iOS only, by Apple's design: the native credential provider doesn't exist
-// on Android, where a real app has to fall back to Apple's web OAuth flow.
-// Reported honestly as "unavailable" rather than faking a credential.
-//
-// `options.nonce` is the one Borel issued for this attempt (core/auth.tsx's
-// signInWithApple asks for it first): Apple signs it into the identity token,
-// so the token is good for this attempt and nothing else. The one-time
-// authorizationCode is what Borel exchanges for the token that deleting the
-// account revokes at Apple.
-export async function signInWithApple(options) {
-  try {
-    if (Platform.OS !== "ios") return { status: "unavailable" };
-    const AppleAuthentication = appleAuthenticationModule();
-    if (!AppleAuthentication) return { status: "unavailable" };
-    if (!(await AppleAuthentication.isAvailableAsync())) return { status: "unavailable" };
-    const nonce = options && typeof options.nonce === "string" ? options.nonce : undefined;
-    const credential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-      ...(nonce ? { nonce } : {}),
-    });
-    return {
-      status: "success",
-      user: credential.user,
-      // Both of these are genuinely null on every authorization after the
-      // first one for a given Apple ID + app pair — Apple returns identity
-      // details exactly once. Passed through as-is rather than papered over:
-      // an app that can't handle null here is an app that breaks on its
-      // users' second sign-in, and that has to be visible in development.
-      email: credential.email ?? null,
-      fullName: credential.fullName
-        ? {
-            givenName: credential.fullName.givenName ?? "",
-            familyName: credential.fullName.familyName ?? "",
-          }
-        : null,
-      identityToken: credential.identityToken ?? undefined,
-      authorizationCode: credential.authorizationCode ?? undefined,
-    };
-  } catch (err) {
-    if (err && err.code === "ERR_REQUEST_CANCELED") return { status: "cancelled" };
-    return { status: "failure" };
   }
 }
 

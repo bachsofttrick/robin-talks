@@ -33,7 +33,7 @@ export const db = Object.assign(client, {
 All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
 
 - `DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`, `BOREL_STORAGE`, `BOREL_AI`,
-  `BOREL_ACCOUNT`, `BOREL_APPLE`, `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
+  `BOREL_ACCOUNT`, `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
 - `OPENROUTER_API_KEY` (`EXPO_PUBLIC_OPENROUTER_API_KEY`)
 - `IN_BROWSER` (`typeof document !== "undefined"`), `SURFACE`
   (`"preview" | "dev" | "release"`), `BUILD_STAMP`, and `borelHeaders()` which

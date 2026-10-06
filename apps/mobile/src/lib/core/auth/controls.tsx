@@ -1,6 +1,5 @@
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
-import { KIT, APPLE_LOGO_PATH } from "./constants";
+import { KIT } from "./constants";
 
 export function Field(props: {
   label: string;
@@ -66,42 +65,6 @@ export function LinkButton(props: { title: string; onPress: () => void; tone?: "
   return (
     <Pressable onPress={props.onPress} accessibilityRole="button" hitSlop={8} style={{ minHeight: 44, justifyContent: "center" }}>
       <Text style={{ color: props.tone === "danger" ? KIT.danger : KIT.accent, fontSize: 15 }}>{props.title}</Text>
-    </Pressable>
-  );
-}
-
-/**
- * "Continue with Apple", as Apple's guidelines ask for it: black, the Apple
- * logo before the words, and as large as any other way to sign in - so it is
- * placed first, full width, the same height as the buttons under it.
- */
-export function AppleButton(props: { title: string; onPress: () => void; busy?: boolean }) {
-  return (
-    <Pressable
-      onPress={props.onPress}
-      disabled={props.busy === true}
-      accessibilityRole="button"
-      accessibilityLabel={props.title}
-      style={{
-        backgroundColor: "#000000",
-        opacity: props.busy ? 0.6 : 1,
-        borderRadius: 12,
-        minHeight: 48,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 16,
-      }}
-    >
-      {props.busy ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Svg width={17} height={17} viewBox="0 0 24 24" style={{ marginRight: 8, marginTop: -2 }}>
-            <Path fill="#FFFFFF" d={APPLE_LOGO_PATH} />
-          </Svg>
-          <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "600" }}>{props.title}</Text>
-        </View>
-      )}
     </Pressable>
   );
 }
