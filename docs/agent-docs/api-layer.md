@@ -1,5 +1,7 @@
 # API Layer
 
+Source paths are relative to `apps/mobile/` unless noted.
+
 `src/lib/api/` holds the domain hooks and the static scenario catalog. The
 folder has a barrel (`src/lib/api/index.tsx`), and screens and the navigator
 import the individual modules instead (`../../lib/api/useSessions`), so a new
@@ -56,7 +58,7 @@ Hooks read the signed-in user from `useAuth()` and re-run when it changes.
 - `clearAll()` deletes all of the user's memory rows and empties `data`.
 - `reload` empties `data` when there is no user.
 - Kinds used by the app: `"fact"` for facts Robin volunteers mid-conversation, and
-  `"profile"` for debrief memory notes (`src/screens/Session/index.tsx:159,194`).
+  `"profile"` for debrief memory notes (`src/screens/Session/index.tsx:183,218`).
 
 ### `useRobin` (`src/lib/api/useRobin.tsx`)
 
@@ -80,7 +82,7 @@ The AI surface for the session loop.
   are unions with `null`, as `remember` is.
 
 Note: `db.ai.models.fast` and `db.ai.models.smart` are both `openai/gpt-6-luna`
-in the current code (`src/lib/core/db/ai.ts:428`).
+in the current code (`src/lib/core/db/ai.ts:429`).
 
 ## Database tables used
 
@@ -101,8 +103,8 @@ today.
 
 ## Store mechanism
 
-Hooks that need shared or persisted state use `createStore` from the root
-`borel-store.js` (a module singleton read with React's `useSyncExternalStore`; no
-Provider). `useProfile` is the only current user; `useSessions` and `useMemory`
-keep their state in the hook instance. The naming convention for store keys is
-`robin.<area>` (for example `robin.profile`).
+Hooks that need shared or persisted state use `createStore` from
+`src/lib/core/borel/borel-store.js` (a module singleton read with React's
+`useSyncExternalStore`; no Provider). `useProfile` is the only current user;
+`useSessions` and `useMemory` keep their state in the hook instance. The naming
+convention for store keys is `robin.<area>` (for example `robin.profile`).

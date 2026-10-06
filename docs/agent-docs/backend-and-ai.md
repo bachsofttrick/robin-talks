@@ -1,8 +1,15 @@
 # Backend and AI
 
+Source paths are relative to `apps/mobile/` unless noted.
+
 The app is client-only. Remote work is split between the Borel cloud proxy and
 OpenRouter. The `db` object is assembled in `src/lib/core/db.ts` and every
 submodule is reachable from there.
+
+`apps/backend/` is a fresh, standalone Hono scaffold (`src/index.ts`, a
+hello-world `GET /`) with its own Vercel CLI workflow. It is not imported by the
+mobile app and holds no app logic yet; the commit that added it describes it as
+preparation to move off the Borel proxy.
 
 ## The `db` object
 
@@ -91,8 +98,11 @@ generation stays on Borel.
 - **Transcribe:** `transcribe(input)` turns a recording into raw base64 with a
   short format name (`sendableAudio`, `audioFormatOf`), enforces a 3 MB / 4 MB
   cap client-side, then POSTs `{ model, input_audio: { data, format } }` to
-  `/audio/transcriptions`. `language` and `prompt` are accepted and ignored. Empty
-  `text` means no speech.
+  `/audio/transcriptions`. `language` and `prompt` are accepted and ignored. A
+  recording whose base64 is empty, or whose uri-only payload reads back empty,
+  resolves the "no words" sentence without any network request
+  (`src/lib/core/db/ai.ts:510`). Empty `text` in a successful reply means no
+  speech.
 - **Result shapes:** `AiChatResult` carries `text`, `data`, `error`, `status`,
   `reason`, `truncated`, `raw`, `detail`; `AiTranscribeResult` carries `text`,
   `error`, `status`, `reason`, `detail`. Technical text always goes to `detail`.

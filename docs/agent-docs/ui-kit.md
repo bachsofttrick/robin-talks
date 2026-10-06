@@ -1,5 +1,7 @@
 # UI Kit
 
+Source paths are relative to `apps/mobile/` unless noted.
+
 `src/lib/ui/` holds the visual language and shared components. Import from the
 barrel `src/lib/ui/index.tsx`; every screen does.
 

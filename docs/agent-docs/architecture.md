@@ -1,15 +1,19 @@
 # Architecture
 
-Robin Talks is a single Expo React Native application. All code that runs lives
-under `src/`, and the app talks to two remote systems: the Borel cloud proxy
-(accounts, Postgres data, file storage, image generation) and OpenRouter
-(chat completions and speech-to-text). There is no server code in this
-repository and no build step.
+Source paths are relative to `apps/mobile/` unless noted.
+
+Robin Talks is one Expo React Native application, `apps/mobile`, inside a
+monorepo. All code that runs lives under `src/`, and the app talks to two remote
+systems: the Borel cloud proxy (accounts, Postgres data, file storage, image
+generation) and OpenRouter (chat completions and speech-to-text). The app is
+client-only: it holds no server code and no build step. `apps/backend/` is a
+fresh Hono scaffold added in preparation to move off the Borel proxy; it is
+standalone and not yet wired to the app.
 
 ## Layer map
 
 ```
-expo-entry.js  (polyfills, SafeAreaProvider, registerRootComponent)
+apps/mobile/expo-entry.js  (polyfills, SafeAreaProvider, registerRootComponent)
   -> src/index.tsx  (ErrorHandler > StatusBar > AppFonts > CoreProviders > NavigationContainer > RootNavigator)
        -> src/lib/core/     backend kit: db, auth, legal (Borel-managed connectors + submodules)
        -> src/lib/ui/       visual kit and theme tokens
@@ -32,13 +36,15 @@ then `RootNavigator`.
   `auth`, `storage`, `ai`, `account`, `moderation`, `notify`.
 - **Domain hooks** in `src/lib/api/` read and write through `db.from(table)`,
   combining the signed-in user from `useAuth()` and, for profile state, a
-  module-scope store from `borel-store.js`. Screens import these hooks, not
-  `db`, except for the `db.ai.transcribe` call in the Session screen.
-- **Shared UI state** uses `createStore` from `borel-store.js`: a module
-  singleton read through `useSyncExternalStore`, so every screen sees one value.
-  Only `robin.profile` opts into `{ persist: true }`
-  (`src/lib/api/useProfile.tsx:15`); sessions and memory are not persisted
-  because Postgres is the source of truth. React Context is used only for auth.
+  module-scope store from `src/lib/core/borel/borel-store.js`. Screens import
+  these hooks, not `db`, except for the `db.ai.transcribe` call in the Session
+  screen.
+- **Shared UI state** uses `createStore` from
+  `src/lib/core/borel/borel-store.js`: a module singleton read through
+  `useSyncExternalStore`, so every screen sees one value. Only `robin.profile`
+  opts into `{ persist: true }` (`src/lib/api/useProfile.tsx:15`); sessions and
+  memory are not persisted because Postgres is the source of truth. React
+  Context is used only for auth.
 
 ## Root navigation states
 
@@ -58,16 +64,16 @@ card rather than the tab bar.
 2. `src/screens/Session/index.tsx` loads the row named by the route param
    (`fetchOne`), or adopts the open session from `useSessions().open` when the
    screen is opened with no params, and on an empty transcript calls `advance([])`
-   so Robin speaks first (`src/screens/Session/index.tsx:82-115, 209-215`).
+   so Robin speaks first (`src/screens/Session/index.tsx:89-110, 237-244`).
 3. `advance` calls `useRobin().nextTurn`, which builds a persona prompt with the
    scene, the learner's level and name, stored memory, and a recap of recent
    debriefs, then sends it to
    `db.ai.chat({ jsonSchema: TURN_SCHEMA, model: db.ai.models.fast })`
-   (`src/lib/api/useRobin.tsx:92-116`). The schema fixes the reply shape to
+   (`src/lib/api/useRobin.tsx:83-120`). The schema fixes the reply shape to
    `{ text, complete, remember }`.
 4. Robin's reply is appended to the transcript, saved with `saveTranscript`,
    `remember` is stored via `useMemory().remember`, then `speak()` reads it aloud
-   through `borel-systemui.js`.
+   through `src/lib/core/borel/borel-systemui.js`.
 5. With `complete: false`, the microphone opens. The learner taps **Stop and send**;
    `db.ai.transcribe` writes the recording down and the user turn is appended,
    looping back to step 3. The learner can switch to typing at any time.

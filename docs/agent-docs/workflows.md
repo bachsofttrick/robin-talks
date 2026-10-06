@@ -1,7 +1,10 @@
 # Workflows
 
+Source paths are relative to `apps/mobile/` unless noted.
+
 Commands are taken from `package.json`, `eslint.config.mjs`, and the Jest config
-block in `package.json`. Bun is the package manager (`bun.lock` is present).
+block in `package.json`. Bun is the package manager (`bun.lock` is present). All
+mobile commands below run from `apps/mobile`.
 
 ## Install
 
@@ -9,9 +12,9 @@ block in `package.json`. Bun is the package manager (`bun.lock` is present).
 bun install
 ```
 
-Add a dependency with `bun add <pkg>`; the lockfile is `bun.lock`. `README.md`
-states Node.js 20 or newer is required (Expo fetches its CLI on demand with
-`bunx expo`).
+Add a dependency with `bun add <pkg>`; the lockfile is `apps/mobile/bun.lock`.
+The root `README.md` states Node.js 20 or newer is required (Expo fetches its
+CLI on demand with `bunx expo`).
 
 ## Run
 
@@ -45,8 +48,10 @@ transpilable. Test files are colocated with source as `*.test.ts`:
 | `src/lib/core/auth/labels.test.ts` | `labelsWith` overrides |
 | `src/lib/polyfills/responsePolyfill.test.ts` | `Response.json` polyfill |
 
-Current totals: 5 suites, 54 tests. Tests mock `./config`, `./notify`,
-`./consent`, and `@openrouter/sdk` rather than making network calls.
+Current totals: 5 suites, 56 tests. Tests mock `./config`, `./notify`,
+`./consent`, and `@openrouter/sdk` rather than making network calls. The
+`ai.transcribe` suite covers the empty-base64 and uri-only-empty recordings that
+resolve the "no words" sentence without any network request.
 
 ## Lint
 
@@ -55,8 +60,8 @@ bun run lint       # eslint .
 ```
 
 `eslint.config.mjs` uses `eslint-config-expo/flat.js` and ignores `dist/*`,
-`.expo/*`, `borel-store.js`, `borel-systemui.js`, and the five Borel-managed
-files by path (`src/index.tsx`, `src/lib/core/db.ts`, `src/lib/core/auth.tsx`,
+`.expo/*`, `src/lib/core/borel/*`, and the five Borel-managed files by path
+(`src/index.tsx`, `src/lib/core/db.ts`, `src/lib/core/auth.tsx`,
 `src/lib/core/legal.tsx`, `src/lib/ui/fonts.tsx`). The implementation in
 `src/lib/core/db/` and `src/lib/core/auth/` is linted.
 
@@ -88,14 +93,30 @@ makes `ai.chat` and `ai.transcribe` resolve the neutral error without a request.
 
 There is no build script in `package.json` and no EAS config file. `app.json`
 holds the Expo config (name, slug, icon/splash, plugins, `newArchEnabled: true`)
-and ships placeholder identifiers `com.example.robintalks`. `README.md` says to
-change the bundle identifier, replace the assets, and build with
+and ships placeholder identifiers `com.example.robintalks`. The root `README.md`
+says to change the bundle identifier, replace the assets, and build with
 `bunx eas build`. `dist/` and `.expo/` are generated output and git-ignored.
+
+## Backend scaffold (`apps/backend`)
+
+A separate, standalone Hono app, not wired to the mobile app. Its workflow is
+documented in the root `README.md` and needs the Vercel CLI installed globally:
+
+```bash
+npm install
+vc dev        # develop locally, http://localhost:3000
+vc build      # build locally
+vc deploy     # deploy
+```
+
+`package.json` names the package `hono` and depends on `hono ^4.13.13`;
+`tsconfig.json` targets ESNext/NodeNext in strict mode with
+`jsxImportSource: hono/jsx`. There is no root `package.json` or `turbo.json` in
+the repository despite the monorepo commit message.
 
 ## Spec workflow
 
-- OpenSpec: changes under `openspec/changes/` and synced specs under
-  `openspec/specs/`; config is `openspec/config.yaml`.
 - sdd/pdd artifacts: `docs/agent-docs/specs/` and `docs/agent-docs/plans/`.
+- The earlier `openspec/` directory was removed.
 
 These are working artifacts, not documentation pages.

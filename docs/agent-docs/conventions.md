@@ -1,5 +1,7 @@
 # Conventions
 
+Source paths are relative to `apps/mobile/` unless noted.
+
 Patterns observed across the source. Follow them when editing.
 
 ## Borel-managed files
@@ -13,10 +15,10 @@ the Borel backend tool; do not hand-edit them:
 - `src/index.tsx`
 - `src/lib/ui/fonts.tsx`
 
-The two root bridges, `borel-store.js` and `borel-systemui.js`, are vendor code
-as well. A file starting with `// borel: custom entry` is left alone by
-regeneration, but none of the current files use that marker. Put app logic
-outside these files.
+The two Borel bridges under `src/lib/core/borel/`, `borel-store.js` and
+`borel-systemui.js`, are vendor code as well. A file starting with
+`// borel: custom entry` is left alone by regeneration, but none of the current
+files use that marker. Put app logic outside these files.
 
 ## Connector + submodule shape
 
@@ -36,8 +38,8 @@ re-export it from the connector.
   `src/lib/api/index.tsx` barrel exports the same surface and nothing imports it
   yet.
 - Within a subfolder, use relative imports (`./config`, `./errors`).
-- Root bridges are reached with `../../../borel-store` / `../../../borel-systemui`
-  from `src/lib/...` files.
+- The Borel bridges are reached relatively: `../core/borel/borel-store` from
+  `src/lib/api/`, and `../borel/borel-systemui` from `src/lib/core/auth/`.
 
 ## Naming
 
@@ -61,9 +63,9 @@ re-export it from the connector.
 
 ## State
 
-- Shared or persisted UI state uses `createStore` from `borel-store.js`
-  (module singleton, `useSyncExternalStore`), not React Context. React Context is
-  used only for auth (`AuthProvider`).
+- Shared or persisted UI state uses `createStore` from
+  `src/lib/core/borel/borel-store.js` (module singleton, `useSyncExternalStore`),
+  not React Context. React Context is used only for auth (`AuthProvider`).
 - Domain hooks return `{ data, loading, error, ...actions }` and read the user
   from `useAuth()`.
 - Screens never call `db` directly, except the `db.ai.transcribe` call in
@@ -79,16 +81,16 @@ patterns in the source exist to satisfy them. Keep them when adding effects:
 - An async wrapper inside `useEffect` keeps `reload`'s state updates off the
   effect's synchronous path. The comment above each one says so
   (`src/lib/api/useProfile.tsx:54-60`, `useSessions.tsx:61-67`,
-  `useMemory.tsx:38-44`, `src/screens/Session/index.tsx:59-74, 207-215`).
+  `useMemory.tsx:38-44`, `src/screens/Session/index.tsx:70-81, 89-110, 237-244`).
 - A callback used by an effect is declared above it, because a forward reference
   trips the immutability lint. In the Session screen `finish` is declared before
-  `advance` for this reason (`src/screens/Session/index.tsx:140-141`).
+  `advance` for this reason (`src/screens/Session/index.tsx:163-164`).
 - An effect that awaits something keeps an `active` flag and returns a cleanup
   that clears it, so state updates never land on an unmounted screen
-  (`src/screens/Session/index.tsx:82-103`).
+  (`src/screens/Session/index.tsx:89-110`).
 - Hook objects are destructured into named callbacks before an effect depends on
   them, so the effect re-runs on a stable identity rather than on a fresh hook
-  return value (`src/screens/Session/index.tsx:30-40`).
+  return value (`src/screens/Session/index.tsx:33-41`).
 
 ## Styling
 
@@ -107,10 +109,9 @@ patterns in the source exist to satisfy them. Keep them when adding effects:
 
 ## Specs and changes
 
-OpenSpec (`openspec/`) is the spec workflow: changes live in
-`openspec/changes/` and synced specs in `openspec/specs/`. The sdd/pdd working
-artifacts live under `docs/agent-docs/specs/` and `docs/agent-docs/plans/`.
-Neither folder is a documentation page set.
+The spec-driven workflow keeps its artifacts under `docs/agent-docs/specs/`
+(sdd) and `docs/agent-docs/plans/` (pdd). Neither folder is a documentation
+page set. The earlier `openspec/` directory was removed.
 
 ## Considered but not present
 

@@ -1,5 +1,7 @@
 # Auth
 
+Source paths are relative to `apps/mobile/` unless noted.
+
 Accounts, sessions, and the account UI live in `src/lib/core/auth/`. The
 top-level `src/lib/core/auth.tsx` is Borel-managed and re-exports the public
 surface from the subfolder; implementation lives in `src/lib/core/auth/`.
@@ -48,8 +50,9 @@ Re-exports types (`User`, `Session`, `AuthResult`), constants
   Guideline 5.1.1(v).
 - `signInWithApple()`: fetches a nonce from the Borel Apple proxy
   (`appleCall("/nonce")`), opens Apple's sheet via `signInWithApple` from
-  `borel-systemui.js`, then posts the identity token to `/sign-in` and adopts the
-  returned session cookie. Unavailable in the browser preview.
+  `src/lib/core/borel/borel-systemui.js`, then posts the identity token to
+  `/sign-in` and adopts the returned session cookie. Unavailable in the browser
+  preview.
 - `syncProfile(user)`: upserts one row into `profiles` (id, email, display_name,
   avatar_url, updated_at).
 
