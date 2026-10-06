@@ -1,10 +1,10 @@
-import { backendDataUrl } from "./config";
+import { backendDataUrl, IN_BROWSER } from "./config";
 import { sessionCookieHeader } from "./auth";
 import { messageOf } from "./errors";
 
-// On a phone the app's tables live behind the backend's /api/data router, which
-// authenticates with the better-auth session cookie. The browser preview keeps
-// Borel's db.from; these functions are the native replacement.
+// The app's tables live behind the backend's /api/data router, which
+// authenticates with the better-auth session cookie. Native replays the cookie
+// header by hand; the browser sends the cookie with credentials "include".
 
 export interface LearnerProfile {
   user_id: string;
@@ -45,10 +45,11 @@ type DataResult<T> = { data: T | null; error: DataError | null };
 async function request<T>(path: string, init?: RequestInit): Promise<DataResult<T>> {
   const base = backendDataUrl();
   if (!base) return { data: null, error: { message: "The backend is not configured." } };
-  const cookie = await sessionCookieHeader();
+  const cookie = IN_BROWSER ? "" : await sessionCookieHeader();
   try {
     const res = await fetch(base + path, {
       ...init,
+      credentials: IN_BROWSER ? "include" : "omit",
       headers: {
         "Content-Type": "application/json",
         ...(cookie ? { Cookie: cookie } : {}),

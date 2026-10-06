@@ -19,8 +19,13 @@ jest.mock("./auth", () => ({
   sessionCookieHeader: jest.fn(async () => "better-auth.session_token=abc.def"),
 }));
 
+let mockInBrowser = false;
+
 jest.mock("./config", () => ({
   backendDataUrl: jest.fn(() => "http://localhost:3000/api/data"),
+  get IN_BROWSER() {
+    return mockInBrowser;
+  },
 }));
 
 const cookieMock = sessionCookieHeader as unknown as jest.Mock;
@@ -38,6 +43,7 @@ function jsonResponse(body: unknown, ok = true, status = 200) {
 }
 
 beforeEach(() => {
+  mockInBrowser = false;
   cookieMock.mockReset();
   cookieMock.mockResolvedValue(COOKIE);
   dataUrlMock.mockReset();
@@ -79,6 +85,15 @@ describe("data client requests", () => {
     const init = fetchMock.mock.calls[0][1];
     expect(cookieMock).toHaveBeenCalled();
     expect(init.headers.Cookie).toBe(COOKIE);
+  });
+
+  test("in the browser sends credentials include and no Cookie header", async () => {
+    mockInBrowser = true;
+    await getProfile();
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.credentials).toBe("include");
+    expect(init.headers.Cookie).toBeUndefined();
+    expect(cookieMock).not.toHaveBeenCalled();
   });
 
   test("a 200 JSON body resolves data with no error", async () => {
