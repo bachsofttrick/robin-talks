@@ -12,7 +12,7 @@ This is a Bun and Turborepo monorepo. The app described here lives in `apps/mobi
 - `scripts/link-env.mjs` - `bun run env:link`, which points each workspace `.env` symlink at the root `.env`
 - `.env` / `.env.example` - the only real env files; `apps/mobile/.env` and `apps/backend/.env` are symlinks to `../../.env`
 - `apps/mobile/` - the Expo React Native app (all of this README's subject matter)
-- `apps/backend/` - a fresh, standalone Hono scaffold in preparation to move off the Borel proxy; not wired to the app
+- `apps/backend/` - a Hono service that runs a better-auth account service (drizzle + Neon Postgres) at `/api/auth/*`; not yet wired to the app
 - `docs/agent-docs/` - the agent knowledge base, plus sdd/pdd specs and plans
 
 ## What it does
@@ -33,7 +33,7 @@ bun install
 bun run dev
 ```
 
-`bun run dev` is `turbo run start` (the Expo app names its task `start`), and it
+`bun run dev` is `turbo run dev` (both workspaces name their task `dev`), and it
 first runs `bun run env:link` to refresh the two workspace `.env` symlinks.
 
 You can also work inside the workspace directly:
@@ -54,11 +54,11 @@ From the repository root, every task fans out through Turborepo:
 | Command | Effect |
 |---|---|
 | `bun install` | One install for both workspaces (Bun 1.4.2, hoisted layout) |
-| `bun run dev` | `turbo run start`; runs `env:link` first, then starts the Expo app |
-| `bun run lint` | `eslint .` with the `eslint-config-expo` flat config (`apps/mobile` only) |
+| `bun run dev` | `turbo run dev`; runs `env:link` first, then starts the dev servers |
+| `bun run lint` | `eslint .` in both workspaces (`eslint-config-expo` in mobile, a flat config in the backend) |
 | `bun run typecheck` | `tsc --noEmit` in both workspaces |
-| `bun run test` | `jest` with the `jest-expo` preset (5 suites, 56 tests) |
-| `bun run build` | `tsc` in `apps/backend`, emitting `dist/index.js` |
+| `bun run test` | `jest` with the `jest-expo` preset in mobile (5 suites, 56 tests) and `bun test` in the backend |
+| `bun run build` | `tsc -p tsconfig.build.json` in `apps/backend`, emitting `dist/` |
 | `bun run env:link` | Points `apps/*/.env` at the shared root `.env` |
 
 The same commands work from inside `apps/mobile` without Turbo: `bun start`,
@@ -97,17 +97,26 @@ The remote service layer is the Borel cloud proxy. `src/lib/core/db.ts` defines 
 
 ## Backend
 
-`apps/backend` is a standalone [Hono](https://hono.dev) scaffold with no logic of its own yet, added in preparation to move off the Borel proxy. It is not imported by the app. It shares the root install, so there is no separate install step:
+`apps/backend` is a standalone [Hono](https://hono.dev) service that now runs a
+better-auth account service, added in preparation to move off the Borel proxy. It
+mounts better-auth at `/api/auth/*`, stores accounts in Neon Postgres through
+drizzle, and delivers verification and password-reset codes through a pluggable OTP
+transport. It is not imported by the app and the mobile client still points at
+Borel, so it is not yet the app's live auth provider. It shares the root install, so
+there is no separate install step:
 
 ```bash
 cd apps/backend
-bun run dev        # hot-reload src/index.ts at http://localhost:3000
-bun run typecheck  # tsc --noEmit
-bun run build      # tsc, emits dist/index.js
+bun run dev         # hot-reload src/index.ts at http://localhost:3000
+bun run typecheck   # tsc --noEmit
+bun run test        # bun test (database-backed tests skip without a database)
+bun run build       # tsc -p tsconfig.build.json, emits dist/
+bun run db:migrate  # apply the drizzle migration to Neon
+bun run db:verify   # migrate twice, then assert the auth tables
 ```
 
-From the repository root, `bun run build` and `bun run typecheck` cover this
-workspace too. It has no lint or test task.
+From the repository root, `bun run build`, `bun run lint`, `bun run typecheck`, and
+`bun run test` cover this workspace too.
 
 ## Before you publish to a store
 

@@ -6,12 +6,68 @@ The app is client-only. Remote work is split between the Borel cloud proxy and
 OpenRouter. The `db` object is assembled in `src/lib/core/db.ts` and every
 submodule is reachable from there.
 
-`apps/backend/` is the `@robin-talks/backend` Hono workspace (`src/index.ts`, a
-hello-world `GET /`). It shares the repository's single root install and root
-`.env` (see [workflows.md](workflows.md)), and its `typecheck`, `build`, and
-`dev` scripts run either through the root Turborepo scripts or directly in that
-directory. It is not imported by the mobile app and holds no app logic yet; the
-commit that added it describes it as preparation to move off the Borel proxy.
+`apps/backend/` is the `@robin-talks/backend` Hono workspace. It shares the
+repository's single root install and root `.env` (see [workflows.md](workflows.md)),
+and its `typecheck`, `build`, `dev`, `test`, `lint`, and database scripts run either
+through the root Turborepo scripts or directly in that directory. It is not imported
+by the mobile app; its auth service is described next.
+
+## Backend auth service (`apps/backend`)
+
+The backend runs a better-auth account service on Hono, mounted at `/api/auth/*`
+and backed by drizzle over a Neon Postgres database. The mobile app is not
+repointed to it yet: `EXPO_PUBLIC_AUTH_URL` still points at Borel, and the Data
+API, storage, AI images, moderation, notifications, and account deletion still go
+through `api.borel.one`. Those Borel surfaces consume the same session token, so
+the repoint is a follow-up; a backend test (`src/conformance.test.ts`) proves the
+backend serves the exact paths the mobile client issues.
+
+- **Server** (`src/app.ts`, `src/index.ts`): `createApp()` returns a Hono app with
+  `GET /health` -> `{ status: "ok" }`, CORS scoped to `/api/auth/*` with
+  `trustedOrigins()` and credentials, and `app.all("/api/auth/*", (c) =>
+  auth.handler(c.req.raw))`. `index.ts` default-exports `app` and, under
+  `import.meta.main`, calls `requireDatabaseUrl()` then `Bun.serve`.
+- **Auth config** (`src/auth.ts`): `betterAuth` 1.6.23 with
+  `drizzleAdapter(getDb(), { provider: "pg", schema })`; `baseURL`, `secret`, and
+  `trustedOrigins` from `src/env.ts`; email+password enabled with
+  `requireEmailVerification: true` and `minPasswordLength: 8`; `emailVerification:
+  { sendOnSignIn: true }`; `user.deleteUser.enabled`; `useSecureCookies` derived
+  from an `https` base URL; origin checks on. The `emailOTP` plugin
+  (`otpLength: 6`, `overrideDefaultEmailVerification: true`) handles email
+  verification and password reset and hands each code to the transport seam.
+- **Tables** (`src/db/schema.ts`): better-auth's four tables `user` (a quoted
+  reserved word), `session`, `account`, and `verification`, with better-auth's
+  camelCase columns, unique `user.email` and `session.token`, indexed
+  `verification.identifier`, and cascade FKs `session.userId`/`account.userId` ->
+  `user.id`. The committed migration is `drizzle/0000_lean_george_stacy.sql`.
+- **Database** (`src/db/client.ts`, `src/db/index.ts`): a lazy memoized `getDb()`
+  builds one `drizzle(new Pool({ connectionString: databaseUrlOrNull() ?? undefined
+  }), { schema })`; it does not connect or throw when no database is configured.
+- **Flows** (emailOTP): sign-up creates an unverified `user` and emails a 6-digit
+  code; `POST /email-otp/verify-email` marks the email verified; signing in an
+  unverified account is refused and re-sends a code; `POST
+  /forget-password/email-otp` issues a reset code (an unknown address succeeds with
+  no code, so accounts cannot be enumerated) and `POST /email-otp/reset-password`
+  applies a new password, with `/email-otp/request-password-reset` as the forward
+  path; `POST /change-password` changes the password and can retain other sessions;
+  `POST /delete-user` removes the user and cascades its session and account rows.
+- **OTP transport** (`src/mail/otp-transport.ts`): `createOtpTransport(mailConfig())`
+  returns the dev transport when `MAIL_PROVIDER` is unset, which logs the code and
+  pushes `{ email, otp, type }` to an exported in-process `outbox` (`resetOutbox`
+  clears it, both used by tests), and a `fetch`-based provider transport when it is
+  set. Provider completeness is checked in `send`.
+- **Env vars** (`src/env.ts`): `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
+  `PGHOST`/`PGHOST_UNPOOLED`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, `BETTER_AUTH_URL`
+  (default `http://localhost:3000`), `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`,
+  `MAIL_PROVIDER`/`MAIL_API_KEY`/`MAIL_FROM`, and `PORT`. `authSecret()` returns a
+  documented dev constant when `NODE_ENV !== "production"` and throws otherwise;
+  the module never throws at import. `.env.example` lists the full set.
+- **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,
+  and `db:verify` (runs `migrate` twice, then asserts the four tables through
+  `information_schema`). The database-backed tests skip with a reported reason when
+  no database is configured, so the suite stays green in a database-less
+  environment. `build` compiles `src` (excluding `*.test.ts`) through
+  `tsconfig.build.json`.
 
 ## The `db` object
 

@@ -1,6 +1,6 @@
 # Spec: Move auth into the Hono backend
 
-Status: implemented
+Status: verified
 Request: Move auth of this app into our hono backend, reducing dependency on borel.one. Use drizzle, better-auth. Consult context7 on how to proceed. You have permission to use this Neon database: PGHOST=ep-super-forest-arzkb9q6-pooler.c-4.us-west-2.aws.neon.tech, PGHOST_UNPOOLED=ep-super-forest-arzkb9q6.c-4.us-west-2.aws.neon.tech, PGUSER=neondb_owner, PGDATABASE=neondb, PGPASSWORD=<redacted>. Create a spec, a plan. With each, have an `adversaral-agent` review it, come to an agreement then proceed to the next step. No human acceptance required for any step forward.
 
 ## Overview
@@ -60,3 +60,19 @@ deletion stay on Borel.
 
 ## Open Questions
 - Q-1: The Data API, storage, AI, moderation, notifications, and account deletion all consume the session token as a bearer, so a session minted by our backend will not authorize them. Resolved for this feature: do not repoint the mobile app; build the backend auth service and prove endpoint conformance with the client instead. A later feature must move or bridge those surfaces before the repoint. (blocks: nothing in this feature)
+
+## Verification
+- AC-1: pass (`bun run dev` in `apps/backend`; `curl -s localhost:3000/health` -> `{"status":"ok"}` 200, `curl -s localhost:3000/api/auth/ok` -> `{"ok":true}` 200; `index.ts` default-exports `app` and calls `Bun.serve` under `import.meta.main`)
+- AC-2: pass (`apps/backend/package.json` declares `better-auth@1.6.23`, `drizzle-orm@0.45.3`, `pg@8.23.1`, dev `drizzle-kit@0.31.11`, `@types/pg`, `@neondatabase/neon-js@0.7.0-beta`, `@neondatabase/auth@0.5.0-beta`; `bun.lock` records the same)
+- AC-3: pass (`bun run db:verify` -> two `drizzle-kit migrate` runs `[✓] migrations applied successfully!` and `migration.test.ts` `3 pass 0 fail`; `drizzle/0000_lean_george_stacy.sql` creates quoted `"user"`, `session`, `account`, `verification`)
+- AC-4: pass (`bun test src/env.test.ts` 19 pass; `bun --no-env-file src/index.ts` with DB vars filtered and cwd `/tmp` -> `Missing required environment variable: DATABASE_URL`, exit 1; `.env.example` documents all nine variables)
+- AC-5: pass (`"test": "bun test"`, all tests import `bun:test`, `tsconfig.json` `types: ["node","bun-types"]`, `tsconfig.build.json` excludes `src/**/*.test.ts`; `dist` contains 0 `*.test.js`)
+- AC-6: pass (`bun test src/auth.e2e.test.ts` -> `(pass) AC-6: sign-up creates a user, OTP verifies the email, sign-in returns a session`)
+- AC-7: pass (same run -> `(pass) AC-7: unverified sign-in is refused and re-sends a fresh email-verification OTP`)
+- AC-8: pass (same run -> `(pass) AC-8: get-session returns the user, sign-out clears the session`)
+- AC-9: pass (same run -> `(pass) AC-9: forget-password issues a reset code, reset-password changes it, and unknown emails do not enumerate`)
+- AC-10: pass (same run -> `(pass) AC-10: change-password rejects a wrong current password and retains other sessions`)
+- AC-11: pass (same run -> `(pass) AC-11: delete-user removes the user and all session and account rows`; e2e `9 pass 0 fail`)
+- AC-12: pass (`bun test src/mail/otp-transport.test.ts` -> `6 pass 0 fail`)
+- AC-13: pass (`bun test src/app.test.ts src/conformance.test.ts` -> app `14 pass 0 fail` including 10 non-404 route assertions and the evil-origin 403, conformance `1 pass 0 fail` recording the adapter paths)
+- AC-14: pass (root `bun run lint`, `bun run typecheck`, `bun run test` with backend `64 pass 0 fail`, then `bun run build` all exit 0; no-DB run -> `0 pass, 9 skip, 0 fail`)

@@ -6,6 +6,13 @@ Accounts, sessions, and the account UI live in `src/lib/core/auth/`. The
 top-level `src/lib/core/auth.tsx` is Borel-managed and re-exports the public
 surface from the subfolder; implementation lives in `src/lib/core/auth/`.
 
+A parallel better-auth implementation now exists in `apps/backend` (see
+[backend-and-ai.md](backend-and-ai.md)). It serves the same `/api/auth/*` paths
+the mobile client issues, so the client is conformance-compatible with it, but
+the mobile client's default auth URL is still `EXPO_PUBLIC_AUTH_URL`
+(`api.borel.one`); the app has not been repointed. The backend is not imported by
+the mobile app.
+
 ## Connector surface (`src/lib/core/auth.tsx`)
 
 Re-exports types (`User`, `Session`, `AuthResult`), constants

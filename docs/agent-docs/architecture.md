@@ -7,8 +7,9 @@ monorepo. All code that runs lives under `src/`, and the app talks to two remote
 systems: the Borel cloud proxy (accounts, Postgres data, file storage, image
 generation) and OpenRouter (chat completions and speech-to-text). The app is
 client-only: it holds no server code and no build step. `apps/backend/` is a
-fresh Hono scaffold added in preparation to move off the Borel proxy; it is
-standalone and not yet wired to the app.
+separate Hono service that runs a better-auth account service at `/api/auth/*`
+over drizzle and Neon Postgres (see [backend-and-ai.md](backend-and-ai.md)); it is
+not yet wired to the app and the mobile client still authenticates against Borel.
 
 ## Layer map
 
