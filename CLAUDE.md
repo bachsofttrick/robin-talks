@@ -2,19 +2,19 @@
 
 A voice-first English speaking practice app for non-English speakers, built as a
 Bun and Turborepo monorepo. The product is the `@robin-talks/mobile` workspace at
-`apps/mobile`. On a device the app authenticates against the `@robin-talks/backend`
+`apps/mobile`. The app authenticates against the `@robin-talks/backend`
 Hono service at `apps/backend`, which runs a better-auth account service mounted
 at `/api/auth/*` and serves the app's profile, sessions, and memory at
 `/api/data/*`, both over a drizzle + pg schema on Neon Postgres. The browser
-preview still uses Borel. Each session drops
+preview uses the same backend. Each session drops
 the learner into a short, realistic
 scenario (ordering coffee, asking for directions, a job interview) where the AI
 partner Robin plays the other person, speaks through text-to-speech, listens to
 the reply, coaches English inline, and writes a debrief at the end. The mobile app
 is client-only: it holds no server, API layer, or build step of its own. File
-storage, AI image generation, moderation, notifications, and the browser preview
-go through the Borel cloud proxy at `api.borel.one`; chat and speech-to-text go
-directly to OpenRouter.
+storage, AI image generation, moderation, and notifications go through the Borel
+cloud proxy at `api.borel.one`; chat and speech-to-text go directly to
+OpenRouter.
 
 ## Tech Stack
 - Bun `1.4.2` as the package manager, one root install for both workspaces
@@ -78,10 +78,11 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Edit the root `.env` only. `apps/mobile/.env` and `apps/backend/.env` are symlinks to
   `../../.env`; never replace a symlink with a workspace copy. Run `bun run env:link`
   after cloning to recreate them.
-- `EXPO_PUBLIC_BACKEND_AUTH_URL` is the native auth base and includes the
-  `/api/auth` mount (see `.env.example`); `backendDataUrl()` in
-  `src/lib/core/db/config.ts` derives the `/api/data` base from it. The browser
-  preview keeps `EXPO_PUBLIC_AUTH_URL`/`EXPO_PUBLIC_PREVIEW_AUTH_URL` on Borel.
+- `EXPO_PUBLIC_BACKEND_AUTH_URL` is the auth base for both surfaces and includes
+  the `/api/auth` mount (see `.env.example`); `backendDataUrl()` in
+  `src/lib/core/db/config.ts` derives the `/api/data` base from it. Native replays
+  the stored session cookie; the browser preview sends it with
+  `credentials: "include"`.
 - Keep `bunfig.toml`'s `linker = "hoisted"`. Bun 1.4 would otherwise default a new
   workspace to the isolated linker, whose `node_modules/.bun` store path defeats the
   mobile Jest `transformIgnorePatterns` allow-list.
@@ -142,4 +143,4 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: eb479688a42d0624910df0ccccb6ec8a58f18178 -->
+<!-- docs-baseline: 10bcb55badc02d528e9d791da7e8a8a805d27082 -->

@@ -60,8 +60,9 @@ robin-talks/
 │   │   │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders.
 │   │   │       │   │   ├── errors.ts     Neutral error sentences, plainError, looksPlain, refusals.
 │   │   │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
-│   │   │       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native), tellScreens, sessionCookieHeader.
-│   │   │       │   │   ├── data.ts       Native backend data client for /api/data/*: profile, sessions, memory, profiles.
+│   │   │       │   │   ├── auth.ts       neon-js client, cookie session (native), tellScreens, sessionCookieHeader; re-exports brokerAuth.
+│   │   │       │   │   ├── browser-auth.ts  Browser wrapper over the backend neon-js client: own onAuthStateChange, getBetterAuthInstance.
+│   │   │       │   │   ├── data.ts       Backend data client for /api/data/* on both surfaces: profile, sessions, memory, profiles.
 │   │   │       │   │   ├── storage.ts    File upload/presign and account deletion.
 │   │   │       │   │   ├── ai.ts         OpenRouter chat/transcribe (AiJsonSchema structured output) + Borel image/editImage.
 │   │   │       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration.
@@ -115,7 +116,7 @@ robin-talks/
 │           │                  0001_complete_silver_fox.sql (app tables), plus meta/ snapshots.
 │           ├── src/
 │           │   ├── index.ts   Entry: default-exports app; under import.meta.main calls requireDatabaseUrl() then Bun.serve.
-│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, app.all("/api/auth/*", auth.handler), app.route("/api/data", dataRouter).
+│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/* and /api/data/*, app.all("/api/auth/*", auth.handler), app.route("/api/data", dataRouter).
 │           │   ├── auth.ts    betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0.
 │           │   ├── env.ts     process.env readers: database URLs, auth base URL/secret, trusted origins, mail, port.
 │           │   ├── db/        client.ts (lazy memoized pg Pool + drizzle), schema.ts (four auth + four app tables), index.ts barrel.

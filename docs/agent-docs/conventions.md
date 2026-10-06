@@ -104,8 +104,8 @@ patterns in the source exist to satisfy them. Keep them when adding effects:
 
 - Raw audio is never stored. Only the transcript and debrief reach the database.
 - Every AI call asks for consent first, once per company and per kind.
-- Database access is always scoped to the signed-in user; row-level security on
-  Borel enforces the same.
+- Database access is always scoped to the signed-in user; the backend's
+  `/api/data/*` router enforces it for the app's tables.
 
 ## Specs and changes
 

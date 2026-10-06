@@ -107,13 +107,16 @@ transpilable. Test files are colocated with source as `*.test.ts`:
 |---|---|
 | `src/lib/core/db/ai.test.ts` | chat transport, error mapping, JSON read and retry, structured-output response format, photo encoding, transcribe |
 | `src/lib/core/db/consent.test.ts` | consent wording/keys and the ask-once flow |
-| `src/lib/core/db/data.test.ts` | backend data client URLs, the session-cookie header, and error mapping |
-| `src/lib/api/data-hooks.test.tsx` | the native branch of `useProfile`/`useSessions`/`useMemory` calls the data client and keeps each hook's shape |
+| `src/lib/core/db/auth.test.ts` | browser `authCall` posts to the backend with `credentials: "include"`, the `bps_anon` token, and the `brokerAuth` re-export |
+| `src/lib/core/db/browser-auth.test.ts` | `createBrowserAuth` builds against the backend auth URL, notifies subscribers on sign-in/verify/sign-out, and passes through `getBetterAuthInstance` |
+| `src/lib/core/db/data.test.ts` | backend data client URLs, the native session-cookie header, the browser credentials mode, and error mapping |
+| `src/lib/api/data-hooks.test.tsx` | `useProfile`/`useSessions`/`useMemory` call the data client on both surfaces (never `db.from`) and keep each hook's shape |
+| `src/lib/core/auth/actions.test.ts` | `updatePassword`/`deleteAccount` through `getBetterAuthInstance` and the password-reset constants |
 | `src/lib/core/auth/errors.test.ts` | `authErrorMessage` translation |
 | `src/lib/core/auth/labels.test.ts` | `labelsWith` overrides |
 | `src/lib/polyfills/responsePolyfill.test.ts` | `Response.json` polyfill |
 
-Current totals: 7 suites, 104 tests in `apps/mobile`. Root `bun run test` runs both
+Current totals: 10 suites, 122 tests in `apps/mobile`. Root `bun run test` runs both
 workspaces: `apps/mobile` via Jest and `apps/backend` via `bun test`. Mobile tests
 mock `./config`, `./notify`, `./consent`, and `@openrouter/sdk` rather than making
 network calls. The `ai.transcribe` suite covers the empty-base64 and uri-only-empty
@@ -129,9 +132,9 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 
 | File | Covers |
 |---|---|
-| `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, missing-`DATABASE_URL` subprocess exit |
+| `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*` and `/api/data/*`, missing-`DATABASE_URL` subprocess exit |
 | `src/auth.e2e.test.ts` | sign-up/verify/sign-in/sign-out, email verification resend, reset, change-password, delete-user, edge cases (skips without a database) |
-| `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues |
+| `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
 | `src/data/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
 | `src/db/schema.test.ts` | table and column names, uniques, cascade FKs |
 | `src/db/client.test.ts` | `getDb()` laziness and memoization, the barrel |
@@ -188,8 +191,9 @@ with static dot access only). The root `.env.example` lists the full set:
   `EXPO_PUBLIC_PREVIEW_AUTH_URL`, `EXPO_PUBLIC_BOREL_STORAGE`,
   `EXPO_PUBLIC_BOREL_AI`, `EXPO_PUBLIC_BOREL_ACCOUNT`,
   `EXPO_PUBLIC_BOREL_USAGE_URL`, `EXPO_PUBLIC_BOREL_INVITE_URL`
-- Native backend auth: `EXPO_PUBLIC_BACKEND_AUTH_URL`, whose value includes the
-  `/api/auth` mount; the data client derives `/api/data` from it.
+- Backend auth: `EXPO_PUBLIC_BACKEND_AUTH_URL`, whose value includes the
+  `/api/auth` mount; the data client derives `/api/data` from it. Both surfaces
+  use it.
 - `EXPO_PUBLIC_OPENROUTER_API_KEY` (chat and speech-to-text)
 - Backend auth (`apps/backend`): `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
   `PGHOST`/`PGHOST_UNPOOLED`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, `BETTER_AUTH_URL`,
@@ -212,8 +216,8 @@ says to change the bundle identifier, replace the assets, and build with
 
 A Hono service, package `@robin-talks/backend`, that runs a better-auth account
 service at `/api/auth/*` and the authenticated data API at `/api/data/*` over
-drizzle and Neon Postgres. The native mobile app reaches it over HTTP for auth and
-for its own profile, sessions, and memory; the browser preview stays on Borel. It
+drizzle and Neon Postgres. The mobile app reaches it over HTTP for auth and
+for its own profile, sessions, and memory on both surfaces. It
 takes part in the root install and in the root Turbo tasks, so no
 separate install step exists:
 

@@ -2,10 +2,11 @@
 
 Source paths are relative to `apps/mobile/` unless noted.
 
-The app is client-only. On a device, remote work is split between the backend
-service in `apps/backend`, the Borel cloud proxy, and OpenRouter; the browser
-preview keeps Borel for auth and data. The `db` object is assembled in
-`src/lib/core/db.ts` and every submodule is reachable from there.
+The app is client-only. Remote work is split between the backend
+service in `apps/backend`, the Borel cloud proxy, and OpenRouter; auth and the
+app's data use the backend on both a device and the browser preview. The `db`
+object is assembled in `src/lib/core/db.ts` and every submodule is reachable from
+there.
 
 `apps/backend/` is the `@robin-talks/backend` Hono workspace. It shares the
 repository's single root install and root `.env` (see [workflows.md](workflows.md)),
@@ -18,19 +19,20 @@ are described next.
 
 The backend runs a better-auth account service on Hono, mounted at `/api/auth/*`,
 and an authenticated data API at `/api/data/*`, both backed by drizzle over a Neon
-Postgres database. The native app authenticates against it through
-`EXPO_PUBLIC_BACKEND_AUTH_URL` (which includes the `/api/auth` mount) and reads and
-writes its profile, sessions, and memory through `/api/data/*`. File storage, AI
-image generation, moderation, notifications, and the browser preview still go
-through `api.borel.one`; chat and speech-to-text go directly to OpenRouter. A
+Postgres database. Both surfaces authenticate against it through
+`EXPO_PUBLIC_BACKEND_AUTH_URL` (which includes the `/api/auth` mount) and read and
+write their profile, sessions, and memory through `/api/data/*`. File storage, AI
+image generation, moderation, and notifications still go through `api.borel.one`;
+chat and speech-to-text go directly to OpenRouter. A
 backend test (`src/conformance.test.ts`) proves the backend serves the exact auth
 paths the mobile client issues.
 
 - **Server** (`src/app.ts`, `src/index.ts`): `createApp()` returns a Hono app with
-  `GET /health` -> `{ status: "ok" }`, CORS scoped to `/api/auth/*` with
-  `trustedOrigins()` and credentials, and `app.all("/api/auth/*", (c) =>
-  auth.handler(c.req.raw))`. `index.ts` default-exports `app` and, under
-  `import.meta.main`, calls `requireDatabaseUrl()` then `Bun.serve`.
+  `GET /health` -> `{ status: "ok" }`, CORS with
+  `trustedOrigins()` and credentials on both `/api/auth/*` and `/api/data/*`, and
+  `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`. `index.ts`
+  default-exports `app` and, under `import.meta.main`, calls
+  `requireDatabaseUrl()` then `Bun.serve`.
 - **Auth config** (`src/auth.ts`): `betterAuth` 1.6.23 with
   `drizzleAdapter(getDb(), { provider: "pg", schema })`; `baseURL`, `secret`, and
   `trustedOrigins` from `src/env.ts`; email+password enabled with
@@ -84,7 +86,8 @@ paths the mobile client issues.
 cookie with `auth.api.getSession({ headers: c.req.raw.headers })`, returns 401
 `{ error: "You need to sign in first." }` when there is no session, and sets the
 route's `userId`. There is no bearer path, so the native data client replays the
-persisted session cookie (see [auth.md](auth.md)). Every read and write is scoped
+persisted session cookie and the browser sends its cookie with
+`credentials: "include"` (see [auth.md](auth.md)). Every read and write is scoped
 to the session user: reads filter on `user_id = session.user.id`; `GET`/`PATCH
 /sessions/:id` require `user_id AND id`, so a guessed id is a 404; `DELETE
 /sessions` and `/memory` remove only the caller's rows; `profiles` is keyed by
@@ -126,10 +129,20 @@ export const db = Object.assign(client, {
 
 `client` (the Data API client) is created with `@neondatabase/neon-js`
 `createClient` in `src/lib/core/db/auth.ts`. It exposes a PostgREST-style
-`db.from("table").select()/insert()/update()/delete()/upsert()` surface. On native
-the app's own domain data does not use it: `useProfile`, `useSessions`, and
-`useMemory` call `src/lib/core/db/data.ts`, which speaks to `/api/data/*`; the
-browser preview keeps `db.from`.
+`db.from("table").select()/insert()/update()/delete()/upsert()` surface. The app's
+own domain data does not use it on either surface: `useProfile`, `useSessions`,
+and `useMemory` call `src/lib/core/db/data.ts`, which speaks to `/api/data/*`.
+
+In the browser the `auth` half of `db` is `brokerAuth`, re-exported from
+`src/lib/core/db/auth.ts` and built in `src/lib/core/db/browser-auth.ts`.
+`createBrowserAuth(auth)` wraps one neon-js `createClient({ auth: { url:
+BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() }, dataApi: { url:
+backendDataUrl() } })` with no session plugin, so the browser's own cookie jar
+carries the session. It keeps its own `onAuthStateChange` subscriber list and
+calls `getSession({ forceFetch: true })` after sign-in, OTP verification, and
+sign-out to notify subscribers, because the neon-js adapter otherwise notifies
+only on cross-tab broadcasts. `getBetterAuthInstance()` passes through to the
+underlying client, which `updatePassword` and `deleteAccount` use.
 
 ## Configuration (`src/lib/core/db/config.ts`)
 
@@ -149,14 +162,14 @@ All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
 ## Borel cloud proxy
 
 `api.borel.one` fronts the app's own cloud. Borel attaches credentials
-server-side, so no secret is held in `db.ts`. Every row is still governed by the
-tables' row-level security policies.
+server-side, so no secret is held in `db.ts`.
 
-- **Data API** (`DATA_API_URL`): the browser preview's Postgres reads/writes
-  through `db.from`; native uses the backend's `/api/data` instead.
-- **Auth** (`AUTH_URL` / `PREVIEW_AUTH_URL`): the browser preview's accounts,
-  sessions, OTP codes, and password reset; the native app's auth is the backend.
-  See [auth.md](auth.md).
+- **Data API** (`DATA_API_URL`): the neon-js client is still built against it and
+  `db.from` is still exposed, but no screen calls it; the app's tables live behind
+  the backend's `/api/data` on both surfaces.
+- **Auth** (`AUTH_URL` / `PREVIEW_AUTH_URL`): these Borel endpoints remain in
+  config, but the auth flows target the backend on both surfaces. See
+  [auth.md](auth.md).
 - **Storage** (`BOREL_STORAGE`, `src/lib/core/db/storage.ts`): presign, upload,
   confirm, sign, remove, and `getPublicUrl`. Limits are 25 MB per file, 200 MB
   per video.
