@@ -112,7 +112,7 @@ drizzle schema with `on delete cascade` FKs to `"user"(id)`, and serve them from
 new authenticated `/api/data/*` router in the Hono backend that resolves the caller
 from the better-auth session cookie. On the phone, add a small data client that
 replays the persisted session cookie and rewires `useProfile`, `useSessions`,
-`useMemory`, and `syncProfile`; the browser preview keeps `db.from`.
+`useMemory`, and `syncProfile`; the browser preview kept `db.from` (superseded by the browser update below, which uses the backend client on both surfaces).
 
 ### Affected Code
 - `apps/backend/src/auth.ts`: add `session: { freshAge: 0 }` (AC-1, AC-15).
@@ -170,5 +170,65 @@ No new dependencies: `drizzle-orm`, `pg`, `hono`, and `better-auth` already cove
 - `id` addressed writes must include `user_id = session.user.id` so a guessed id cannot touch another user's row.
 - `gen_random_uuid()` requires `pgcrypto` (built in on Neon Postgres 13+); the migration depends on it.
 - Account deletion cascades only because every app table FKs to `"user"(id)`; a missing FK leaks rows.
-- The browser preview keeps `db.from`, so the two stores stay separate.
+- The browser preview kept `db.from`, so the two stores stayed separate (superseded by the browser update below).
 - The mobile data tests cannot hit the backend from Jest; AC-19 is proven by the backend `bun test` suite instead.
+
+## Update: browser preview auth and data move to the backend (AC-21 through AC-29)
+
+Status: approved
+Spec: SPEC.md
+
+### Approach
+Point the browser preview at the same backend the phone uses. Extract the browser
+auth wrapper into `src/lib/core/db/browser-auth.ts`, a module that imports only
+`./config`, `./moderation-state` (to keep `forgetModeration()` on sign-in/out), and
+`@neondatabase/neon-js`, builds a `createClient({ auth: { url:
+BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() }, dataApi: { url:
+backendDataUrl() } })` with no `sessionPlugin` (so the browser cookie jar with
+`credentials: "include"` carries the session), and wraps it so `onAuthStateChange`
+owns a subscriber list that sign-in/verify/sign-out notify. `db/auth.ts` imports
+that wrapper, removes the Borel broker helpers, makes `authCall` target
+`BACKEND_AUTH_URL` on both surfaces, and returns `"bps_anon"` for the Borel browser
+client token. The mobile data client branches only on the credential mechanism
+(browser cookie vs native jar), and the hooks drop their `db.from` branch. The
+backend applies CORS to `/api/data/*` too, and the served config trusts the preview
+origin.
+
+### Affected Code
+- `apps/backend/src/app.ts`: register `cors({ origin: trustedOrigins(), credentials: true })` on `/api/data/*` before `app.route("/api/data", dataRouter)` (AC-29).
+- `apps/backend/src/conformance.test.ts`: call `adapter.getBetterAuthInstance().changePassword({ newPassword, currentPassword, revokeOtherSessions: false })` and `.deleteUser()`, record `` `${init?.method} ${url}` ``, and assert `POST /api/auth/change-password` and `POST /api/auth/delete-user` (AC-13).
+- `apps/backend/src/app.test.ts`: the AC-26/AC-29 CORS assertions are hermetic. In-process, a helper saves `process.env.TRUSTED_ORIGINS`, sets it to `http://localhost:8081`, builds `const scoped = createApp()` (which re-reads `trustedOrigins()` per instance), restores the variable in a `finally`, and asserts the literal `http://localhost:8081` in `Access-Control-Allow-Origin` plus `Access-Control-Allow-Credentials: true` (and `204` on the preflight) for `OPTIONS`/credentialed requests to `/api/auth/sign-in/email` and `/api/data/profile`; the existing cookie-bearing evil-origin `POST /api/auth/sign-in/email` still returns `403 INVALID_ORIGIN` with no `Access-Control-Allow-Origin`. Because better-auth reads `trustedOrigins()` at module load, its acceptance of the preview origin (not just Hono's headers) is proven through the served root `.env` or, when unset, a spawned `bun` with `TRUSTED_ORIGINS=http://localhost:8081`, asserting a cookie-bearing `POST /api/auth/sign-in/email` with `Origin: http://localhost:8081` is not `403`.
+- `.env.example`: already documents `TRUSTED_ORIGINS` (no change needed) (AC-26); the untracked root `.env` is set to `TRUSTED_ORIGINS=http://localhost:8081` as an operational dev action so the live preview works, not as a suite precondition (AC-26).
+- `apps/mobile/src/lib/core/db/browser-auth.ts` (new): `createBrowserAuth(auth)` wrapper factory plus the module-scope `brokerAuth`; imports `./config`, `./moderation-state`, and `@neondatabase/neon-js` (no AsyncStorage) (AC-21, AC-28).
+- `apps/mobile/src/lib/core/db/auth.ts`: remove `brokerFetch`/`loadBrokerToken`/`setBrokerToken`; import and re-export `brokerAuth` from `./browser-auth`; browser `client` token provider returns `"bps_anon"`; `authHeader()` returns `"bps_anon"` in the browser; `AUTH_CALL_URL` is `BACKEND_AUTH_URL` on both surfaces; `authCall` uses `credentials: "include"` in the browser; the browser notification lives in the wrapper, not in `tellScreens`/`announceSessionChanges`; drop the now-unused `AUTH_URL`/`PREVIEW_AUTH_URL` imports and correct the now-false comments at `:16-19` (postMessage broker token), `:150-156` ("browser preview keeps Borel's"), and `:350-353` ("getToken ... app-scoped handle") (AC-21, AC-22, AC-24, AC-25, AC-28).
+- `apps/mobile/src/lib/core/db/data.ts`: `request()` adds `credentials: "include"` in the browser and keeps the `sessionCookieHeader()` `Cookie` header on native; correct the now-false header comment at `:5-7` (AC-22, AC-23).
+- `apps/mobile/src/lib/core/auth/constants.ts`: correct the now-false `IN_PREVIEW` comment (AC-25).
+- `apps/mobile/src/lib/core/auth/actions.ts`: `syncProfile` always calls `upsertProfile`; drop the dead Borel-preview fallbacks now that `getBetterAuthInstance()` exists in the browser, and correct the now-false comments at `:114-117` and `:129-130` (AC-23, AC-24).
+- `apps/mobile/src/lib/api/useProfile.tsx`, `useSessions.tsx`, `useMemory.tsx`: remove the `IN_BROWSER` `db.from` branch, always the data client (AC-23).
+- Mobile tests: `src/lib/core/db/browser-auth.test.ts` (new, browser-mode; AC-21, AC-28), a browser-mode case in `src/lib/core/db/data.test.ts` (whose `./config` mock must add `IN_BROWSER`, since it currently mocks only `backendDataUrl`) (AC-22, AC-23), a browser-mode case in `src/lib/api/data-hooks.test.tsx` (AC-23), and a wrapper test for `updatePassword`/`deleteAccount` through `getBetterAuthInstance` that also asserts `PASSWORD_RESET_AVAILABLE === true` and `AUTH_REDIRECT_URL === BACKEND_AUTH_URL` stay true (AC-24).
+- Gates: run root `bun run lint`, `bun run typecheck`, and `bun run test` (backend `bun test`, mobile `jest`), then `bun run build` last; database-backed tests skip with a reported reason when no database is configured (AC-27).
+- `apps/mobile/package.json`: no `jest.transformIgnorePatterns` change; the SDK is mocked, not loaded.
+
+### Data Model and Contracts
+- Browser auth client config: `createClient({ auth: { url: string, adapter: SupabaseAuthAdapter }, dataApi: { url: string } })`; the `dataApi` key is required by the SDK, which dereferences `dataApi.options` and `dataApi.url` unconditionally.
+- Auth wrapper: `createBrowserAuth(auth)` returns `{ signUp, signInWithPassword, verifyOtp, getSession, signOut, onAuthStateChange, getBetterAuthInstance }`. `onAuthStateChange(cb)` returns `{ data: { subscription: { unsubscribe } } }` (the shape `context.tsx` consumes). `signInWithPassword`, `verifyOtp`, and `signOut` each call `auth.getSession({ forceFetch: true })`, call `forgetModeration()`, and invoke every subscriber.
+- Browser data request: `fetch(url, { credentials: "include", ... })`, never a `Cookie` header. Native: `sessionCookieHeader()` as the `Cookie` header.
+- Backend CORS: the same `cors({ origin: trustedOrigins(), credentials: true })` middleware on `/api/auth/*` and `/api/data/*`.
+
+### Libraries
+- `better-auth@1.6.23`: `trustedOrigins` and cookie sessions; context7 confirms `trustedOrigins` plus a CORS `credentials: true` layer is the supported cross-origin cookie setup.
+- `@neondatabase/neon-js@0.7.0-beta`: `createClient` object form for the browser auth client (`dataApi` mandatory).
+- `@neondatabase/auth@0.5.0-beta`: `SupabaseAuthAdapter` and its `getBetterAuthInstance()` (`changePassword`, `deleteUser`).
+- `hono@^4.13.13`: `hono/cors` on `/api/data/*`.
+
+### Risks
+- A mocked-SDK test cannot observe real request inits: assert the `createClient` config and the adapter spy, and rely on the backend conformance test (AC-13) for per-method URLs.
+- `createClient` throws without a `dataApi` key: pin the full config and assert it.
+- `@react-native-async-storage/async-storage` has no Jest native module: keep the browser wrapper in `browser-auth.ts`, which never imports it.
+- A hosted cross-site preview would need an HTTPS backend and `SameSite=None` cookies: out of scope; only the same-site local preview is required.
+- The root `.env` is untracked and lacks `TRUSTED_ORIGINS`: set it for local dev (AC-26), and keep the committed documentation in `.env.example`.
+- `db.auth.updateUser`/`resetPasswordForEmail`/`resend` have no callers; the wrapper does not need them.
+- Removing the browser `db.from` branch is a behavior change; no caller outside the changed hooks and `syncProfile` uses it.
+- The browser cookie session relies on better-auth's client default `credentials: "include"` (`better-auth/dist/client/config.mjs`); the options-level test only proves no override, so a future SDK change could silently flip it. Mitigation: state the dependency in the wrapper and pin the no-override assertion.
+- The browser wrapper replaces the adapter's `onAuthStateChange`, so the adapter's cross-tab broadcast subscription (kept on native via `announceSessionChanges`, `db/auth.ts:413-451`) is dropped in the browser; cross-tab sync in the preview is out of scope, and the wrapper's own list covers same-tab sign-in/verify/sign-out.
+- `AUTH_URL` and `PREVIEW_AUTH_URL` become unused in `db/auth.ts`; leave the `EXPO_PUBLIC_*` env vars in `.env.example` (other Borel surfaces still document them) but remove the dead imports.
