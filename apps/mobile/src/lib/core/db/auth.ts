@@ -266,7 +266,13 @@ function rememberCookies(lines: string[]): boolean {
   return changed;
 }
 
-function sessionCookieHeader(): string {
+/**
+ * Every unexpired cookie the jar holds, as one `name=value; ...` header. The
+ * jar load is awaited here so a data request on a cold start still carries the
+ * session cookie.
+ */
+export async function sessionCookieHeader(): Promise<string> {
+  await loadSessionCookies();
   const now = Date.now();
   return Object.entries(sessionCookies)
     .filter(([, c]) => c.expires === null || c.expires > now)
@@ -279,9 +285,8 @@ const sessionPlugin = {
   name: "borel-session",
   hooks: {
     async onRequest(context: any) {
-      await loadSessionCookies();
       const headers = new Headers(context.headers || {});
-      const cookie = sessionCookieHeader();
+      const cookie = await sessionCookieHeader();
       if (cookie) headers.set("cookie", cookie);
       else headers.delete("cookie");
       return { ...context, headers, credentials: "omit" };

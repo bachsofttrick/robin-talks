@@ -13,6 +13,13 @@ export const BOREL_USAGE_URL = process.env.EXPO_PUBLIC_BOREL_USAGE_URL ?? "";
 export const BOREL_INVITE_URL = process.env.EXPO_PUBLIC_BOREL_INVITE_URL ?? "";
 export const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "";
 
+// The backend data API sits beside better-auth on the same host, at /api/data.
+// It exists only when BACKEND_AUTH_URL points at the better-auth base.
+export function backendDataUrl(): string {
+  if (!/\/api\/auth\/?$/.test(BACKEND_AUTH_URL)) return "";
+  return BACKEND_AUTH_URL.replace(/\/api\/auth\/?$/, "/api/data");
+}
+
 /**
  * The link to share for one of this app's invite codes (a group's join code,
  * an event's RSVP code): pass it to shareContent({ message, url }). On a phone
