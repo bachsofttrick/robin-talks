@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 
-import { app } from "./app.js";
+import { app, createApp } from "./app.js";
 
 const AUTH_ROUTES: Array<{ method: "POST" | "GET"; path: string }> = [
   { method: "POST", path: "/api/auth/sign-up/email" },
   { method: "POST", path: "/api/auth/sign-in/email" },
   { method: "POST", path: "/api/auth/sign-out" },
+  { method: "POST", path: "/api/auth/delete-user" },
   { method: "GET", path: "/api/auth/get-session" },
   { method: "POST", path: "/api/auth/email-otp/verify-email" },
   { method: "POST", path: "/api/auth/email-otp/send-verification-otp" },
@@ -73,9 +74,114 @@ describe("AC-13: origin rejection", () => {
     });
 
     expect(response.status).toBe(403);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
     const body = (await response.json()) as { code?: string; message?: string };
     expect(body.code).toBe("INVALID_ORIGIN");
     expect(body.message?.toLowerCase()).toContain("invalid origin");
+  });
+});
+
+const PREVIEW_ORIGIN = "http://localhost:8081";
+
+async function withTrustedOrigin(
+  run: (scoped: ReturnType<typeof createApp>) => Promise<void>,
+): Promise<void> {
+  const previous = process.env.TRUSTED_ORIGINS;
+  process.env.TRUSTED_ORIGINS = PREVIEW_ORIGIN;
+  try {
+    await run(createApp());
+  } finally {
+    if (previous === undefined) delete process.env.TRUSTED_ORIGINS;
+    else process.env.TRUSTED_ORIGINS = previous;
+  }
+}
+
+function expectPreviewCors(response: Response): void {
+  expect(response.headers.get("Access-Control-Allow-Origin")).toBe(PREVIEW_ORIGIN);
+  expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+}
+
+describe("AC-26/AC-29: CORS headers for auth and data routes", () => {
+  test("OPTIONS /api/auth/sign-in/email preflight allows the preview origin", async () => {
+    await withTrustedOrigin(async (scoped) => {
+      const response = await scoped.request("/api/auth/sign-in/email", {
+        method: "OPTIONS",
+        headers: { origin: PREVIEW_ORIGIN, "access-control-request-method": "POST" },
+      });
+      expect(response.status).toBe(204);
+      expectPreviewCors(response);
+    });
+  });
+
+  test("credentialed POST /api/auth/sign-in/email echoes the preview origin", async () => {
+    await withTrustedOrigin(async (scoped) => {
+      const response = await scoped.request("/api/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: PREVIEW_ORIGIN,
+          cookie: "probe=1",
+        },
+        body: JSON.stringify({ email: "learner@example.com", password: "password-123" }),
+      });
+      expectPreviewCors(response);
+    });
+  });
+
+  test("OPTIONS /api/data/profile preflight allows the preview origin", async () => {
+    await withTrustedOrigin(async (scoped) => {
+      const response = await scoped.request("/api/data/profile", {
+        method: "OPTIONS",
+        headers: { origin: PREVIEW_ORIGIN, "access-control-request-method": "GET" },
+      });
+      expect(response.status).toBe(204);
+      expectPreviewCors(response);
+    });
+  });
+
+  test("credentialed GET /api/data/profile reaches the handler and echoes the preview origin", async () => {
+    await withTrustedOrigin(async (scoped) => {
+      const response = await scoped.request("/api/data/profile", {
+        method: "GET",
+        headers: { origin: PREVIEW_ORIGIN, cookie: "probe=1" },
+      });
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "You need to sign in first." });
+      expectPreviewCors(response);
+    });
+  });
+});
+
+const ORIGIN_PROBE_SCRIPT =
+  "const { auth } = await import('./auth.js');" +
+  "const r = await auth.handler(new Request('http://localhost:3000/api/auth/sign-in/email'," +
+  "{ method: 'POST', headers: { 'content-type': 'application/json', origin: '" +
+  PREVIEW_ORIGIN +
+  "', cookie: 'probe=1' }, body: '{}' }));" +
+  "console.log(r.status); process.exit(0);";
+
+function runOriginProbe(env: Record<string, string | undefined>) {
+  return Bun.spawnSync({
+    cmd: ["bun", "--no-env-file", "-e", ORIGIN_PROBE_SCRIPT],
+    cwd: new URL(".", import.meta.url).pathname,
+    env,
+    stdout: "pipe",
+  });
+}
+
+describe("AC-26: trusted origin acceptance in a spawned process", () => {
+  test("the preview origin is accepted when trusted and rejected when not", () => {
+    const trusted = runOriginProbe({
+      ...process.env,
+      NODE_ENV: "test",
+      TRUSTED_ORIGINS: PREVIEW_ORIGIN,
+    });
+    expect(new TextDecoder().decode(trusted.stdout).trim()).not.toBe("403");
+
+    const untrustedEnv: Record<string, string | undefined> = { ...process.env, NODE_ENV: "test" };
+    delete untrustedEnv.TRUSTED_ORIGINS;
+    const untrusted = runOriginProbe(untrustedEnv);
+    expect(new TextDecoder().decode(untrusted.stdout).trim()).toBe("403");
   });
 });
 
