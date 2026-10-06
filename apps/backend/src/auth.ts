@@ -17,6 +17,7 @@ export const auth = betterAuth({
   },
   emailVerification: { sendOnSignIn: true },
   user: { deleteUser: { enabled: true } },
+  session: { freshAge: 0 },
   advanced: {
     useSecureCookies: baseUrl().startsWith("https"),
     disableOriginCheck: false,

@@ -2,7 +2,17 @@ import { describe, expect, it } from "bun:test";
 import { getTableColumns, getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { getTableConfig } from "drizzle-orm/pg-core";
-import { account, schema, session, user, verification } from "./schema.js";
+import {
+  account,
+  learnerProfiles,
+  practiceSessions,
+  profiles,
+  robinMemory,
+  schema,
+  session,
+  user,
+  verification,
+} from "./schema.js";
 
 const tables = { user, session, account, verification };
 
@@ -109,12 +119,23 @@ describe("drizzle schema", () => {
     expect(indexedColumnNames(account)).toContain("userId");
   });
 
-  it("exports the four tables on the schema object", () => {
+  it("exports the eight tables on the schema object", () => {
     expect(Object.keys(schema)).toEqual([
       "user",
       "session",
       "account",
       "verification",
+      "learnerProfiles",
+      "practiceSessions",
+      "robinMemory",
+      "profiles",
     ]);
+  });
+
+  it("uses snake_case physical table names for the app tables", () => {
+    expect(getTableName(learnerProfiles)).toBe("learner_profiles");
+    expect(getTableName(practiceSessions)).toBe("practice_sessions");
+    expect(getTableName(robinMemory)).toBe("robin_memory");
+    expect(getTableName(profiles)).toBe("profiles");
   });
 });
