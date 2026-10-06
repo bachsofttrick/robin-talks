@@ -3,21 +3,26 @@
 Feature: `261006-move-auth-to-hono-backend`
 Method: Spec-Driven Development (sdd), no plan mode, no human acceptance gates.
 Review authority: `adversaral-agent` at every phase gate (spec, plan, tasks).
+Status: `SPEC.md` verified, `TASKS.md` complete, with one verified update recorded in the spec's Change Log.
 
 ## Summary
 
 The auth surface (accounts, sessions, email verification, password reset, password
-change, account deletion) now runs in the `@robin-talks/backend` Hono workspace using
-better-auth 1.6.23 with a drizzle adapter over the provided Neon Postgres database.
-The mobile app is intentionally not repointed; the backend proves endpoint
-conformance with the mobile client's neon-js `SupabaseAuthAdapter` instead, because
-the same session token also authorizes six Borel surfaces (Data API, storage, AI,
-moderation, notifications, account deletion).
+change, account deletion) runs in the `@robin-talks/backend` Hono workspace using
+better-auth 1.6.23 with a drizzle adapter over the provided Neon Postgres database
+(AC-1 through AC-14). A follow-up update then repointed the native mobile auth client
+at the backend and migrated the app's own data (learner profile, practice sessions,
+Robin memory, and the profiles row) to authenticated backend endpoints, so the app no
+longer depends on Borel for auth or its data (AC-15 through AC-20).
 
-All 14 acceptance criteria passed verification. All quality gates are green
-(backend `lint`, `typecheck`, `test`, `build`; mobile `lint`, `typecheck`, `test`).
+All 20 acceptance criteria passed verification. All quality gates are green:
+backend `lint`, `typecheck`, `test` (78 tests), `build`; mobile `lint`, `typecheck`,
+`test` (104 tests). File storage, AI image generation, moderation, notifications, and
+the browser preview remain on Borel and are not called by the app's screens.
 
-## Adversarial review passes: 11 total
+## Adversarial review passes: 17 total
+
+Original feature (11):
 
 | Phase | Pass | Session result |
 |---|---|---|
@@ -33,8 +38,19 @@ All 14 acceptance criteria passed verification. All quality gates are green
 | Tasks | 1 | Not approved. 6 blockers (B1-B6): wave inversion, same-wave dependency, failing Done-when, missing AC-14 owner, missing test assertions, env precedence. |
 | Tasks | 2 | **Approved as-is.** All resolved; coverage map verified both directions. |
 
-Total: 6 spec passes, 3 plan passes, 2 tasks passes. Every blocking issue was fixed
-and re-reviewed until the reviewer approved, with no human sign-off used.
+Update: mobile repoint and data migration (6):
+
+| Phase | Pass | Session result |
+|---|---|---|
+| Spec | 1 | Not approved. 9 blockers (B1-B9): false hook return shape, unpinned cookie-vs-bearer mechanism, unstated broken intermediate state, no deletion cascade, unenumerated columns, id-addressed scoping, browser branch contradiction, `profiles` key, stale AC-14. |
+| Spec | 2 | Not approved. 5 blockers (N1-N5): `sessionCookieHeader()` races a cold start, wrong `freshAge` rationale, AC-1/AC-15 option mismatch, cookie name under https, unpinned id default. |
+| Spec | 3 | 5 fixed; 1 remaining blocker: AC-11 still justified itself with the old 24-hour freshness default. |
+| Spec | 4 | **Approved as amendment.** |
+| Tasks | 1 | Not approved. 5 blockers (B1-B5): drizzle camelCase response keys, missing 401 test, vague isolation test, delete-by-id vs delete-all mismatch, mobile test cannot import the data client. |
+| Tasks | 2 | **Approved as-is.** |
+
+Every blocking issue was fixed and re-reviewed until the reviewer approved, with no
+human sign-off used.
 
 ## Phase 1: Specify
 
@@ -100,12 +116,70 @@ One `codebase-explorer` subagent updated `CLAUDE.md` (AGENTS.md symlink intact),
 `workflows.md`, and `README.md`. I additionally corrected stale `turbo run start`
 references to `turbo run dev` across those files. Committed as `6ac9c09`.
 
+## Update: mobile repoint and data migration
+
+The request moved the mobile app onto the backend auth and then migrated the app's
+own data so the app keeps working. Classified as an **update** to a verified feature:
+`SPEC.md` was reopened to `draft`, extended with AC-15 through AC-20 and revised
+Overview/User Stories/Edge Cases/Non-Goals/Q-1, and approved by the reviewer before
+any code changed.
+
+### Phase 1-3 (update)
+
+1. Scoped the data surface by grepping the mobile source: only `db.from` for
+   `learner_profiles`, `practice_sessions`, `robin_memory`, and `profiles` is used by
+   the screens; `db.storage`, `db.moderation`, `db.notify`, and `db.account` are
+   exported but called by nothing, and `db.ai` chat/transcription already go straight
+   to OpenRouter.
+2. Amended `SPEC.md` (AC-15 mobile repoint, AC-16 schema, AC-17 data API, AC-18 mobile
+   data layer, AC-19 end-to-end/isolation/cascade, AC-20 gates). Four adversarial
+   review passes resolved: the false hook return shape, the cookie-vs-bearer mechanism
+   (better-auth has no bearer path, so the client must replay the session cookie),
+   the deletion cascade, the cold-start cookie-jar race (async `sessionCookieHeader()`),
+   `session.freshAge: 0`, and the per-id scoping.
+3. Appended an "Update" section to `PLAN.md` and waves T11-T15 to `TASKS.md`; two
+   review passes resolved camelCase-vs-snake_case response keys, the missing 401 test,
+   the isolation test, delete-by-id vs delete-all, and the mobile test import problem.
+
+### Phase 4-5 (update)
+
+| Task | Commit | Content |
+|---|---|---|
+| mobile repoint | `1112cc7` | `BACKEND_AUTH_URL`, backend auth client, backend `deleteUser`, `PASSWORD_RESET_AVAILABLE = true` |
+| T11 | `479de46` | App tables + `0001` migration, cascade FKs, `session: { freshAge: 0 }` |
+| T13 | `add00e9` | Async `sessionCookieHeader()`, `backendDataUrl()`, typed mobile data client + tests |
+| T12 | `7978454` | `/api/data/*` router with session-cookie auth, snake_case projections, per-user scoping + tests |
+| T14 | `eb47968` | Hooks and `syncProfile` route through the backend on native; browser keeps `db.from` + hook tests |
+| T15 | verified, no changes | Root lint/typecheck/test/build all green |
+
+Verification: AC-15 pass (auth e2e 9/9; mobile 104 tests), AC-16 pass (`db:verify`,
+migration test 8/8), AC-17 pass (router test 8/8 incl. 401), AC-18 pass (mobile 7
+suites / 104 tests), AC-19 pass (isolation + cascade), AC-20 pass (backend 78, mobile
+104, build exit 0). `SPEC.md` restored to `Status: verified` with the update evidence
+and a Change Log entry.
+
+### Phase 6 (update)
+
+One `codebase-explorer` subagent updated `CLAUDE.md`, `README.md`,
+`docs/agent-docs/backend-and-ai.md`, `auth.md`, `api-layer.md`, `architecture.md`,
+`directory-map.md`, and `workflows.md` to remove the "not repointed" claims and
+document the backend data API. Committed with the spec artifacts as `43bc143`.
+
 ## Key technical decisions
 
 - better-auth 1.6.23 pinned to match the committed drizzle schema and the mobile client.
-- Hand-written camelCase drizzle schema (better-auth's exact `fieldName` defaults);
-  `camelCase` is declared but unread in the drizzle adapter, so it is omitted.
+- Hand-written camelCase drizzle schema for the better-auth tables (its exact
+  `fieldName` defaults); the app tables use explicit snake_case columns.
 - `database` uses the function form so the pool is lazy and DB-less test files still load.
 - Migrations run on the unpooled host (Neon pooler breaks DDL); `sslmode=require` on composed URLs.
 - OTP transport is an injectable seam with an inspectable outbox; provider sends via `fetch`.
 - Database-backed tests skip with a reported reason when no database is configured.
+- better-auth has no bearer path, so the mobile data client replays the persisted
+  `better-auth.session_token` cookie; `sessionCookieHeader()` is async and awaits the
+  jar load so a cold-start request still carries it.
+- Every `/api/data/*` handler projects snake_case keys explicitly and scopes reads and
+  writes to `user_id = session.user.id`; deletes are delete-all scoped to the caller.
+- The four app tables carry `ON DELETE CASCADE` FKs to `"user"(id)`, so account
+  deletion clears them; `session.freshAge: 0` keeps a long-lived session able to delete.
+- The browser preview keeps Borel's `brokerAuth` and `db.from`, so native and browser
+  remain separate stores.
