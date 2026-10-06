@@ -2,6 +2,9 @@ import Constants from "expo-constants";
 
 export const DATA_API_URL = process.env.EXPO_PUBLIC_DATA_API_URL ?? "";
 export const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL ?? "";
+// The Hono better-auth service in apps/backend, mounted at /api/auth. This is
+// the full base the native auth client talks to, e.g. https://host/api/auth.
+export const BACKEND_AUTH_URL = process.env.EXPO_PUBLIC_BACKEND_AUTH_URL ?? "";
 export const PREVIEW_AUTH_URL = process.env.EXPO_PUBLIC_PREVIEW_AUTH_URL ?? "";
 export const BOREL_STORAGE = process.env.EXPO_PUBLIC_BOREL_STORAGE ?? "";
 export const BOREL_AI = process.env.EXPO_PUBLIC_BOREL_AI ?? "";

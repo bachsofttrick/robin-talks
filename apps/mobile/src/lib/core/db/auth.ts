@@ -1,6 +1,6 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, IN_BROWSER, borelHeaders } from "./config";
+import { AUTH_URL, BACKEND_AUTH_URL, PREVIEW_AUTH_URL, DATA_API_URL, IN_BROWSER, borelHeaders } from "./config";
 import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation-state";
 
@@ -150,13 +150,14 @@ export const brokerAuth = {
 
 /**
  * One call to this app's sign-in service that needs no session: sending a
- * code, or resetting a password with one. Same address on a phone and in the
- * preview, since Borel forwards it with the trusted origin either way. `error`
- * carries the server's own words for core/auth to translate.
+ * code, or resetting a password with one. On a phone that service is the
+ * backend better-auth host; the browser preview keeps Borel's. `error` carries
+ * the server's own words for core/auth to translate.
  */
+const AUTH_CALL_URL = IN_BROWSER ? AUTH_URL : BACKEND_AUTH_URL;
 export async function authCall(path: string, body: Record<string, unknown>): Promise<{ ok: boolean; status: number; error: unknown }> {
   try {
-    const res = await fetch(AUTH_URL + path, {
+    const res = await fetch(AUTH_CALL_URL + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...borelHeaders() },
       body: JSON.stringify(body),
@@ -180,7 +181,7 @@ export async function authCall(path: string, body: Record<string, unknown>): Pro
 // carry it; database calls use the short-lived token the session is exchanged
 // for, as before.
 // ---------------------------------------------------------------------------
-const SESSION_STORAGE_KEY = "borel-auth-session:" + AUTH_URL;
+const SESSION_STORAGE_KEY = "backend-auth-session:" + BACKEND_AUTH_URL;
 type StoredCookie = { value: string; expires: number | null };
 let sessionCookies: Record<string, StoredCookie> = {};
 let sessionLoad: Promise<void> | null = null;
@@ -334,7 +335,7 @@ let nativeClient: any = null;
 export function native(): any {
   if (!nativeClient) {
     nativeClient = createClient({
-      auth: { url: AUTH_URL, adapter: SupabaseAuthAdapter({ fetchOptions: { plugins: [sessionPlugin] } }), allowAnonymous: true },
+      auth: { url: BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter({ fetchOptions: { plugins: [sessionPlugin] } }), allowAnonymous: true },
       dataApi: { url: DATA_API_URL, options: { global: { fetch: dataFetch } } },
     });
   }
