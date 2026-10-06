@@ -1,4 +1,6 @@
 import { db, authCall } from "../db";
+import { IN_BROWSER } from "../db/config";
+import { upsertProfile } from "../db/data";
 import type { User, AuthResult } from "./types";
 import { SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession } from "./errors";
 import { AUTH_REDIRECT_URL, WRONG_CURRENT_PASSWORD } from "./constants";
@@ -173,16 +175,24 @@ export async function syncProfile(user: User | null | undefined): Promise<void> 
   if (!user || !user.id || synced.has(user.id)) return;
   synced.add(user.id);
   try {
-    await db.from("profiles").upsert(
-      {
-        id: user.id,
+    if (IN_BROWSER) {
+      await db.from("profiles").upsert(
+        {
+          id: user.id,
+          email: user.email ?? null,
+          display_name: (user.name as string | undefined) ?? null,
+          avatar_url: (user.image as string | undefined) ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+    } else {
+      await upsertProfile({
         email: user.email ?? null,
         display_name: (user.name as string | undefined) ?? null,
         avatar_url: (user.image as string | undefined) ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    );
+      });
+    }
   } catch {
     synced.delete(user.id);
   }
