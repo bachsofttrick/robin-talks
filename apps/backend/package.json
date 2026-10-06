@@ -1,8 +1,11 @@
 {
-  "name": "hono",
+  "name": "@robin-talks/backend",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
   },
   "dependencies": {
     "hono": "^4.13.13"

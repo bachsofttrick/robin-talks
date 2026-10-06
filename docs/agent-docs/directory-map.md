@@ -8,8 +8,23 @@ Annotated tree of tracked source. Generated output (`dist/`, `.expo/`,
 
 ```
 robin-talks/
+├── package.json               Private root, "robin-talks-monorepo": workspaces ["apps/*"],
+│   │                          packageManager bun@1.4.2, turbo + typescript devDeps, five
+│   │                          turbo scripts (build, dev, lint, typecheck, test) plus env:link.
+├── turbo.json                 Task graph: build, typecheck, lint, test, start, //#env:link;
+│   │                          agentGuidance false keeps AGENTS.md a symlink.
+├── bunfig.toml                [install] linker = "hoisted" (required by the mobile Jest
+│   │                          transformIgnorePatterns allow-list).
+├── bun.lock                   The single lockfile for both workspaces.
+├── scripts/
+│   │   └── link-env.mjs       bun run env:link; points each workspace .env symlink at ../../.env.
+├── .env / .env.example        The only real env files (git-ignored .env). EAS gets its
+│   │                          EXPO_PUBLIC_* values from EAS environment variables.
+├── AGENTS.md                  Symlink to CLAUDE.md. Keep it a symlink.
 ├── apps/
-│   ├── mobile/                The Expo React Native app (was the repo root before the move).
+│   ├── mobile/                The Expo React Native app, package @robin-talks/mobile
+│   │   │                      (was the repo root before the move).
+│   │   ├── .env               Symlink to ../../.env, maintained by env:link.
 │   │   ├── expo-entry.js      Entry. Imports the three polyfills, wraps the app in
 │   │   │                      SafeAreaProvider, registerRootComponent.
 │   │   ├── src/
@@ -84,19 +99,25 @@ robin-talks/
 │   │   │           └── alertPolyfill.ts     DOM Alert for react-native-web.
 │   │   ├── assets/            icon.png, splash-icon.png, favicon.png.
 │   │   ├── app.json           Expo config (name, slug, plugins, identifiers).
-│   │   ├── package.json       Scripts, deps, and the Jest config block.
+│   │   ├── package.json       @robin-talks/mobile: start/android/ios/web/typecheck/
+│   │   │                      lint/test scripts, deps, and the Jest config block.
 │   │   ├── babel.config.js    babel-preset-expo.
 │   │   ├── tsconfig.json      Extends expo/tsconfig.base, strict, jest types.
 │   │   ├── eslint.config.mjs  eslint-config-expo flat config with ignores.
-│   │   ├── LICENSE
-│   │   └── .env / .env.example  EXPO_PUBLIC_* configuration (see workflows.md).
-│   └── backend/               Fresh Hono scaffold, not yet wired to the app.
-│       ├── src/index.ts       Hello-world Hono app (GET /).
-│       ├── package.json       "hono" package: hono ^4.13.13; Vercel CLI workflow.
-│       ├── tsconfig.json      ESNext/NodeNext, strict, jsxImportSource hono/jsx.
-│       └── pnpm-workspace.yaml  Build allowlist (esbuild).
+│   │   └── LICENSE
+│   └── backend/               Fresh Hono scaffold, package @robin-talks/backend,
+│       │                      not yet wired to the app.
+│           ├── .env           Symlink to ../../.env, maintained by env:link.
+│           ├── src/index.ts   Hello-world Hono app (GET /).
+│           ├── package.json   Private, type module: dev/typecheck/build scripts,
+│           │                  hono ^4.13.13, typescript ^7.0.2 (nested in its node_modules).
+│           └── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, outDir dist.
 ├── docs/agent-docs/           This knowledge base plus specs/ and plans/.
 ├── README.md                  The monorepo README (app overview, run, scripts, backend).
 ├── CLAUDE.md                  Root orientation doc (AGENTS.md symlinks to it).
-└── .gitignore                 Ignores node_modules, .expo, dist, .env, playwright dirs.
+└── .gitignore                 Ignores node_modules, .expo, dist, .turbo, .env, playwright dirs.
 ```
+
+Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
+mobile, `7.0.2` in backend); every other dependency is hoisted to the root
+`node_modules`. There is no per-workspace lockfile.

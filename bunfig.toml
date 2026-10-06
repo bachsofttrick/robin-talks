@@ -1,0 +1,5 @@
+[install]
+# Bun 1.4 defaults workspaces to the isolated linker, which materializes a
+# node_modules/.bun store. The Jest transformIgnorePatterns in the mobile app
+# only allow-list paths under /node_modules/, so keep the flat layout.
+linker = "hoisted"

@@ -1,0 +1,21 @@
+{
+  "name": "robin-talks-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run start",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "env:link": "bun scripts/link-env.mjs"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.7",
+    "typescript": "~6.0.3"
+  }
+}

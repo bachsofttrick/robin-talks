@@ -6,6 +6,7 @@ node_modules/
 .expo/
 dist/
 web-build/
+.turbo/
 *.log
 .DS_Store
 
