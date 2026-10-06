@@ -2,17 +2,19 @@
 
 A voice-first English speaking practice app for non-English speakers, built as a
 Bun and Turborepo monorepo. The product is the `@robin-talks/mobile` workspace at
-`apps/mobile`; `apps/backend` is a `@robin-talks/backend` Hono service that runs a
-better-auth account service mounted at `/api/auth/*` over a drizzle + pg schema on
-Neon Postgres, but the mobile app is not yet repointed to it. Each session drops
+`apps/mobile`. On a device the app authenticates against the `@robin-talks/backend`
+Hono service at `apps/backend`, which runs a better-auth account service mounted
+at `/api/auth/*` and serves the app's profile, sessions, and memory at
+`/api/data/*`, both over a drizzle + pg schema on Neon Postgres. The browser
+preview still uses Borel. Each session drops
 the learner into a short, realistic
 scenario (ordering coffee, asking for directions, a job interview) where the AI
 partner Robin plays the other person, speaks through text-to-speech, listens to
 the reply, coaches English inline, and writes a debrief at the end. The mobile app
-is client-only: it holds no server, API layer, or build step of its own. Accounts,
-data, files, and image generation go through the Borel cloud proxy at
-`api.borel.one`; chat and speech-to-text go directly to OpenRouter. The backend
-auth service is the first piece being moved off the Borel proxy.
+is client-only: it holds no server, API layer, or build step of its own. File
+storage, AI image generation, moderation, notifications, and the browser preview
+go through the Borel cloud proxy at `api.borel.one`; chat and speech-to-text go
+directly to OpenRouter.
 
 ## Tech Stack
 - Bun `1.4.2` as the package manager, one root install for both workspaces
@@ -24,7 +26,7 @@ auth service is the first piece being moved off the Borel proxy.
 - React Navigation 7: native, native-stack, bottom-tabs
 - `@neondatabase/neon-js` `^0.7.0-beta` for the Data API and auth client (Supabase-shaped)
 - `@openrouter/sdk` `^1.4.18` for chat completions (speech-to-text uses plain `fetch`)
-- Hono `^4.13.13` in `apps/backend`, mounting better-auth at `/api/auth/*`
+- Hono `^4.13.13` in `apps/backend`, mounting better-auth at `/api/auth/*` and the data API at `/api/data/*`
 - `better-auth` `1.6.23` (email/password + emailOTP plugin, drizzle adapter)
 - `drizzle-orm` `0.45.3`, `drizzle-kit` `0.31.11` and `pg` `8.23.1` against Neon Postgres
 - Jest `~29.7` with the `jest-expo` preset in `apps/mobile`; `bun test` (`bun:test`) in `apps/backend`
@@ -48,9 +50,10 @@ auth service is the first piece being moved off the Borel proxy.
 - `apps/mobile/src/navigation/` - React Navigation container and root navigator
 - `apps/mobile/src/screens/` - the four screens: Onboarding, Practice, Session, Settings
 - `apps/mobile/assets/` - app icon, splash, favicon
-- `apps/backend/` - `@robin-talks/backend` Hono service: better-auth at `/api/auth/*`, drizzle schema and migrations, OTP mail transport; not wired to the app
+- `apps/backend/` - `@robin-talks/backend` Hono service: better-auth at `/api/auth/*`, the authenticated data API at `/api/data/*`, drizzle schema and migrations, OTP mail transport
 - `apps/backend/src/db/` - drizzle schema, lazy memoized `pg` pool (`getDb`), and barrel
-- `apps/backend/drizzle/` - committed SQL migration and meta snapshots
+- `apps/backend/src/data/` - `/api/data/*` Hono router over the profile, session, memory, and profiles tables
+- `apps/backend/drizzle/` - committed SQL migrations and meta snapshots
 - `apps/backend/src/mail/` - OTP transport seam (dev outbox vs provider `fetch`)
 - `docs/agent-docs/` - this knowledge base, plus specs and plans working artifacts
 
@@ -75,6 +78,10 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Edit the root `.env` only. `apps/mobile/.env` and `apps/backend/.env` are symlinks to
   `../../.env`; never replace a symlink with a workspace copy. Run `bun run env:link`
   after cloning to recreate them.
+- `EXPO_PUBLIC_BACKEND_AUTH_URL` is the native auth base and includes the
+  `/api/auth` mount (see `.env.example`); `backendDataUrl()` in
+  `src/lib/core/db/config.ts` derives the `/api/data` base from it. The browser
+  preview keeps `EXPO_PUBLIC_AUTH_URL`/`EXPO_PUBLIC_PREVIEW_AUTH_URL` on Borel.
 - Keep `bunfig.toml`'s `linker = "hoisted"`. Bun 1.4 would otherwise default a new
   workspace to the isolated linker, whose `node_modules/.bun` store path defeats the
   mobile Jest `transformIgnorePatterns` allow-list.
@@ -112,7 +119,8 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
   a database-less environment still loads every module. The only DB thrower is
   `requireDatabaseUrl()`, called inside `index.ts`'s `import.meta.main` guard.
 - Backend tests use `bun:test` and live next to source as `*.test.ts`. The
-  database-backed ones (`auth.e2e.test.ts`, `db/migration.test.ts`) skip with a
+  database-backed ones (`auth.e2e.test.ts`, `data/router.test.ts`,
+  `db/migration.test.ts`) skip with a
   reported reason when no `DATABASE_URL`/`PG*` configuration is present. OTP email
   goes through `createOtpTransport` in `src/mail/otp-transport.ts`; never write the
   database password or `BETTER_AUTH_SECRET` into the repo.
@@ -134,4 +142,4 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: 4db6ace9940871b2b1f62da047af48882c789a80 -->
+<!-- docs-baseline: eb479688a42d0624910df0ccccb6ec8a58f18178 -->

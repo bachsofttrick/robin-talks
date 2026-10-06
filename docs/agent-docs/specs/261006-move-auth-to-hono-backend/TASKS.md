@@ -74,8 +74,44 @@ Status: complete
   - Tests: none (gate task; it runs the suites committed in T2 through T9)
   - Done when: root `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build` each exit 0.
 
+## Wave 7
+- [x] T11: Backend app schema and session freshness (commit 479de46)
+  - Satisfies: AC-1, AC-15, AC-16
+  - Files: apps/backend/src/auth.ts, apps/backend/src/db/schema.ts, apps/backend/drizzle/0001_*.sql, apps/backend/drizzle/meta/*, apps/backend/src/db/migration.test.ts
+  - Do: add `session: { freshAge: 0 }` to the better-auth config; add `learnerProfiles`, `practiceSessions`, `robinMemory`, and `profiles` pgTables with snake_case columns, `gen_random_uuid()::text` ids for the two generated-id tables, and `on delete cascade` FKs to `"user"(id)`; run `bun run db:generate` and `bun run db:migrate`; extend the migration test to assert the four new tables and their cascade FKs.
+  - Tests: `src/db/migration.test.ts` asserts the four app tables and their cascade FKs exist, and that `practice_sessions.id` and `robin_memory.id` carry a `gen_random_uuid()` column default; skips with a reported reason without a database.
+  - Done when: `bun run db:verify` exits 0 and `bun run typecheck` exits 0.
+- [x] T13: Mobile backend data client (commit add00e9)
+  - Satisfies: AC-18
+  - Files: apps/mobile/src/lib/core/db/auth.ts, apps/mobile/src/lib/core/db/config.ts, apps/mobile/src/lib/core/db/data.ts, apps/mobile/src/lib/core/db/data.test.ts
+  - Do: export `async sessionCookieHeader(): Promise<string>` that awaits `loadSessionCookies()` before reading the jar (and `await` it in `sessionPlugin.onRequest`); add `backendDataUrl()` that replaces a trailing `/api/auth` in `BACKEND_AUTH_URL` with `/api/data` and returns `""` when `BACKEND_AUTH_URL` is unset or does not end that way; add a typed data client (`getProfile`, `saveProfile`, `createSession`, `getOpenSession`, `getRecentSessions`, `getSession`, `updateSession`, `deleteAllSessions`, `listMemory`, `addMemory`, `deleteAllMemory`, `upsertProfile`) that sends the cookie header and returns `{ data, error }`.
+  - Tests: `src/lib/core/db/data.test.ts` mocks `./auth` and `./config` (following `apps/mobile/src/lib/core/db/ai.test.ts:7-13`), stubs `fetch`, and asserts each method's exact URL (`/api/data/profile`, `/api/data/sessions`, `/api/data/sessions/open`, `/api/data/sessions/recent`, `/api/data/sessions/:id`, `/api/data/memory`, `/api/data/profiles`) plus the error mapping and the `backendDataUrl()` trailing-slash/unset cases.
+  - Done when: mobile `lint`, `typecheck`, and `test` pass.
+
+## Wave 8
+- [x] T12: Backend data API (commit 7978454)
+  - Satisfies: AC-17, AC-19
+  - Files: apps/backend/src/data/router.ts, apps/backend/src/app.ts, apps/backend/src/data/router.test.ts
+  - Do: add the `/api/data/*` router with a session middleware (`auth.api.getSession({ headers })`, 401 when null) and the CRUD handlers; mount it in `createApp()`. Register `/sessions/open` and `/sessions/recent` before `/sessions/:id`, and filter every id-addressed query by `user_id = session.user.id AND id = ?`. Every handler returns snake_case JSON keys via explicit drizzle projections (e.g. `select({ id, scenario_id: practiceSessions.scenarioId, ... })`); never hand drizzle's camelCase property keys to `c.json`.
+  - Tests: `src/data/router.test.ts` drives `app.request` with a signed-in cookie: profile get/upsert, session create/open/recent/get/update/delete-all, memory list/insert/delete-all, profiles upsert, and the account-deletion cascade. Isolation: a second signed-in user gets 404 on `GET /sessions/:id`, a `PATCH /sessions/:id` leaves the owner's row unchanged and reports not found, and each user's `DELETE /sessions` / `DELETE /memory` leaves the other's rows intact. Rejection: a request with no cookie and one with a bogus cookie each return 401. Skips with a reported reason without a database.
+  - Done when: `bun test src/data/router.test.ts` passes against the Neon database.
+- [x] T14: Rewire mobile data hooks (commit eb47968)
+  - Satisfies: AC-18
+  - Files: apps/mobile/src/lib/api/useProfile.tsx, apps/mobile/src/lib/api/useSessions.tsx, apps/mobile/src/lib/api/useMemory.tsx, apps/mobile/src/lib/core/auth/actions.ts, apps/mobile/package.json
+  - Do: branch on `IN_BROWSER` so native uses the data client while the browser keeps `db.from`, keeping each hook's public shape and plain error wording; `syncProfile` uses the data client on native. Import the client directly from `../core/db/data` (the Borel-managed `db.ts` barrel cannot re-export it). Add `@testing-library/react-native` as a dev dependency.
+  - Tests: a hook test renders each hook under `AuthProvider` with `jest.mock("../core/db/data")` and `jest.mock("../core/auth")`, asserting the native branch calls the data client and returns the same shape; the existing mobile suite stays green.
+  - Done when: mobile `lint`, `typecheck`, and `test` pass with the hook test included.
+
+## Wave 9
+- [x] T15: Quality gates after the update (verified, no file changes)
+  - Satisfies: AC-20
+  - Files: apps/backend/eslint.config.mjs (only if a rule needs relaxing), docs/agent-docs/, docs/agent-docs/specs/261006-move-auth-to-hono-backend/SPEC.md
+  - Do: run the repo-wide gates and fix what they surface in the update's files; record the AC-15 through AC-20 results in SPEC.md's Verification section.
+  - Tests: none (gate task; it runs the suites committed in T11 through T14)
+  - Done when: root `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build` each exit 0, and SPEC.md's Verification section covers AC-15 through AC-20.
+
 ## Coverage
-- AC-1: T7, T9
+- AC-1: T7, T9, T11
 - AC-2: T1, T5
 - AC-3: T3, T6
 - AC-4: T2, T9
@@ -89,3 +125,9 @@ Status: complete
 - AC-12: T4, T7
 - AC-13: T9
 - AC-14: T10
+- AC-15: 1112cc7 (mobile repoint, done), T11 (backend freshAge)
+- AC-16: T11
+- AC-17: T12
+- AC-18: T13, T14
+- AC-19: T12
+- AC-20: T15

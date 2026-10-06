@@ -98,3 +98,77 @@ is captured and re-sent as a `Cookie` header for AC-8, AC-10, and AC-11.
 - `"user"` is a reserved word: the drizzle table is declared with the quoted name and the generated SQL quotes it.
 - A real mail provider is not exercised: only the selection and the hand-off of `otp` to the transport are unit-tested; the provider transport is a thin `fetch` call behind the same seam.
 - The mobile app is not repointed: the Data API and five sibling Borel surfaces still need the Borel session; this is stated in the spec's Non-Goals and Q-1 and is a follow-up, not a silent divergence.
+
+## Update: mobile repoint and data migration (AC-15 through AC-20)
+
+Status: approved
+Spec: SPEC.md
+
+### Approach
+Repoint the native mobile auth client at the backend (already implemented and
+committed in `1112cc7`), then move the app's own data tables off Borel. Add
+`learner_profiles`, `practice_sessions`, `robin_memory`, and `profiles` to the
+drizzle schema with `on delete cascade` FKs to `"user"(id)`, and serve them from a
+new authenticated `/api/data/*` router in the Hono backend that resolves the caller
+from the better-auth session cookie. On the phone, add a small data client that
+replays the persisted session cookie and rewires `useProfile`, `useSessions`,
+`useMemory`, and `syncProfile`; the browser preview keeps `db.from`.
+
+### Affected Code
+- `apps/backend/src/auth.ts`: add `session: { freshAge: 0 }` (AC-1, AC-15).
+- `apps/backend/src/db/schema.ts`: add `learnerProfiles`, `practiceSessions`, `robinMemory`, `profiles` pgTables with snake_case columns and cascade FKs (AC-16).
+- `apps/backend/drizzle/0001_*.sql` + `meta/*`: generated migration (AC-16).
+- `apps/backend/src/data/router.ts` (new): the `/api/data/*` Hono router with the session middleware and the CRUD handlers (AC-17).
+- `apps/backend/src/app.ts`: mount the data router at `/api/data/*` (AC-17).
+- `apps/backend/src/data/router.test.ts` (new): the DB-backed e2e data tests (AC-17, AC-19).
+- `apps/mobile/src/lib/core/db/auth.ts`: export `async sessionCookieHeader(): Promise<string>` that awaits the cookie-jar load (AC-18).
+- `apps/mobile/src/lib/core/db/config.ts`: add `backendDataUrl()` derived from `BACKEND_AUTH_URL` (AC-18).
+- `apps/mobile/src/lib/core/db/data.ts` (new): the typed backend data client (AC-18).
+- `apps/mobile/src/lib/api/useProfile.tsx`, `useSessions.tsx`, `useMemory.tsx`: branch on `IN_BROWSER` and call the data client on native, keeping each hook's shape (AC-18).
+- `apps/mobile/src/lib/core/auth/actions.ts`: `syncProfile` uses the data client on native (AC-18).
+- `apps/mobile/src/lib/core/db/data.test.ts` (new): unit tests for URL/error mapping (AC-18).
+
+### Data Model and Contracts
+App tables (snake_case; better-auth tables stay camelCase):
+
+```
+learner_profiles  user_id text pk references "user"(id) on delete cascade,
+                  display_name text, level text
+practice_sessions id text pk default gen_random_uuid()::text,
+                  user_id text not null references "user"(id) on delete cascade,
+                  scenario_id text, transcript jsonb default '[]',
+                  debrief text, summary text,
+                  started_at timestamptz default now(), ended_at timestamptz
+robin_memory      id text pk default gen_random_uuid()::text,
+                  user_id text not null references "user"(id) on delete cascade,
+                  kind text, content text, created_at timestamptz default now()
+profiles          id text pk references "user"(id) on delete cascade,
+                  email text, display_name text, avatar_url text, updated_at timestamptz
+```
+
+`/api/data/*` contract (all resolve the caller with `auth.api.getSession({ headers })`; no session -> 401). Every row is serialized with snake_case keys via explicit drizzle projections (`select({ id, scenario_id: practiceSessions.scenarioId, ... })`), never drizzle's camelCase property keys:
+- `GET /profile` -> `learner_profiles` row or `null`
+- `PUT /profile` `{ display_name, level }` -> upsert on `user_id`
+- `POST /sessions` `{ scenario_id }` -> `{ id }`
+- `GET /sessions/open` -> the open row or `null`
+- `GET /sessions/recent` -> up to 5 finished rows
+- `GET /sessions/:id` -> the row or 404
+- `PATCH /sessions/:id` `{ transcript?, debrief?, summary?, ended_at? }` -> updated row (scoped `user_id AND id`)
+- `DELETE /sessions` -> remove the caller's rows
+- `GET /memory` -> up to 40 rows, `created_at` desc
+- `POST /memory` `{ kind, content }` -> `{ id }`
+- `DELETE /memory` -> remove the caller's rows
+- `PUT /profiles` `{ email, display_name, avatar_url }` -> upsert on `id = user.id`
+
+### Libraries
+No new dependencies: `drizzle-orm`, `pg`, `hono`, and `better-auth` already cover the backend; the mobile client uses `fetch` and the existing session cookie jar.
+
+### Risks
+- Cold-start data requests race the cookie-jar load: `sessionCookieHeader()` must be async and await `loadSessionCookies()` before reading (AC-18).
+- A bearer built from `session.access_token` is unsigned and rejected: the client must replay the cookie.
+- Route order: register `/sessions/open` and `/sessions/recent` before `/sessions/:id`.
+- `id` addressed writes must include `user_id = session.user.id` so a guessed id cannot touch another user's row.
+- `gen_random_uuid()` requires `pgcrypto` (built in on Neon Postgres 13+); the migration depends on it.
+- Account deletion cascades only because every app table FKs to `"user"(id)`; a missing FK leaks rows.
+- The browser preview keeps `db.from`, so the two stores stay separate.
+- The mobile data tests cannot hit the backend from Jest; AC-19 is proven by the backend `bun test` suite instead.

@@ -2,25 +2,29 @@
 
 Source paths are relative to `apps/mobile/` unless noted.
 
-The app is client-only. Remote work is split between the Borel cloud proxy and
-OpenRouter. The `db` object is assembled in `src/lib/core/db.ts` and every
-submodule is reachable from there.
+The app is client-only. On a device, remote work is split between the backend
+service in `apps/backend`, the Borel cloud proxy, and OpenRouter; the browser
+preview keeps Borel for auth and data. The `db` object is assembled in
+`src/lib/core/db.ts` and every submodule is reachable from there.
 
 `apps/backend/` is the `@robin-talks/backend` Hono workspace. It shares the
 repository's single root install and root `.env` (see [workflows.md](workflows.md)),
 and its `typecheck`, `build`, `dev`, `test`, `lint`, and database scripts run either
-through the root Turborepo scripts or directly in that directory. It is not imported
-by the mobile app; its auth service is described next.
+through the root Turborepo scripts or directly in that directory. The native app
+reaches it over HTTP for auth and for its own data; its auth service and data API
+are described next.
 
 ## Backend auth service (`apps/backend`)
 
-The backend runs a better-auth account service on Hono, mounted at `/api/auth/*`
-and backed by drizzle over a Neon Postgres database. The mobile app is not
-repointed to it yet: `EXPO_PUBLIC_AUTH_URL` still points at Borel, and the Data
-API, storage, AI images, moderation, notifications, and account deletion still go
-through `api.borel.one`. Those Borel surfaces consume the same session token, so
-the repoint is a follow-up; a backend test (`src/conformance.test.ts`) proves the
-backend serves the exact paths the mobile client issues.
+The backend runs a better-auth account service on Hono, mounted at `/api/auth/*`,
+and an authenticated data API at `/api/data/*`, both backed by drizzle over a Neon
+Postgres database. The native app authenticates against it through
+`EXPO_PUBLIC_BACKEND_AUTH_URL` (which includes the `/api/auth` mount) and reads and
+writes its profile, sessions, and memory through `/api/data/*`. File storage, AI
+image generation, moderation, notifications, and the browser preview still go
+through `api.borel.one`; chat and speech-to-text go directly to OpenRouter. A
+backend test (`src/conformance.test.ts`) proves the backend serves the exact auth
+paths the mobile client issues.
 
 - **Server** (`src/app.ts`, `src/index.ts`): `createApp()` returns a Hono app with
   `GET /health` -> `{ status: "ok" }`, CORS scoped to `/api/auth/*` with
@@ -31,7 +35,8 @@ backend serves the exact paths the mobile client issues.
   `drizzleAdapter(getDb(), { provider: "pg", schema })`; `baseURL`, `secret`, and
   `trustedOrigins` from `src/env.ts`; email+password enabled with
   `requireEmailVerification: true` and `minPasswordLength: 8`; `emailVerification:
-  { sendOnSignIn: true }`; `user.deleteUser.enabled`; `useSecureCookies` derived
+  { sendOnSignIn: true }`; `user.deleteUser.enabled`; `session: { freshAge: 0 }`
+  (no freshness gate on `delete-user`); `useSecureCookies` derived
   from an `https` base URL; origin checks on. The `emailOTP` plugin
   (`otpLength: 6`, `overrideDefaultEmailVerification: true`) handles email
   verification and password reset and hands each code to the transport seam.
@@ -39,7 +44,9 @@ backend serves the exact paths the mobile client issues.
   reserved word), `session`, `account`, and `verification`, with better-auth's
   camelCase columns, unique `user.email` and `session.token`, indexed
   `verification.identifier`, and cascade FKs `session.userId`/`account.userId` ->
-  `user.id`. The committed migration is `drizzle/0000_lean_george_stacy.sql`.
+  `user.id`. The committed migrations are `drizzle/0000_lean_george_stacy.sql`
+  (auth tables) and `drizzle/0001_complete_silver_fox.sql` (the four app tables,
+  see the data API below).
 - **Database** (`src/db/client.ts`, `src/db/index.ts`): a lazy memoized `getDb()`
   builds one `drizzle(new Pool({ connectionString: databaseUrlOrNull() ?? undefined
   }), { schema })`; it does not connect or throw when no database is configured.
@@ -50,7 +57,8 @@ backend serves the exact paths the mobile client issues.
   no code, so accounts cannot be enumerated) and `POST /email-otp/reset-password`
   applies a new password, with `/email-otp/request-password-reset` as the forward
   path; `POST /change-password` changes the password and can retain other sessions;
-  `POST /delete-user` removes the user and cascades its session and account rows.
+  `POST /delete-user` removes the user and cascades its session, account, and app
+  data rows.
 - **OTP transport** (`src/mail/otp-transport.ts`): `createOtpTransport(mailConfig())`
   returns the dev transport when `MAIL_PROVIDER` is unset, which logs the code and
   pushes `{ email, otp, type }` to an exported in-process `outbox` (`resetOutbox`
@@ -63,11 +71,47 @@ backend serves the exact paths the mobile client issues.
   documented dev constant when `NODE_ENV !== "production"` and throws otherwise;
   the module never throws at import. `.env.example` lists the full set.
 - **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,
-  and `db:verify` (runs `migrate` twice, then asserts the four tables through
-  `information_schema`). The database-backed tests skip with a reported reason when
-  no database is configured, so the suite stays green in a database-less
-  environment. `build` compiles `src` (excluding `*.test.ts`) through
+  and `db:verify` (runs `migrate` twice, then asserts the auth and app tables
+  through `information_schema`). The database-backed tests skip with a reported
+  reason when no database is configured, so the suite stays green in a
+  database-less environment. `build` compiles `src` (excluding `*.test.ts`) through
   `tsconfig.build.json`.
+
+## Backend data API (`apps/backend/src/data/`)
+
+`src/data/router.ts` is mounted at `/api/data` by `createApp()`
+(`src/app.ts:16`). A middleware resolves the caller from the better-auth session
+cookie with `auth.api.getSession({ headers: c.req.raw.headers })`, returns 401
+`{ error: "You need to sign in first." }` when there is no session, and sets the
+route's `userId`. There is no bearer path, so the native data client replays the
+persisted session cookie (see [auth.md](auth.md)). Every read and write is scoped
+to the session user: reads filter on `user_id = session.user.id`; `GET`/`PATCH
+/sessions/:id` require `user_id AND id`, so a guessed id is a 404; `DELETE
+/sessions` and `/memory` remove only the caller's rows; `profiles` is keyed by
+`id = user.id`. Responses carry snake_case keys through explicit drizzle
+projections.
+
+- `GET /profile` -> the `learner_profiles` row or `null`
+- `PUT /profile` `{ display_name, level }` -> upsert on `user_id`
+- `POST /sessions` `{ scenario_id }` -> `{ id }`
+- `GET /sessions/open` -> the open row (`ended_at is null`, newest first) or `null`
+- `GET /sessions/recent` -> up to 5 ended rows, newest first
+- `GET /sessions/:id` -> the row or 404
+- `PATCH /sessions/:id` `{ transcript?, debrief?, summary?, ended_at? }` -> updated row
+- `DELETE /sessions` -> remove the caller's rows
+- `GET /memory` -> up to 40 rows, `created_at` desc
+- `POST /memory` `{ kind, content }` -> `{ id }`
+- `DELETE /memory` -> remove the caller's rows
+- `PUT /profiles` `{ email, display_name, avatar_url }` -> upsert on `id`
+
+The four app tables (`learner_profiles`, `practice_sessions`, `robin_memory`,
+`profiles`) are added by `drizzle/0001_complete_silver_fox.sql` with snake_case
+columns, `gen_random_uuid()::text` ids for the two generated-id tables, and
+`ON DELETE CASCADE` foreign keys to `"user"(id)`. The mobile data client is
+`src/lib/core/db/data.ts` (see [api-layer.md](api-layer.md)). `src/data/router.test.ts`
+drives `app.request` with a signed-in cookie across the operations, the
+second-user isolation cases, and the account-deletion cascade; it skips with a
+reported reason when no database is configured.
 
 ## The `db` object
 
@@ -82,18 +126,24 @@ export const db = Object.assign(client, {
 
 `client` (the Data API client) is created with `@neondatabase/neon-js`
 `createClient` in `src/lib/core/db/auth.ts`. It exposes a PostgREST-style
-`db.from("table").select()/insert()/update()/delete()/upsert()` surface.
+`db.from("table").select()/insert()/update()/delete()/upsert()` surface. On native
+the app's own domain data does not use it: `useProfile`, `useSessions`, and
+`useMemory` call `src/lib/core/db/data.ts`, which speaks to `/api/data/*`; the
+browser preview keeps `db.from`.
 
 ## Configuration (`src/lib/core/db/config.ts`)
 
 All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
 
-- `DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`, `BOREL_STORAGE`, `BOREL_AI`,
-  `BOREL_ACCOUNT`, `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
+- `DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`, `BACKEND_AUTH_URL`, `BOREL_STORAGE`,
+  `BOREL_AI`, `BOREL_ACCOUNT`, `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
 - `OPENROUTER_API_KEY` (`EXPO_PUBLIC_OPENROUTER_API_KEY`)
 - `IN_BROWSER` (`typeof document !== "undefined"`), `SURFACE`
   (`"preview" | "dev" | "release"`), `BUILD_STAMP`, and `borelHeaders()` which
   sends `X-Borel-Surface` (and `X-Borel-Build` in a release build).
+- `backendDataUrl()` replaces a trailing `/api/auth` in `BACKEND_AUTH_URL` with
+  `/api/data`, and returns `""` when `BACKEND_AUTH_URL` is unset or does not end
+  that way.
 - `createInviteLink(code)` composes `BOREL_INVITE_URL`.
 
 ## Borel cloud proxy
@@ -102,14 +152,17 @@ All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
 server-side, so no secret is held in `db.ts`. Every row is still governed by the
 tables' row-level security policies.
 
-- **Data API** (`DATA_API_URL`): Postgres reads/writes through `db.from`.
-- **Auth** (`AUTH_URL` / `PREVIEW_AUTH_URL`): accounts, sessions, OTP codes,
-  password reset. See [auth.md](auth.md).
+- **Data API** (`DATA_API_URL`): the browser preview's Postgres reads/writes
+  through `db.from`; native uses the backend's `/api/data` instead.
+- **Auth** (`AUTH_URL` / `PREVIEW_AUTH_URL`): the browser preview's accounts,
+  sessions, OTP codes, and password reset; the native app's auth is the backend.
+  See [auth.md](auth.md).
 - **Storage** (`BOREL_STORAGE`, `src/lib/core/db/storage.ts`): presign, upload,
   confirm, sign, remove, and `getPublicUrl`. Limits are 25 MB per file, 200 MB
   per video.
 - **Account** (`BOREL_ACCOUNT`): `account.delete()` removes the account, its
-  rows, and its files.
+  rows, and its files. Account deletion from the app now calls the backend's
+  `/api/auth/delete-user` instead.
 - **AI images** (`BOREL_AI`): `ai.image` and `ai.editImage` POST to
   `/images/generations` and `/images/edits`. Borel makes and stores the picture
   and returns a ready URL; identical prompts reuse the stored image. These paths

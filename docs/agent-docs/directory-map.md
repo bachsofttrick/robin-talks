@@ -60,7 +60,8 @@ robin-talks/
 │   │   │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders.
 │   │   │       │   │   ├── errors.ts     Neutral error sentences, plainError, looksPlain, refusals.
 │   │   │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
-│   │   │       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native), tellScreens.
+│   │   │       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native), tellScreens, sessionCookieHeader.
+│   │   │       │   │   ├── data.ts       Native backend data client for /api/data/*: profile, sessions, memory, profiles.
 │   │   │       │   │   ├── storage.ts    File upload/presign and account deletion.
 │   │   │       │   │   ├── ai.ts         OpenRouter chat/transcribe (AiJsonSchema structured output) + Borel image/editImage.
 │   │   │       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration.
@@ -106,16 +107,19 @@ robin-talks/
 │   │   ├── eslint.config.mjs  eslint-config-expo flat config with ignores.
 │   │   └── LICENSE
 │   └── backend/               Hono service, package @robin-talks/backend; runs better-auth at
-│       │                      /api/auth/* over drizzle + Neon Postgres. Not yet wired to the app.
+│       │                      /api/auth/* and the app data API at /api/data/* over drizzle +
+│       │                      Neon Postgres. The native app talks to it over HTTP.
 │           ├── .env           Symlink to ../../.env, maintained by env:link.
 │           ├── drizzle.config.ts  drizzle-kit config (Postgres, schema ./src/db/schema.ts, out ./drizzle).
-│           ├── drizzle/       Committed migration 0000_lean_george_stacy.sql and meta/ snapshots.
+│           ├── drizzle/       Committed migrations 0000_lean_george_stacy.sql (auth) and
+│           │                  0001_complete_silver_fox.sql (app tables), plus meta/ snapshots.
 │           ├── src/
 │           │   ├── index.ts   Entry: default-exports app; under import.meta.main calls requireDatabaseUrl() then Bun.serve.
-│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, app.all("/api/auth/*", auth.handler).
-│           │   ├── auth.ts    betterAuth 1.6.23 + drizzle adapter + emailOTP plugin.
+│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, app.all("/api/auth/*", auth.handler), app.route("/api/data", dataRouter).
+│           │   ├── auth.ts    betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0.
 │           │   ├── env.ts     process.env readers: database URLs, auth base URL/secret, trusted origins, mail, port.
-│           │   ├── db/        client.ts (lazy memoized pg Pool + drizzle), schema.ts (four tables), index.ts barrel.
+│           │   ├── db/        client.ts (lazy memoized pg Pool + drizzle), schema.ts (four auth + four app tables), index.ts barrel.
+│           │   ├── data/      router.ts: authenticated /api/data/* CRUD (profile, sessions, memory, profiles); router.test.ts.
 │           │   └── mail/      otp-transport.ts: dev outbox vs fetch provider transport.
 │           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
 │           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
@@ -128,7 +132,8 @@ robin-talks/
 ```
 
 `apps/backend/src/**/*.test.ts` holds the `bun:test` suites next to source (app,
-auth e2e, conformance, db, env, mail); the database-backed ones skip with a
+auth e2e, conformance, data, db, env, mail); the database-backed ones
+(`auth.e2e.test.ts`, `data/router.test.ts`, `db/migration.test.ts`) skip with a
 reported reason when no database is configured.
 
 Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
