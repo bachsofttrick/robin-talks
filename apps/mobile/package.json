@@ -1,5 +1,5 @@
 {
-  "name": "robin-talks",
+  "name": "@robin-talks/mobile",
   "version": "1.0.0",
   "private": true,
   "main": "expo-entry.js",
