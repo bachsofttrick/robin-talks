@@ -1,28 +1,39 @@
 # Robin Talks
 
-A voice-first English speaking practice app for non-English speakers, now the
-`apps/mobile` workspace in a monorepo. Each session drops the learner into a
-short, realistic scenario (ordering coffee, asking for directions, a job
-interview) where the AI partner Robin plays the other person, speaks through
-text-to-speech, listens to the reply, coaches English inline, and writes a
-debrief at the end. The mobile app is client-only: it holds no server, API layer,
-or build step of its own. Accounts, data, files, and image generation go through
-the Borel cloud proxy at `api.borel.one`; chat and speech-to-text go directly to
-OpenRouter. `apps/backend/` is a fresh Hono scaffold, added in preparation to
-move off the Borel proxy and not yet wired to the app.
+A voice-first English speaking practice app for non-English speakers, built as a
+Bun and Turborepo monorepo. The product is the `@robin-talks/mobile` workspace at
+`apps/mobile`; `apps/backend` holds a `@robin-talks/backend` Hono scaffold that is
+not wired to the app yet. Each session drops the learner into a short, realistic
+scenario (ordering coffee, asking for directions, a job interview) where the AI
+partner Robin plays the other person, speaks through text-to-speech, listens to
+the reply, coaches English inline, and writes a debrief at the end. The mobile app
+is client-only: it holds no server, API layer, or build step of its own. Accounts,
+data, files, and image generation go through the Borel cloud proxy at
+`api.borel.one`; chat and speech-to-text go directly to OpenRouter. The backend
+scaffold was added in preparation to move off the Borel proxy.
 
 ## Tech Stack
+- Bun `1.4.2` as the package manager, one root install for both workspaces
+- Turborepo `^2.11.7` at the root for `build`, `lint`, `typecheck`, `test`, `start`
 - Expo `~57.0.26` with React Native `0.86.3` and React `19.2.3` (`apps/mobile`)
-- TypeScript `~6.0.3` in `strict` mode (`apps/mobile/tsconfig.json`)
+- TypeScript `~6.0.3` in `strict` mode (`apps/mobile/tsconfig.json`, and the root
+  devDependency that hoisted lint tooling resolves)
+- TypeScript `7.0.2` nested in `apps/backend/node_modules` for its `tsc` build
 - React Navigation 7: native, native-stack, bottom-tabs
 - `@neondatabase/neon-js` `^0.7.0-beta` for the Data API and auth client (Supabase-shaped)
 - `@openrouter/sdk` `^1.4.18` for chat completions (speech-to-text uses plain `fetch`)
-- Hono `^4.13.13` in `apps/backend` (standalone scaffold; Vercel CLI for dev and deploy)
+- Hono `^4.13.13` in `apps/backend` (standalone scaffold)
 - Jest `~29.7` with the `jest-expo` preset; ESLint 9 flat config via `eslint-config-expo`
-- Bun is the package manager (`apps/mobile/bun.lock` is present)
 
 ## Directory Layout
-- `apps/mobile/` - the entire Expo React Native app (the repo root before the monorepo move)
+- `package.json` - private `robin-talks-monorepo` root: `workspaces: ["apps/*"]`, `packageManager: bun@1.4.2`, five Turbo scripts plus `env:link`
+- `turbo.json` - task graph; `agentGuidance: false` keeps Turbo from rewriting `AGENTS.md`
+- `bunfig.toml` - `[install] linker = "hoisted"`, required by the mobile Jest transform allow-list
+- `bun.lock` - the single lockfile for both workspaces
+- `scripts/link-env.mjs` - `bun run env:link`; points each workspace `.env` symlink at the root file
+- `.env` / `.env.example` - the only real env files; `apps/mobile/.env` and `apps/backend/.env` are symlinks to `../../.env`
+- `AGENTS.md` - symlink to `CLAUDE.md`; keep it a symlink
+- `apps/mobile/` - the Expo React Native app, package `@robin-talks/mobile` (the repo root before the monorepo move)
 - `apps/mobile/src/` - application source
 - `apps/mobile/src/lib/api/` - domain hooks and static data (scenarios, profile, sessions, memory, Robin)
 - `apps/mobile/src/lib/core/` - Borel-managed backend kit (db, auth, legal) split into submodules
@@ -32,19 +43,35 @@ move off the Borel proxy and not yet wired to the app.
 - `apps/mobile/src/navigation/` - React Navigation container and root navigator
 - `apps/mobile/src/screens/` - the four screens: Onboarding, Practice, Session, Settings
 - `apps/mobile/assets/` - app icon, splash, favicon
-- `apps/backend/` - fresh Hono scaffold (`src/index.ts`); not connected to the app
+- `apps/backend/` - fresh Hono scaffold (`src/index.ts`), package `@robin-talks/backend`; not connected to the app
 - `docs/agent-docs/` - this knowledge base, plus specs and plans working artifacts
 
 ## Key Commands
-Commands run from `apps/mobile` unless noted.
+Commands run from the repository root. One install covers both workspaces.
 - Install: `bun install`
-- Test: `bun run test` (Jest, `jest-expo` preset)
-- Run: `bun start` (or `bun run ios` / `bun run android` / `bun run web`)
-- Lint: `bun run lint` (`eslint .`)
-- Typecheck: `bun run typecheck` (`tsc --noEmit`)
-- Backend scaffold (`apps/backend`): `npm install`, then `vc dev` or `vc deploy`
+- Run: `bun run dev` (which is `turbo run start`, since the Expo app names its task `start`)
+- Lint: `bun run lint` (Turbo; only `apps/mobile` has an ESLint config)
+- Typecheck: `bun run typecheck`
+- Test: `bun run test` (Turbo; Jest, `jest-expo` preset)
+- Build: `bun run build` (Turbo; only `apps/backend` builds)
+- Env symlinks: `bun run env:link` (also runs automatically before `start`)
+
+Per-workspace commands still work from `apps/mobile`: `bun start`, `bun run ios` /
+`bun run android` / `bun run web`, `bun run lint` (`eslint .`), `bun run typecheck`
+(`tsc --noEmit`), `bun run test` (`jest`). From `apps/backend`: `bun run typecheck`,
+`bun run build`, `bun run dev` (`bun run --hot src/index.ts`).
 
 ## Conventions
+- Edit the root `.env` only. `apps/mobile/.env` and `apps/backend/.env` are symlinks to
+  `../../.env`; never replace a symlink with a workspace copy. Run `bun run env:link`
+  after cloning to recreate them.
+- Keep `bunfig.toml`'s `linker = "hoisted"`. Bun 1.4 would otherwise default a new
+  workspace to the isolated linker, whose `node_modules/.bun` store path defeats the
+  mobile Jest `transformIgnorePatterns` allow-list.
+- Run repo-wide tasks from the root through Turbo. `apps/backend` has no ESLint
+  config, so root lint covers `apps/mobile` only.
+- Keep `turbo.json`'s `agentGuidance: false`. Turborepo otherwise rewrites
+  `AGENTS.md`, and that file is a symlink to this one.
 - Listen to the entry wiring: `apps/mobile/expo-entry.js` imports the polyfills, wraps the app
   in `SafeAreaProvider`, then renders `src/index.tsx`, which nests `ErrorHandler` >
   `StatusBar` > `AppFonts` > `CoreProviders` (`AuthProvider`) > `NavigationContainer`
@@ -81,10 +108,10 @@ Commands run from `apps/mobile` unless noted.
 - [auth.md](docs/agent-docs/auth.md) - The `core/auth` connector, provider, actions, and account UI
 - [ui-kit.md](docs/agent-docs/ui-kit.md) - Theme tokens, shared components, motion, and texture
 - [conventions.md](docs/agent-docs/conventions.md) - Code style, naming, and patterns observed in the source
-- [workflows.md](docs/agent-docs/workflows.md) - Install, run, test, lint, and typecheck commands
+- [workflows.md](docs/agent-docs/workflows.md) - Root install, Turbo scripts, env symlinks, run, test, lint, and typecheck
 
 ## Specs and Plans
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: c5e4652dbecac240ad5c24333b54cf9786d0e858 -->
+<!-- docs-baseline: 4db6ace9940871b2b1f62da047af48882c789a80 -->

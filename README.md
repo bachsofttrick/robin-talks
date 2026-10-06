@@ -4,8 +4,13 @@ A voice-first [Expo](https://expo.dev) React Native app for non-English speakers
 
 ## Repository layout
 
-This is a monorepo. The app described here lives in `apps/mobile`; source paths below are relative to that directory unless noted.
+This is a Bun and Turborepo monorepo. The app described here lives in `apps/mobile` (package `@robin-talks/mobile`); source paths below are relative to that directory unless noted.
 
+- `package.json` - the private `robin-talks-monorepo` root: workspaces `apps/*`, `packageManager: bun@1.4.2`, and the turbo-driven scripts
+- `turbo.json` - the task graph shared by both workspaces
+- `bunfig.toml` / `bun.lock` - one hoisted install for the whole repo, with a single lockfile
+- `scripts/link-env.mjs` - `bun run env:link`, which points each workspace `.env` symlink at the root `.env`
+- `.env` / `.env.example` - the only real env files; `apps/mobile/.env` and `apps/backend/.env` are symlinks to `../../.env`
 - `apps/mobile/` - the Expo React Native app (all of this README's subject matter)
 - `apps/backend/` - a fresh, standalone Hono scaffold in preparation to move off the Borel proxy; not wired to the app
 - `docs/agent-docs/` - the agent knowledge base, plus sdd/pdd specs and plans
@@ -21,10 +26,20 @@ This is a monorepo. The app described here lives in `apps/mobile`; source paths 
 
 ## Run it
 
-From `apps/mobile`:
+From the repository root:
 
 ```bash
 bun install
+bun run dev
+```
+
+`bun run dev` is `turbo run start` (the Expo app names its task `start`), and it
+first runs `bun run env:link` to refresh the two workspace `.env` symlinks.
+
+You can also work inside the workspace directly:
+
+```bash
+cd apps/mobile
 bun start
 ```
 
@@ -34,17 +49,33 @@ Voice recording, text-to-speech, and microphone permissions need a real device o
 
 ## Scripts
 
-Run from `apps/mobile`:
+From the repository root, every task fans out through Turborepo:
 
 | Command | Effect |
 |---|---|
-| `bun start` | `expo start` |
-| `bun run ios` / `bun run android` / `bun run web` | Start on one platform |
-| `bun run typecheck` | `tsc --noEmit` |
-| `bun run lint` | `eslint .` with the `eslint-config-expo` flat config |
+| `bun install` | One install for both workspaces (Bun 1.4.2, hoisted layout) |
+| `bun run dev` | `turbo run start`; runs `env:link` first, then starts the Expo app |
+| `bun run lint` | `eslint .` with the `eslint-config-expo` flat config (`apps/mobile` only) |
+| `bun run typecheck` | `tsc --noEmit` in both workspaces |
 | `bun run test` | `jest` with the `jest-expo` preset (5 suites, 56 tests) |
+| `bun run build` | `tsc` in `apps/backend`, emitting `dist/index.js` |
+| `bun run env:link` | Points `apps/*/.env` at the shared root `.env` |
 
-A `bun.lock` is present under `apps/mobile`, so Bun is the package manager. The commands above use `bun install` as the default path.
+The same commands work from inside `apps/mobile` without Turbo: `bun start`,
+`bun run ios` / `bun run android` / `bun run web`, `bun run typecheck`,
+`bun run lint`, `bun run test`.
+
+There is one lockfile, `bun.lock` at the repository root, and Bun is the package
+manager for both workspaces.
+
+## Environment
+
+One root `.env` serves both workspaces. `apps/mobile/.env` and
+`apps/backend/.env` are relative symlinks to `../../.env`, created and refreshed
+by `bun run env:link` (which `bun run dev` already depends on). Edit the root file
+and copy `.env.example` to it once after cloning. EAS remote builds upload only
+the app directory, so the root `.env` does not reach them; set `EXPO_PUBLIC_*`
+values as EAS environment variables instead.
 
 ## Architecture
 
@@ -66,16 +97,17 @@ The remote service layer is the Borel cloud proxy. `src/lib/core/db.ts` defines 
 
 ## Backend
 
-`apps/backend` is a standalone [Hono](https://hono.dev) scaffold with no logic of its own yet, added in preparation to move off the Borel proxy. It is not imported by the app. Its workflow needs the [Vercel CLI](https://vercel.com/docs/cli) installed globally:
+`apps/backend` is a standalone [Hono](https://hono.dev) scaffold with no logic of its own yet, added in preparation to move off the Borel proxy. It is not imported by the app. It shares the root install, so there is no separate install step:
 
 ```bash
-npm install
-vc dev        # develop locally at http://localhost:3000
-vc build      # build locally
-vc deploy     # deploy
+cd apps/backend
+bun run dev        # hot-reload src/index.ts at http://localhost:3000
+bun run typecheck  # tsc --noEmit
+bun run build      # tsc, emits dist/index.js
 ```
 
-`apps/backend/package.json` also defines `bun run dev`, which hot-reloads `src/index.ts` without the Vercel CLI.
+From the repository root, `bun run build` and `bun run typecheck` cover this
+workspace too. It has no lint or test task.
 
 ## Before you publish to a store
 

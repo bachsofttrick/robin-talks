@@ -6,10 +6,12 @@ The app is client-only. Remote work is split between the Borel cloud proxy and
 OpenRouter. The `db` object is assembled in `src/lib/core/db.ts` and every
 submodule is reachable from there.
 
-`apps/backend/` is a fresh, standalone Hono scaffold (`src/index.ts`, a
-hello-world `GET /`) with its own Vercel CLI workflow. It is not imported by the
-mobile app and holds no app logic yet; the commit that added it describes it as
-preparation to move off the Borel proxy.
+`apps/backend/` is the `@robin-talks/backend` Hono workspace (`src/index.ts`, a
+hello-world `GET /`). It shares the repository's single root install and root
+`.env` (see [workflows.md](workflows.md)), and its `typecheck`, `build`, and
+`dev` scripts run either through the root Turborepo scripts or directly in that
+directory. It is not imported by the mobile app and holds no app logic yet; the
+commit that added it describes it as preparation to move off the Borel proxy.
 
 ## The `db` object
 
