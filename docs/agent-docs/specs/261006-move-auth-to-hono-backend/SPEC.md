@@ -1,6 +1,6 @@
 # Spec: Move auth into the Hono backend
 
-Status: approved
+Status: verified
 Request: Move auth of this app into our hono backend, reducing dependency on borel.one. Use drizzle, better-auth. Consult context7 on how to proceed. You have permission to use this Neon database: PGHOST=ep-super-forest-arzkb9q6-pooler.c-4.us-west-2.aws.neon.tech, PGHOST_UNPOOLED=ep-super-forest-arzkb9q6.c-4.us-west-2.aws.neon.tech, PGUSER=neondb_owner, PGDATABASE=neondb, PGPASSWORD=<redacted>. Create a spec, a plan. With each, have an `adversaral-agent` review it, come to an agreement then proceed to the next step. No human acceptance required for any step forward.
 
 Request (browser update): move browser preview auth to hono backend. Spec, plan are to be reviewed by `adversarial-agent` until both get into an agreement. No human approval will be involved.
@@ -123,5 +123,20 @@ call (chat and speech-to-text already go straight to OpenRouter).
 - AC-19: pass (`bun test src/data/router.test.ts` -> `8 pass 0 fail`, including the second-user isolation and account-deletion cascade cases)
 - AC-20: pass (root `bun run lint`, `bun run typecheck`, `bun run test` -> backend `78 pass 0 fail`, mobile `104 passed`, then `bun run build` exit 0)
 
+## Verification (browser update)
+- AC-13: pass (`bun test src/conformance.test.ts` -> `1 pass 0 fail`, recording `POST /api/auth/change-password` and `POST /api/auth/delete-user`; `bun test src/app.test.ts` -> `20 pass 0 fail` with `{ method: "POST", path: "/api/auth/delete-user" }` in `AUTH_ROUTES`)
+- AC-15: pass (`bun test src/auth.test.ts` in `apps/mobile` -> browser `authCall` posts to `BACKEND_AUTH_URL`; `authCall`/`AUTH_CALL_URL` now backend on both surfaces; mobile suite green)
+- AC-18: pass (`bun test src/data.test.ts` -> browser request sets `credentials: "include"` and no `Cookie` header, native cases still send `sessionCookieHeader()`)
+- AC-21: pass (`bun test src/browser-auth.test.ts` -> `createClient` config `auth.url` is the pinned `http://localhost:3000/api/auth` and differs from `AUTH_URL`/`PREVIEW_AUTH_URL`, `dataApi.url` truthy, `SupabaseAuthAdapter` spy called with no `plugins`/`credentials`, wrapper exposes `onAuthStateChange`/`getBetterAuthInstance`; mutation checks: adding `credentials: "omit"` or a plugin fails the test)
+- AC-22: pass (`browser-auth.test.ts` no `sessionPlugin`/no `credentials` override; `data.test.ts` browser init `credentials: "include"` and no `Cookie`; `auth.test.ts` `authCall` `credentials: "include"` and no `Cookie`; native jar/replay tests green)
+- AC-23: pass (`bun test src/data-hooks.test.tsx` -> `19 pass 0 fail`; each hook uses the data client and the widened `db.from` mock that throws was never called; browser `data.test.ts` case)
+- AC-24: pass (`bun test src/actions.test.ts` -> `6 pass 0 fail`; `updatePassword` calls `changePassword`, `deleteAccount` calls `deleteUser` then `signOut`, `PASSWORD_RESET_AVAILABLE === true`, `AUTH_REDIRECT_URL === "http://localhost:3000/api/auth"`; `auth.test.ts` covers browser `authCall`)
+- AC-25: pass (source: `brokerFetch`/`loadBrokerToken`/`setBrokerToken` and the broker token removed, `brokerAuth` re-exported from `browser-auth.ts`; browser `client.getToken` and `authHeader()` return `"bps_anon"`; `auth.test.ts` asserts the wrapper and `"bps_anon"`; `constants.ts` `IN_PREVIEW` comment corrected)
+- AC-26: pass (`bun test src/app.test.ts` -> `20 pass 0 fail`, hermetic `TRUSTED_ORIGINS` helper asserting `OPTIONS` 204 + `Access-Control-Allow-Origin: http://localhost:8081` + `Access-Control-Allow-Credentials: true` for `/api/auth/sign-in/email` and `/api/data/profile`, evil-origin 403 `INVALID_ORIGIN` with no allow-origin header, and the spawned `bun --no-env-file` pair proving the trusted-origin sign-in is not `403` when `TRUSTED_ORIGINS` is set and `403` when omitted; root `.env` set to `TRUSTED_ORIGINS=http://localhost:8081` for the live preview)
+- AC-27: pass (root `bun run lint`, `bun run typecheck`, `bun run test` -> backend `84 pass 0 fail`, mobile `10 suites, 122 passed`, then `bun run build` exit 0; the browser tests mock the SDK and no test loads its `.mjs` entry)
+- AC-28: pass (`browser-auth.test.ts` -> `createBrowserAuth(fakeAuth)` emits `SIGNED_IN` on sign-in and OTP verify and `SIGNED_OUT` after sign-out, uses `getSession({ forceFetch: true })`, and the `onAuthStateChange` subscription unsubscribes)
+- AC-29: pass (`bun test src/app.test.ts` -> credentialed `GET /api/data/profile` with `Origin: http://localhost:8081` returns the 401 body with `Access-Control-Allow-Origin`/`Access-Control-Allow-Credentials`, and the `OPTIONS` preflight returns `204` with both headers; `/api/data/*` now carries the cors middleware)
+
 ## Change Log
 - 2026-10-06: update: repointed the mobile auth client at the backend and migrated the app's profile, session, and memory data to authenticated backend endpoints (commits 1112cc7, 479de46, add00e9, 7978454, eb47968)
+- 2026-10-06: update: moved the browser preview auth and its app data to the backend, dropping the Borel broker (commits 01a85a9, ebf8cc3, 368f540, 453186a, 737d7c4, b2d6955)

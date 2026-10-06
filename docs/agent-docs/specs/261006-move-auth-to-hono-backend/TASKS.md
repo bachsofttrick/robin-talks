@@ -134,28 +134,28 @@ Status: complete
 
 ## Update: browser preview (AC-21 through AC-29)
 
-Status: in progress
+Status: complete
 
 ### Wave 10
-- [ ] T16: Backend CORS for the data API and browser-origin tests
+- [x] T16: Backend CORS for the data API and browser-origin tests (commit 01a85a9)
   - Satisfies: AC-13, AC-26, AC-29
   - Files: apps/backend/src/app.ts, apps/backend/src/app.test.ts
   - Do: register `app.use("/api/data/*", cors({ origin: trustedOrigins(), credentials: true }))` before `app.route("/api/data", dataRouter)`. In `app.test.ts`, add a hermetic helper around the CORS cases: save `process.env.TRUSTED_ORIGINS`, set it to `http://localhost:8081`, build `const scoped = createApp()`, restore in a `finally`; assert `Access-Control-Allow-Origin: http://localhost:8081` and `Access-Control-Allow-Credentials: true` on the `OPTIONS` preflight (204) and on credentialed requests to `/api/auth/sign-in/email` and `/api/data/profile` (the latter's handler returns 401 with both headers); these in-process assertions are header-only, because better-auth reads `trustedOrigins()` at module load and still 403s in-process. Keep the cookie-bearing evil-origin `POST /api/auth/sign-in/email` as `403 INVALID_ORIGIN` with no `Access-Control-Allow-Origin`. Add `{ method: "POST", path: "/api/auth/delete-user" }` to `AUTH_ROUTES`, so AC-13's "routed (not 404)" clause covers it. Add the trusted-origin acceptance proof: `Bun.spawnSync` a `bun --no-env-file -e` subprocess with `env: { ...process.env, NODE_ENV: "test", TRUSTED_ORIGINS: "http://localhost:8081" }` and `cwd: apps/backend/src` that dynamically imports `./auth.js` and calls `auth.handler` with a cookie-bearing `POST /api/auth/sign-in/email` and `Origin: http://localhost:8081`, then asserts the status is not `403`; run the same once with `TRUSTED_ORIGINS` unset in the subprocess env and assert it is `403`. As an uncommitted operational step also set `TRUSTED_ORIGINS=http://localhost:8081` in the root `.env` so the live preview works.
   - Tests: `src/app.test.ts` cases above (in-process header/preflight/evil-origin plus the spawned subprocess acceptance pair).
   - Done when: `bun test src/app.test.ts` passes twice, once with the served root `.env` untouched and once with `TRUSTED_ORIGINS=http://localhost:8081` exported, proving the in-process cases are hermetic both ways and the spawned subprocess proves acceptance; backend `lint`/`typecheck` pass.
-- [ ] T17: Conformance recording for change-password and delete-user
+- [x] T17: Conformance recording for change-password and delete-user (commit ebf8cc3)
   - Satisfies: AC-13
   - Files: apps/backend/src/conformance.test.ts
   - Do: in `conformance.test.ts`, add `/api/auth/delete-user` to `EXPECTED_PATHS`, and in the recording test call `adapter.getBetterAuthInstance().changePassword({ newPassword: "password-123", currentPassword: "password-123", revokeOtherSessions: false })` and `adapter.getBetterAuthInstance().deleteUser()`, recording `` `${init?.method} ${url}` ``, asserting `POST /api/auth/change-password` and `POST /api/auth/delete-user`. (The routed/not-404 `AUTH_ROUTES` list lives in `app.test.ts` and is handled by T16, not here.)
   - Tests: `src/conformance.test.ts`.
   - Done when: `bun test src/conformance.test.ts` passes (database-free).
-- [ ] T18: Browser auth wrapper module
+- [x] T18: Browser auth wrapper module (commit 368f540)
   - Satisfies: AC-21, AC-22, AC-24, AC-28
   - Files: apps/mobile/src/lib/core/db/browser-auth.ts, apps/mobile/src/lib/core/db/browser-auth.test.ts
   - Do: `browser-auth.ts` imports only `./config`, `./moderation-state`, and `@neondatabase/neon-js` (never AsyncStorage); build `createClient({ auth: { url: BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() }, dataApi: { url: backendDataUrl() } })`; export `createBrowserAuth(auth)` and the module-scope `brokerAuth`. The wrapper exposes `signUp`, `signInWithPassword`, `verifyOtp`, `getSession`, `signOut`, `onAuthStateChange` (own subscriber list; returns `{ data: { subscription: { unsubscribe } } }`), and `getBetterAuthInstance` (passthrough). `signInWithPassword`, `verifyOtp`, and `signOut` each call `auth.getSession({ forceFetch: true })`, `forgetModeration()`, and notify subscribers.
   - Tests: `browser-auth.test.ts` sets `process.env.EXPO_PUBLIC_BACKEND_AUTH_URL = "http://localhost:3000/api/auth"` and defines `globalThis.document` before `jest.isolateModules`, mocks `@neondatabase/neon-js` (fake client plus a `SupabaseAuthAdapter` spy), and asserts the `createClient` config (`auth.url` is the literal and differs from `AUTH_URL`/`PREVIEW_AUTH_URL`, `dataApi.url` truthy), the adapter spy got no `plugins`/`credentials` override, `createBrowserAuth(fakeAuth)` emits the new session state to a registered listener on sign-in, verify, and sign-out, the module-scope `brokerAuth` exposes `onAuthStateChange` and `getBetterAuthInstance` (`getBetterAuthInstance()` returns the underlying client's instance unchanged), and the subscription returned by `onAuthStateChange` unsubscribes (a callback registered after `unsubscribe()` is not invoked).
   - Done when: mobile `jest` passes for `browser-auth.test.ts`, and mobile `lint`/`typecheck` pass.
-- [ ] T19: Browser credentials for the data client
+- [x] T19: Browser credentials for the data client (commit 453186a)
   - Satisfies: AC-18, AC-22, AC-23
   - Files: apps/mobile/src/lib/core/db/data.ts, apps/mobile/src/lib/core/db/data.test.ts
   - Do: in `request()`, send `credentials: "include"` in the browser and no `Cookie` header; keep the native `sessionCookieHeader()` `Cookie` header; correct the stale header comment at `:5-7`; make `IN_BROWSER` a switchable mock property (a getter or a mutable exported value) in `data.test.ts` so the existing native cases (which assert `init.headers.Cookie`) and the new browser case each choose their mode at call time.
@@ -163,7 +163,7 @@ Status: in progress
   - Done when: mobile `jest` passes for `data.test.ts`; `lint`/`typecheck` pass.
 
 ### Wave 11
-- [ ] T20: Repoint db/auth.ts to the browser wrapper and drop the broker
+- [x] T20: Repoint db/auth.ts to the browser wrapper and drop the broker (commit 737d7c4)
   - Satisfies: AC-15, AC-21, AC-24, AC-25
   - Files: apps/mobile/src/lib/core/db/auth.ts, apps/mobile/src/lib/core/db/auth.test.ts
   - Do: import and re-export `brokerAuth` from `./browser-auth`; remove `brokerFetch`, `loadBrokerToken`, `setBrokerToken`, and the broker token; the browser `client` token provider returns `"bps_anon"` and `authHeader()` returns `"bps_anon"` in the browser; `AUTH_CALL_URL = BACKEND_AUTH_URL` on both surfaces; `authCall` adds `credentials: "include"` in the browser (no `Cookie` header); drop the now-unused `AUTH_URL`/`PREVIEW_AUTH_URL` imports; correct the stale comments at `:16-19`, `:150-156`, `:350-353`.
@@ -171,7 +171,7 @@ Status: in progress
   - Done when: mobile `jest` passes for `auth.test.ts`; `lint`/`typecheck` pass.
 
 ### Wave 12
-- [ ] T21: Hooks and actions use the backend on both surfaces
+- [x] T21: Hooks and actions use the backend on both surfaces (commit b2d6955)
   - Satisfies: AC-18, AC-23, AC-24, AC-25
   - Files: apps/mobile/src/lib/api/useProfile.tsx, apps/mobile/src/lib/api/useSessions.tsx, apps/mobile/src/lib/api/useMemory.tsx, apps/mobile/src/lib/core/auth/actions.ts, apps/mobile/src/lib/core/auth/constants.ts, apps/mobile/src/lib/api/data-hooks.test.tsx, apps/mobile/src/lib/core/auth/actions.test.ts
   - Do: remove the `IN_BROWSER ? db.from(...) : <backend client>` branches so both surfaces use the data client; `syncProfile` always calls `upsertProfile`; `updatePassword`/`deleteAccount` use the browser wrapper's `getBetterAuthInstance()` and the dead preview fallbacks/comments are removed; correct the `IN_PREVIEW` comment in `constants.ts`; drop the now-unused `IN_BROWSER`/`db` imports left behind in the three hooks and `actions.ts`.
@@ -179,7 +179,7 @@ Status: in progress
   - Done when: mobile `jest` passes for `data-hooks.test.tsx` and `actions.test.ts`; `lint`/`typecheck` pass.
 
 ### Wave 13
-- [ ] T22: Quality gates after the browser update
+- [x] T22: Quality gates after the browser update (verified, no code changes)
   - Satisfies: AC-27
   - Files: docs/agent-docs/specs/261006-move-auth-to-hono-backend/SPEC.md (and apps/backend/eslint.config.mjs or apps/mobile/eslint.config.mjs only if a rule needs relaxing)
   - Do: run the repo-wide gates and fix what they surface in the update's files; record AC-21 through AC-29 results in SPEC.md's Verification section.
