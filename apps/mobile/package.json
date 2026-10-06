@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-entry.js",
   "scripts": {
-    "start": "ELECTRON_DISABLE_SANDBOX=1 expo start",
+    "dev": "ELECTRON_DISABLE_SANDBOX=1 expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

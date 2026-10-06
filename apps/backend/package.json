@@ -5,14 +5,21 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest",
     "build": "tsc"
   },
   "dependencies": {
     "hono": "^4.13.13"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.1.1",
+    "eslint": "^10.12.0",
+    "jest": "^30.5.2",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "typescript-eslint": "^8.71.1"
   }
 }
