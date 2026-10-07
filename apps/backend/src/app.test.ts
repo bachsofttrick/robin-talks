@@ -18,10 +18,7 @@ const AUTH_ROUTES: Array<{ method: "POST" | "GET"; path: string }> = [
 ];
 
 const DATABASE_ENV_KEYS = [
-  "DATABASE_URL",
-  "DATABASE_URL_UNPOOLED",
   "PGHOST",
-  "PGHOST_UNPOOLED",
   "PGUSER",
   "PGPASSWORD",
   "PGDATABASE",
@@ -186,7 +183,7 @@ describe("AC-26: trusted origin acceptance in a spawned process", () => {
 });
 
 describe("AC-4: missing database configuration", () => {
-  test("starting the server without DATABASE_URL exits non-zero naming the variable", () => {
+  test("starting the server without database configuration exits non-zero naming the variables", () => {
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: "test" };
     for (const key of DATABASE_ENV_KEYS) delete env[key];
 
@@ -200,6 +197,6 @@ describe("AC-4: missing database configuration", () => {
 
     expect(result.exitCode).not.toBe(0);
     const stderr = new TextDecoder().decode(result.stderr);
-    expect(stderr).toContain("DATABASE_URL");
+    expect(stderr).toContain("PGHOST");
   });
 });

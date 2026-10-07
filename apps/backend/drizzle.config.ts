@@ -13,10 +13,8 @@ function stripPooler(host: string): string {
 }
 
 function databaseUrl(): string | undefined {
-  if (process.env.DATABASE_URL_UNPOOLED) return process.env.DATABASE_URL_UNPOOLED;
-
-  const { PGUSER, PGPASSWORD, PGDATABASE } = process.env;
-  const host = process.env.PGHOST_UNPOOLED ?? (process.env.PGHOST ? stripPooler(process.env.PGHOST) : undefined);
+  const { PGUSER, PGPASSWORD, PGDATABASE, PGHOST } = process.env;
+  const host = PGHOST ? stripPooler(PGHOST) : undefined;
   if (!PGUSER || !PGPASSWORD || !host || !PGDATABASE) return undefined;
 
   return `postgresql://${encodeURIComponent(PGUSER)}:${encodeURIComponent(PGPASSWORD)}@${host}:5432/${PGDATABASE}?sslmode=require`;

@@ -10,7 +10,7 @@ const noDb = databaseUrlOrNull() === null;
 
 if (noDb) {
   console.warn(
-    "auth.e2e.test.ts: skipping auth integration checks, no DATABASE_URL or PG* variables configured",
+    "auth.e2e.test.ts: skipping auth integration checks, no PG* variables configured",
   );
 }
 

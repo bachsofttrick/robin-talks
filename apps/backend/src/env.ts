@@ -13,23 +13,9 @@ function connectionString(user: string, password: string, host: string, database
 }
 
 export function databaseUrlOrNull(): string | null {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-
   const { PGUSER, PGPASSWORD, PGHOST, PGDATABASE } = process.env;
   if (PGUSER && PGPASSWORD && PGHOST && PGDATABASE) {
     return connectionString(PGUSER, PGPASSWORD, PGHOST, PGDATABASE);
-  }
-
-  return null;
-}
-
-export function unpooledDatabaseUrlOrNull(): string | null {
-  if (process.env.DATABASE_URL_UNPOOLED) return process.env.DATABASE_URL_UNPOOLED;
-
-  const { PGUSER, PGPASSWORD, PGDATABASE } = process.env;
-  const host = process.env.PGHOST_UNPOOLED ?? process.env.PGHOST?.replace(/-pooler(?=\.|$)/, "");
-  if (PGUSER && PGPASSWORD && host && PGDATABASE) {
-    return connectionString(PGUSER, PGPASSWORD, host, PGDATABASE);
   }
 
   return null;
@@ -39,7 +25,9 @@ export function requireDatabaseUrl(): string {
   const url = databaseUrlOrNull();
   if (url) return url;
 
-  console.error("Missing required environment variable: DATABASE_URL");
+  console.error(
+    "Missing required database configuration: set PGHOST, PGUSER, PGPASSWORD, and PGDATABASE",
+  );
   process.exit(1);
 }
 

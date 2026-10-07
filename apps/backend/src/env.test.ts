@@ -7,16 +7,12 @@ import {
   mailConfig,
   port,
   trustedOrigins,
-  unpooledDatabaseUrlOrNull,
 } from "./env.js";
 
 const ENV_KEYS = [
-  "DATABASE_URL",
-  "DATABASE_URL_UNPOOLED",
   "PGUSER",
   "PGPASSWORD",
   "PGHOST",
-  "PGHOST_UNPOOLED",
   "PGDATABASE",
   "BETTER_AUTH_URL",
   "BETTER_AUTH_SECRET",
@@ -44,16 +40,6 @@ afterEach(() => {
 });
 
 describe("databaseUrlOrNull", () => {
-  test("returns DATABASE_URL verbatim when set alongside PG variables", () => {
-    process.env.DATABASE_URL = "postgresql://explicit@db.example.com:5432/app";
-    process.env.PGUSER = "ignored";
-    process.env.PGPASSWORD = "ignored";
-    process.env.PGHOST = "ignored";
-    process.env.PGDATABASE = "ignored";
-
-    expect(databaseUrlOrNull()).toBe("postgresql://explicit@db.example.com:5432/app");
-  });
-
   test("composes a connection string from PG variables with encoded credentials", () => {
     process.env.PGUSER = "user name";
     process.env.PGPASSWORD = "p@ss:word";
@@ -67,48 +53,6 @@ describe("databaseUrlOrNull", () => {
 
   test("returns null when database variables are absent", () => {
     expect(databaseUrlOrNull()).toBeNull();
-  });
-});
-
-describe("unpooledDatabaseUrlOrNull", () => {
-  test("prefers DATABASE_URL_UNPOOLED", () => {
-    process.env.DATABASE_URL_UNPOOLED = "postgresql://unpooled@db.example.com:5432/app";
-    process.env.PGHOST_UNPOOLED = "ignored";
-    process.env.PGHOST = "ignored";
-    process.env.PGUSER = "ignored";
-    process.env.PGPASSWORD = "ignored";
-    process.env.PGDATABASE = "ignored";
-
-    expect(unpooledDatabaseUrlOrNull()).toBe(
-      "postgresql://unpooled@db.example.com:5432/app",
-    );
-  });
-
-  test("falls back to PGHOST_UNPOOLED", () => {
-    process.env.PGHOST_UNPOOLED = "unpooled.example.com";
-    process.env.PGHOST = "pooled.example.com";
-    process.env.PGUSER = "user";
-    process.env.PGPASSWORD = "pass";
-    process.env.PGDATABASE = "app";
-
-    expect(unpooledDatabaseUrlOrNull()).toBe(
-      "postgresql://user:pass@unpooled.example.com:5432/app?sslmode=require",
-    );
-  });
-
-  test("strips the -pooler suffix from PGHOST", () => {
-    process.env.PGHOST = "ep-cool-name-pooler.us-east-2.aws.neon.tech";
-    process.env.PGUSER = "user";
-    process.env.PGPASSWORD = "pass";
-    process.env.PGDATABASE = "app";
-
-    expect(unpooledDatabaseUrlOrNull()).toBe(
-      "postgresql://user:pass@ep-cool-name.us-east-2.aws.neon.tech:5432/app?sslmode=require",
-    );
-  });
-
-  test("returns null when no unpooled database configuration is present", () => {
-    expect(unpooledDatabaseUrlOrNull()).toBeNull();
   });
 });
 

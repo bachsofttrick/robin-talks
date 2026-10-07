@@ -122,7 +122,7 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Backend tests use `bun:test` and live next to source as `*.test.ts`. The
   database-backed ones (`auth.e2e.test.ts`, `data/router.test.ts`,
   `db/migration.test.ts`) skip with a
-  reported reason when no `DATABASE_URL`/`PG*` configuration is present. OTP email
+  reported reason when no `PG*` configuration is present. OTP email
   goes through `createOtpTransport` in `src/mail/otp-transport.ts`; never write the
   database password or `BETTER_AUTH_SECRET` into the repo.
 - Specs and plans live under `docs/agent-docs/specs/` (sdd) and

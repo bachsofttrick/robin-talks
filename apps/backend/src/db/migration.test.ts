@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Client } from "pg";
-import { unpooledDatabaseUrlOrNull } from "../env.js";
+import { databaseUrlOrNull } from "../env.js";
 
-const databaseUrl = unpooledDatabaseUrlOrNull();
+const databaseUrl = databaseUrlOrNull();
 const noDb = databaseUrl === null;
 
 if (noDb) {
   console.warn(
-    "migration.test.ts: skipping database migration checks, no DATABASE_URL_UNPOOLED or unpooled PG* variables configured",
+    "migration.test.ts: skipping database migration checks, no PG* variables configured",
   );
 }
 

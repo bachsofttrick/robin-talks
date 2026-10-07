@@ -66,10 +66,11 @@ paths the mobile client issues.
   pushes `{ email, otp, type }` to an exported in-process `outbox` (`resetOutbox`
   clears it, both used by tests), and a `fetch`-based provider transport when it is
   set. Provider completeness is checked in `send`.
-- **Env vars** (`src/env.ts`): `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
-  `PGHOST`/`PGHOST_UNPOOLED`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, `BETTER_AUTH_URL`
+- **Env vars** (`src/env.ts`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
+  `BETTER_AUTH_URL`
   (default `http://localhost:3000`), `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`,
-  `MAIL_PROVIDER`/`MAIL_API_KEY`/`MAIL_FROM`, and `PORT`. `authSecret()` returns a
+  `MAIL_PROVIDER`/`MAIL_API_KEY`/`MAIL_FROM`, and `PORT`. Migrations derive the
+  unpooled host by stripping `-pooler` from `PGHOST`. `authSecret()` returns a
   documented dev constant when `NODE_ENV !== "production"` and throws otherwise;
   the module never throws at import. `.env.example` lists the full set.
 - **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,

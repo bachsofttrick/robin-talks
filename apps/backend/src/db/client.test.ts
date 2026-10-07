@@ -4,7 +4,6 @@ import * as barrel from "./index.js";
 import { account, session, user, verification } from "./schema.js";
 
 const ENV_KEYS = [
-  "DATABASE_URL",
   "PGUSER",
   "PGPASSWORD",
   "PGHOST",

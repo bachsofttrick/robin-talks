@@ -132,7 +132,7 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 
 | File | Covers |
 |---|---|
-| `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*` and `/api/data/*`, missing-`DATABASE_URL` subprocess exit |
+| `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*` and `/api/data/*`, missing-`PGHOST` subprocess exit |
 | `src/auth.e2e.test.ts` | sign-up/verify/sign-in/sign-out, email verification resend, reset, change-password, delete-user, edge cases (skips without a database) |
 | `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
 | `src/data/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
@@ -143,7 +143,7 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 | `src/mail/otp-transport.test.ts` | dev/provider transport selection and the outbox |
 
 The database-backed tests (`auth.e2e.test.ts`, `data/router.test.ts`,
-`db/migration.test.ts`) skip with a reported reason when no `DATABASE_URL`/`PG*`
+`db/migration.test.ts`) skip with a reported reason when no `PG*`
 configuration is present.
 
 ## Lint
@@ -195,10 +195,9 @@ with static dot access only). The root `.env.example` lists the full set:
   `/api/auth` mount; the data client derives `/api/data` from it. Both surfaces
   use it.
 - `EXPO_PUBLIC_OPENROUTER_API_KEY` (chat and speech-to-text)
-- Backend auth (`apps/backend`): `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
-  `PGHOST`/`PGHOST_UNPOOLED`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, `BETTER_AUTH_URL`,
-  `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`, `MAIL_PROVIDER`, `MAIL_API_KEY`,
-  `MAIL_FROM`
+- Backend auth (`apps/backend`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
+  `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`, `MAIL_PROVIDER`,
+  `MAIL_API_KEY`, `MAIL_FROM`
 
 The root `.env` exists, is git-ignored, and is shared through the two workspace
 symlinks described above. Missing `EXPO_PUBLIC_OPENROUTER_API_KEY`
