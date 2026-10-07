@@ -1,6 +1,6 @@
 # Robin Talks
 
-A voice-first [Expo](https://expo.dev) React Native app for non-English speakers who want to speak English, not study it. Each practice session drops you into a short, realistic scenario (ordering coffee, asking for directions) where the AI agent Robin plays the other person, talks through the device, listens to your reply, and coaches your English in passing. Accounts, per-user memory, sessions, and AI calls are backed by the Borel cloud at `api.borel.one`, while chat and speech-to-text go directly to OpenRouter.
+A voice-first [Expo](https://expo.dev) React Native app for non-English speakers who want to speak English, not study it. Each practice session drops you into a short, realistic scenario (ordering coffee, asking for directions) where the AI agent Robin plays the other person, talks through the device, listens to your reply, and coaches your English in passing. Accounts and the app's profile, sessions, and memory are backed by the `apps/backend` Hono service (better-auth plus a drizzle/Neon Postgres data API) on both a device and the browser preview; file storage and AI image generation use the Borel cloud at `api.borel.one`, while chat and speech-to-text go directly to OpenRouter.
 
 ## Repository layout
 
@@ -12,7 +12,7 @@ This is a Bun and Turborepo monorepo. The app described here lives in `apps/mobi
 - `scripts/link-env.mjs` - `bun run env:link`, which points each workspace `.env` symlink at the root `.env`
 - `.env` / `.env.example` - the only real env files; `apps/mobile/.env` and `apps/backend/.env` are symlinks to `../../.env`
 - `apps/mobile/` - the Expo React Native app (all of this README's subject matter)
-- `apps/backend/` - a fresh, standalone Hono scaffold in preparation to move off the Borel proxy; not wired to the app
+- `apps/backend/` - a Hono service that runs a better-auth account service (drizzle + Neon Postgres) at `/api/auth/*` and the app's authenticated data API at `/api/data/*`; both the device app and the browser preview talk to it
 - `docs/agent-docs/` - the agent knowledge base, plus sdd/pdd specs and plans
 
 ## What it does
@@ -33,7 +33,7 @@ bun install
 bun run dev
 ```
 
-`bun run dev` is `turbo run start` (the Expo app names its task `start`), and it
+`bun run dev` is `turbo run dev` (both workspaces name their task `dev`), and it
 first runs `bun run env:link` to refresh the two workspace `.env` symlinks.
 
 You can also work inside the workspace directly:
@@ -45,7 +45,7 @@ bun start
 
 Then scan the QR code with [Expo Go](https://expo.dev/go) on your phone, or press `i` for the iOS simulator, `a` for Android, or `w` for the browser. You need [Node.js](https://nodejs.org) 20 or newer.
 
-Voice recording, text-to-speech, and microphone permissions need a real device or simulator. The browser preview uses a brokered session and is the weakest target for the voice loop.
+Voice recording, text-to-speech, and microphone permissions need a real device or simulator. The browser preview is the weakest target for the voice loop.
 
 ## Scripts
 
@@ -54,11 +54,11 @@ From the repository root, every task fans out through Turborepo:
 | Command | Effect |
 |---|---|
 | `bun install` | One install for both workspaces (Bun 1.4.2, hoisted layout) |
-| `bun run dev` | `turbo run start`; runs `env:link` first, then starts the Expo app |
-| `bun run lint` | `eslint .` with the `eslint-config-expo` flat config (`apps/mobile` only) |
+| `bun run dev` | `turbo run dev`; runs `env:link` first, then starts the dev servers |
+| `bun run lint` | `eslint .` in both workspaces (`eslint-config-expo` in mobile, a flat config in the backend) |
 | `bun run typecheck` | `tsc --noEmit` in both workspaces |
-| `bun run test` | `jest` with the `jest-expo` preset (5 suites, 56 tests) |
-| `bun run build` | `tsc` in `apps/backend`, emitting `dist/index.js` |
+| `bun run test` | `jest` with the `jest-expo` preset in mobile (10 suites, 122 tests) and `bun test` in the backend |
+| `bun run build` | `tsc -p tsconfig.build.json` in `apps/backend`, emitting `dist/` |
 | `bun run env:link` | Points `apps/*/.env` at the shared root `.env` |
 
 The same commands work from inside `apps/mobile` without Turbo: `bun start`,
@@ -79,13 +79,13 @@ values as EAS environment variables instead.
 
 ## Architecture
 
-The mobile app is client-only: no server, build step, or API layer lives under `apps/mobile`, and `apps/backend` is not wired to it yet. Screens read domain data through hooks in `src/lib/api/` that combine `db.from(table)`, `useAuth()`, and a `createStore` value from `src/lib/core/borel/borel-store.js`, so every screen sees the same copy. The hooks return `{ data, loading, error, ...actions }`, and failed calls route through `plainError` from `src/lib/core/db`.
+The mobile app is client-only: no server or build step lives under `apps/mobile`. On both a device and the browser preview the app authenticates against `apps/backend` and its domain hooks read and write through the typed data client in `src/lib/core/db/data.ts` (`/api/data/*`). Both combine `useAuth()` and, for the profile, a `createStore` value from `src/lib/core/borel/borel-store.js`, so every screen sees the same copy. The hooks return `{ data, loading, error, ...actions }`, and failed calls route through `plainError` from `src/lib/core/db`.
 
 The Robin turn is one `db.ai.chat` call. `nextTurn` (`src/lib/api/useRobin.tsx`) builds a persona prompt from the scene, the learner's level and name, stored memory, and a recap of recent debriefs, then asks for a JSON reply of `{ text, complete, remember }` and enforces the 45-word cap. `debrief` scripts the transcript and asks for a summary, mistakes, tips, and memory notes.
 
 Voice turns are owned by the Session screen (`src/screens/Session/index.tsx`). It opens the mic only after `speak()` resolves, records through `src/lib/core/borel/borel-systemui.js`, then calls `db.ai.transcribe` on manual stop. Audio is never stored; only the transcript and debrief reach the database.
 
-The remote service layer is the Borel cloud proxy. `src/lib/core/db.ts` defines the endpoints and exposes `db.auth`, `db.storage`, `db.ai`, `db.account`, `db.moderation`, and `db.notify`. Chat and transcription go straight from the device to OpenRouter (`fast` and `smart` are both `openai/gpt-6-luna`, transcription is `qwen/qwen3-asr-0.6b`); image generation stays on Borel. Data lives in four Postgres tables (`profiles`, `learner_profiles`, `practice_sessions`, `robin_memory`), each scoped to the signed-in user. See `docs/agent-docs/backend-and-ai.md`.
+The Borel cloud proxy remains the remote service layer for file storage, AI images, moderation, and notifications; the app's own data and auth are served by `apps/backend` on both surfaces. `src/lib/core/db.ts` defines the endpoints and exposes `db.auth`, `db.storage`, `db.ai`, `db.account`, `db.moderation`, and `db.notify`. Chat and transcription go straight from the device to OpenRouter (`fast` and `smart` are both `openai/gpt-6-luna`, transcription is `qwen/qwen3-asr-0.6b`); image generation stays on Borel. Data lives in four Postgres tables (`profiles`, `learner_profiles`, `practice_sessions`, `robin_memory`), created by `apps/backend/drizzle/0001_complete_silver_fox.sql` and scoped to the signed-in user. These tables are served by the backend's `/api/data/*` router on both surfaces. See `docs/agent-docs/backend-and-ai.md`.
 
 ## Borel-managed files
 
@@ -97,17 +97,25 @@ The remote service layer is the Borel cloud proxy. `src/lib/core/db.ts` defines 
 
 ## Backend
 
-`apps/backend` is a standalone [Hono](https://hono.dev) scaffold with no logic of its own yet, added in preparation to move off the Borel proxy. It is not imported by the app. It shares the root install, so there is no separate install step:
+`apps/backend` is a standalone [Hono](https://hono.dev) service that runs the app's
+better-auth account service at `/api/auth/*` and its authenticated data API at
+`/api/data/*`. It stores accounts and the app's profile, sessions, and memory in
+Neon Postgres through drizzle, and delivers verification and password-reset codes
+through a pluggable OTP transport. The app points at it on both surfaces; it shares the root install, so
+there is no separate install step:
 
 ```bash
 cd apps/backend
-bun run dev        # hot-reload src/index.ts at http://localhost:3000
-bun run typecheck  # tsc --noEmit
-bun run build      # tsc, emits dist/index.js
+bun run dev         # hot-reload src/index.ts at http://localhost:3000
+bun run typecheck   # tsc --noEmit
+bun run test        # bun test (database-backed tests skip without a database)
+bun run build       # tsc -p tsconfig.build.json, emits dist/
+bun run db:migrate  # apply the drizzle migration to Neon
+bun run db:verify   # migrate twice, then assert the auth and app tables
 ```
 
-From the repository root, `bun run build` and `bun run typecheck` cover this
-workspace too. It has no lint or test task.
+From the repository root, `bun run build`, `bun run lint`, `bun run typecheck`, and
+`bun run test` cover this workspace too.
 
 ## Before you publish to a store
 

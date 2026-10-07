@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { db, plainError } from "../core/db";
+import { plainError } from "../core/db";
+import { getProfile, saveProfile } from "../core/db/data";
 import { useAuth } from "../core/auth";
 import { createStore } from "../core/borel/borel-store";
 import type { Level } from "./scenarios";
@@ -28,11 +29,7 @@ export function useProfile() {
       return;
     }
     setLoading(true);
-    const res = await db
-      .from("learner_profiles")
-      .select("display_name, level")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const res = await getProfile();
     if (res.error) {
       setError(plainError(res.error, "load"));
       setLoading(false);
@@ -41,8 +38,8 @@ export function useProfile() {
     setError(null);
     if (res.data) {
       profileStore.set({
-        displayName: (res.data as { display_name: string }).display_name,
-        level: (res.data as { level: Level }).level,
+        displayName: res.data.display_name ?? "",
+        level: (res.data.level ?? EMPTY.level) as Level,
         onboarded: true,
       });
     } else {
@@ -62,9 +59,7 @@ export function useProfile() {
   const save = useCallback(
     async (displayName: string, level: Level) => {
       if (!user) return "You need an account first.";
-      const res = await db
-        .from("learner_profiles")
-        .upsert({ user_id: user.id, display_name: displayName, level }, { onConflict: "user_id" });
+      const res = await saveProfile(displayName, level);
       if (res.error) return plainError(res.error, "save");
       profileStore.set({ displayName, level, onboarded: true });
       return null;

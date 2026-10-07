@@ -1,9 +1,11 @@
+import { BACKEND_AUTH_URL } from "../db/config";
+
 /**
  * Kept for screens written against older versions of this file. Confirmation
  * and password reset now work with a 6-digit code typed into the app, so no
- * email sends anyone to this page any more.
+ * email sends anyone to this page any more. The backend host is the default.
  */
-export const AUTH_REDIRECT_URL = "https://api.borel.one/app/2e5ca675-84e4-4527-89dd-bedec5432801/auth/callback";
+export const AUTH_REDIRECT_URL = BACKEND_AUTH_URL;
 
 /** What a password change says when the current password is wrong. */
 export const WRONG_CURRENT_PASSWORD = "That current password is not right.";
@@ -18,11 +20,11 @@ export const KIT = {
   danger: "#D92D20",
 };
 
-/** Whether "Forgot password" can do anything in this app. Borel sets it. */
-export const PASSWORD_RESET_AVAILABLE = false;
+/** Whether "Forgot password" can do anything in this app. The backend serves it. */
+export const PASSWORD_RESET_AVAILABLE = true;
 
 /** Where a subscription is cancelled. Deleting an account here does not cancel one. */
 export const MANAGE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
 
-/** True in Borel's browser preview, where the session is held for the app. */
+/** True in a browser (Expo web preview). There the app uses the backend session, not a Borel-held one. */
 export const IN_PREVIEW = typeof document !== "undefined";

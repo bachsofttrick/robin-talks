@@ -60,7 +60,9 @@ robin-talks/
 │   │   │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders.
 │   │   │       │   │   ├── errors.ts     Neutral error sentences, plainError, looksPlain, refusals.
 │   │   │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
-│   │   │       │   │   ├── auth.ts       neon-js client, broker session (web), cookie session (native), tellScreens.
+│   │   │       │   │   ├── auth.ts       neon-js client, cookie session (native), tellScreens, sessionCookieHeader; re-exports brokerAuth.
+│   │   │       │   │   ├── browser-auth.ts  Browser wrapper over the backend neon-js client: own onAuthStateChange, getBetterAuthInstance.
+│   │   │       │   │   ├── data.ts       Backend data client for /api/data/* on both surfaces: profile, sessions, memory, profiles.
 │   │   │       │   │   ├── storage.ts    File upload/presign and account deletion.
 │   │   │       │   │   ├── ai.ts         OpenRouter chat/transcribe (AiJsonSchema structured output) + Borel image/editImage.
 │   │   │       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration.
@@ -105,18 +107,35 @@ robin-talks/
 │   │   ├── tsconfig.json      Extends expo/tsconfig.base, strict, jest types.
 │   │   ├── eslint.config.mjs  eslint-config-expo flat config with ignores.
 │   │   └── LICENSE
-│   └── backend/               Fresh Hono scaffold, package @robin-talks/backend,
-│       │                      not yet wired to the app.
+│   └── backend/               Hono service, package @robin-talks/backend; runs better-auth at
+│       │                      /api/auth/* and the app data API at /api/data/* over drizzle +
+│       │                      Neon Postgres. The native app talks to it over HTTP.
 │           ├── .env           Symlink to ../../.env, maintained by env:link.
-│           ├── src/index.ts   Hello-world Hono app (GET /).
-│           ├── package.json   Private, type module: dev/typecheck/build scripts,
-│           │                  hono ^4.13.13, typescript ^7.0.2 (nested in its node_modules).
-│           └── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, outDir dist.
+│           ├── drizzle.config.ts  drizzle-kit config (Postgres, schema ./src/db/schema.ts, out ./drizzle).
+│           ├── drizzle/       Committed migrations 0000_lean_george_stacy.sql (auth) and
+│           │                  0001_complete_silver_fox.sql (app tables), plus meta/ snapshots.
+│           ├── src/
+│           │   ├── index.ts   Entry: default-exports app; under import.meta.main calls requireDatabaseUrl() then Bun.serve.
+│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/* and /api/data/*, app.all("/api/auth/*", auth.handler), app.route("/api/data", dataRouter).
+│           │   ├── auth.ts    betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0.
+│           │   ├── env.ts     process.env readers: database URLs, auth base URL/secret, trusted origins, mail, port.
+│           │   ├── db/        client.ts (lazy memoized pg Pool + drizzle), schema.ts (four auth + four app tables), index.ts barrel.
+│           │   ├── data/      router.ts: authenticated /api/data/* CRUD (profile, sessions, memory, profiles); router.test.ts.
+│           │   └── mail/      otp-transport.ts: dev outbox vs fetch provider transport.
+│           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
+│           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
+│           ├── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, bun-types.
+│           └── tsconfig.build.json  Extends the base; rootDir src, outDir dist, excludes *.test.ts.
 ├── docs/agent-docs/           This knowledge base plus specs/ and plans/.
 ├── README.md                  The monorepo README (app overview, run, scripts, backend).
 ├── CLAUDE.md                  Root orientation doc (AGENTS.md symlinks to it).
 └── .gitignore                 Ignores node_modules, .expo, dist, .turbo, .env, playwright dirs.
 ```
+
+`apps/backend/src/**/*.test.ts` holds the `bun:test` suites next to source (app,
+auth e2e, conformance, data, db, env, mail); the database-backed ones
+(`auth.e2e.test.ts`, `data/router.test.ts`, `db/migration.test.ts`) skip with a
+reported reason when no database is configured.
 
 Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
 mobile, `7.0.2` in backend); every other dependency is hoisted to the root

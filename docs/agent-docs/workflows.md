@@ -14,7 +14,7 @@ task to `turbo run <task>`:
 | Root command | Runs |
 |---|---|
 | `bun install` | One install for both workspaces (there is no per-workspace install) |
-| `bun run dev` | `turbo run start`; the Expo app names its task `start`, not `dev` |
+| `bun run dev` | `turbo run dev`; both workspaces name their task `dev` |
 | `bun run lint` | `turbo run lint` |
 | `bun run typecheck` | `turbo run typecheck` |
 | `bun run test` | `turbo run test` |
@@ -66,8 +66,8 @@ bun run env:link
 
 `scripts/link-env.mjs` is idempotent: it prints nothing when a link is already
 correct, replaces a wrong link or a real file, and exits 0 with a message when the
-root `.env` is absent. `turbo run start` depends on `//#env:link`, so `bun run dev`
-refreshes the links before Expo starts.
+root `.env` is absent. `turbo run dev` depends on `//#env:link`, so `bun run dev`
+refreshes the links before the dev servers start.
 
 This works because Bun resolves dotenv paths against the current working directory
 and Expo applies standard dotenv rules rooted at the app directory; neither
@@ -107,20 +107,49 @@ transpilable. Test files are colocated with source as `*.test.ts`:
 |---|---|
 | `src/lib/core/db/ai.test.ts` | chat transport, error mapping, JSON read and retry, structured-output response format, photo encoding, transcribe |
 | `src/lib/core/db/consent.test.ts` | consent wording/keys and the ask-once flow |
+| `src/lib/core/db/auth.test.ts` | browser `authCall` posts to the backend with `credentials: "include"`, the `bps_anon` token, and the `brokerAuth` re-export |
+| `src/lib/core/db/browser-auth.test.ts` | `createBrowserAuth` builds against the backend auth URL, notifies subscribers on sign-in/verify/sign-out, and passes through `getBetterAuthInstance` |
+| `src/lib/core/db/data.test.ts` | backend data client URLs, the native session-cookie header, the browser credentials mode, and error mapping |
+| `src/lib/api/data-hooks.test.tsx` | `useProfile`/`useSessions`/`useMemory` call the data client on both surfaces (never `db.from`) and keep each hook's shape |
+| `src/lib/core/auth/actions.test.ts` | `updatePassword`/`deleteAccount` through `getBetterAuthInstance` and the password-reset constants |
 | `src/lib/core/auth/errors.test.ts` | `authErrorMessage` translation |
 | `src/lib/core/auth/labels.test.ts` | `labelsWith` overrides |
 | `src/lib/polyfills/responsePolyfill.test.ts` | `Response.json` polyfill |
 
-Current totals: 5 suites, 56 tests. Only `apps/mobile` has a test script, so root
-`bun run test` runs just that workspace. Tests mock `./config`, `./notify`,
-`./consent`, and `@openrouter/sdk` rather than making network calls. The
-`ai.transcribe` suite covers the empty-base64 and uri-only-empty recordings that
-resolve the "no words" sentence without any network request.
+Current totals: 10 suites, 122 tests in `apps/mobile`. Root `bun run test` runs both
+workspaces: `apps/mobile` via Jest and `apps/backend` via `bun test`. Mobile tests
+mock `./config`, `./notify`, `./consent`, and `@openrouter/sdk` rather than making
+network calls. The `ai.transcribe` suite covers the empty-base64 and uri-only-empty
+recordings that resolve the "no words" sentence without any network request.
+
+Inside `apps/backend`:
+
+```bash
+bun run test       # bun test
+```
+
+Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
+
+| File | Covers |
+|---|---|
+| `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*` and `/api/data/*`, missing-`PGHOST` subprocess exit |
+| `src/auth.e2e.test.ts` | sign-up/verify/sign-in/sign-out, email verification resend, reset, change-password, delete-user, edge cases (skips without a database) |
+| `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
+| `src/data/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
+| `src/db/schema.test.ts` | table and column names, uniques, cascade FKs |
+| `src/db/client.test.ts` | `getDb()` laziness and memoization, the barrel |
+| `src/db/migration.test.ts` | the committed migration in `information_schema` (skips without a database) |
+| `src/env.test.ts` | database URL resolution, auth secret, trusted origins, mail config, port |
+| `src/mail/otp-transport.test.ts` | dev/provider transport selection and the outbox |
+
+The database-backed tests (`auth.e2e.test.ts`, `data/router.test.ts`,
+`db/migration.test.ts`) skip with a reported reason when no `PG*`
+configuration is present.
 
 ## Lint
 
-`apps/backend` has no ESLint config, so root `bun run lint` covers
-`apps/mobile` only. Inside `apps/mobile`:
+Both workspaces have an ESLint config, so root `bun run lint` covers both.
+Inside `apps/mobile`:
 
 ```bash
 bun run lint       # eslint .
@@ -131,6 +160,16 @@ bun run lint       # eslint .
 (`src/index.tsx`, `src/lib/core/db.ts`, `src/lib/core/auth.tsx`,
 `src/lib/core/legal.tsx`, `src/lib/ui/fonts.tsx`). The implementation in
 `src/lib/core/db/` and `src/lib/core/auth/` is linted.
+
+Inside `apps/backend`:
+
+```bash
+bun run lint       # eslint .
+```
+
+`apps/backend/eslint.config.mjs` is a flat config of `@eslint/js` recommended plus
+`typescript-eslint` recommended, ignoring `dist/*` and `node_modules/*`.
+Type-aware rules stay off because `tsc` is the type gate for that workspace.
 
 ## Typecheck
 
@@ -152,7 +191,13 @@ with static dot access only). The root `.env.example` lists the full set:
   `EXPO_PUBLIC_PREVIEW_AUTH_URL`, `EXPO_PUBLIC_BOREL_STORAGE`,
   `EXPO_PUBLIC_BOREL_AI`, `EXPO_PUBLIC_BOREL_ACCOUNT`,
   `EXPO_PUBLIC_BOREL_USAGE_URL`, `EXPO_PUBLIC_BOREL_INVITE_URL`
+- Backend auth: `EXPO_PUBLIC_BACKEND_AUTH_URL`, whose value includes the
+  `/api/auth` mount; the data client derives `/api/data` from it. Both surfaces
+  use it.
 - `EXPO_PUBLIC_OPENROUTER_API_KEY` (chat and speech-to-text)
+- Backend auth (`apps/backend`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
+  `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`, `MAIL_PROVIDER`,
+  `MAIL_API_KEY`, `MAIL_FROM`
 
 The root `.env` exists, is git-ignored, and is shared through the two workspace
 symlinks described above. Missing `EXPO_PUBLIC_OPENROUTER_API_KEY`
@@ -166,25 +211,39 @@ and ships placeholder identifiers `com.example.robintalks`. The root `README.md`
 says to change the bundle identifier, replace the assets, and build with
 `bunx eas build`. `dist/` and `.expo/` are generated output and git-ignored.
 
-## Backend scaffold (`apps/backend`)
+## Backend (`apps/backend`)
 
-A separate, standalone Hono app, package `@robin-talks/backend`, not wired to the
-mobile app. It takes part in the root install and in the root Turbo tasks, so no
+A Hono service, package `@robin-talks/backend`, that runs a better-auth account
+service at `/api/auth/*` and the authenticated data API at `/api/data/*` over
+drizzle and Neon Postgres. The mobile app reaches it over HTTP for auth and
+for its own profile, sessions, and memory on both surfaces. It
+takes part in the root install and in the root Turbo tasks, so no
 separate install step exists:
 
 ```bash
-bun run dev        # bun run --hot src/index.ts, http://localhost:3000
-bun run typecheck  # tsc --noEmit
-bun run build      # tsc, emits dist/index.js
+bun run dev          # bun run --hot src/index.ts, http://localhost:3000
+bun run typecheck    # tsc --noEmit
+bun run test         # bun test
+bun run lint         # eslint .
+bun run build        # tsc -p tsconfig.build.json, emits dist/
+bun run db:generate  # drizzle-kit generate
+bun run db:migrate   # drizzle-kit migrate
+bun run db:verify    # migrate twice, then assert the auth and app tables via bun test
 ```
 
-The first is `apps/backend`-only; `bun run typecheck` and `bun run build` also run
-from the repository root.
+`bun run dev` is `apps/backend`-only; `typecheck`, `test`, `lint`, and `build` also
+run from the repository root through Turbo.
 
 The `build` and `typecheck` tasks run under TypeScript `7.0.2`, nested in
 `apps/backend/node_modules`. `tsconfig.json` targets ESNext/NodeNext in strict mode
-with `jsxImportSource: hono/jsx` and `outDir: dist`. There is no lint task for
-this workspace (no ESLint config) and no test task.
+with `jsxImportSource: hono/jsx` and `types: ["node", "bun-types"]`;
+`tsconfig.build.json` extends it with `rootDir: src`, `outDir: dist`, and excludes
+`src/**/*.test.ts`. `src/env.ts` reads `process.env` only and never throws at
+import; `getDb()` in `src/db/client.ts` is lazy and memoized; `requireDatabaseUrl()`
+is the only database thrower and runs inside `index.ts`'s `import.meta.main` guard.
+The OTP email seam is `src/mail/otp-transport.ts`, which selects a dev outbox when
+`MAIL_PROVIDER` is unset and a `fetch` provider otherwise. `drizzle.config.ts` holds
+the drizzle-kit config, and the committed migrations live in `drizzle/`.
 
 ## Spec workflow
 

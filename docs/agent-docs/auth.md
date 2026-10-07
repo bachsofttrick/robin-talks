@@ -6,6 +6,14 @@ Accounts, sessions, and the account UI live in `src/lib/core/auth/`. The
 top-level `src/lib/core/auth.tsx` is Borel-managed and re-exports the public
 surface from the subfolder; implementation lives in `src/lib/core/auth/`.
 
+The auth client is built against the better-auth implementation in
+`apps/backend` (see [backend-and-ai.md](backend-and-ai.md)): `native()` in
+`src/lib/core/db/auth.ts` uses `EXPO_PUBLIC_BACKEND_AUTH_URL`, whose value
+includes the `/api/auth` mount, so `db.auth` resolves to the backend client
+without editing the Borel-managed `db.ts`. In the browser `db.auth` is
+`brokerAuth`, a wrapper over the same backend URL (see below). The backend is
+reached over HTTP, not imported.
+
 ## Connector surface (`src/lib/core/auth.tsx`)
 
 Re-exports types (`User`, `Session`, `AuthResult`), constants
@@ -43,12 +51,15 @@ context (`AuthProvider`, `useAuth`, and types), the actions (`signUp`, `signIn`,
   `/forget-password/email-otp` and `/email-otp/reset-password`.
 - `confirmEmail(email, code)`: `db.auth.verifyOtp({ type: "signup" })`.
 - `updatePassword(password, currentPassword)`: requires the current password;
-  only available on native (the preview has no password change).
+  reaches the underlying better-auth instance through
+  `db.auth.getBetterAuthInstance()`.
 - `resendConfirmation(email)`: `/email-otp/send-verification-otp`.
-- `deleteAccount()`: `db.account.delete()` then `signOut()`. Required by Apple
-  Guideline 5.1.1(v).
+- `deleteAccount()`: calls `deleteUser()` on the better-auth instance behind the
+  auth adapter (the backend `POST /api/auth/delete-user` route), then `signOut()`.
+  Required by Apple Guideline 5.1.1(v).
 - `syncProfile(user)`: upserts one row into `profiles` (id, email, display_name,
-  avatar_url, updated_at).
+  avatar_url, updated_at). It calls `upsertProfile()` (`PUT
+  /api/data/profiles`) on both surfaces.
 
 Email/password errors are translated to plain sentences by
 `authErrorMessage` (`src/lib/core/auth/errors.ts`), for example invalid
@@ -57,15 +68,25 @@ failure.
 
 ## Session transport (`src/lib/core/db/auth.ts`)
 
-- **Native:** the neon-js client keeps the sign-in session as a cookie. A
-  `sessionPlugin` writes every `Set-Cookie` to AsyncStorage under
-  `borel-auth-session:<AUTH_URL>` and replays it as a `Cookie` header, with the
-  platform cookie jar off. Data calls use the short-lived token from
-  `authHeader()`.
-- **Browser preview:** `brokerAuth` mimics the Supabase auth surface, but the
-  opaque handle is held by the parent preview frame and passed by
-  `postMessage`/AsyncStorage; the browser never holds a real JWT. `getToken` in
-  the Data API client returns the handle or `"bps_anon"`.
+- **Native:** the neon-js auth client is built against
+  `EXPO_PUBLIC_BACKEND_AUTH_URL` (the backend `/api/auth` mount). A `sessionPlugin`
+  writes every `Set-Cookie` to AsyncStorage under
+  `backend-auth-session:<BACKEND_AUTH_URL>` and replays it as a `Cookie` header,
+  with the platform cookie jar off. `sessionCookieHeader()` is exported and async:
+  it awaits the cookie-jar load, then returns every unexpired cookie as one
+  `name=value; ...` string. The data client (`src/lib/core/db/data.ts`) awaits it
+  and sends it on every `/api/data/*` request, because better-auth accepts no
+  bearer. `authHeader()` and the Borel Data API client remain, but they no longer
+  carry the app's own tables; `authHeader()` is still used by the Borel storage,
+  moderation, and notify modules.
+- **Browser preview:** `brokerAuth` in `src/lib/core/db/browser-auth.ts` wraps a
+  neon-js client built against `EXPO_PUBLIC_BACKEND_AUTH_URL` with no session
+  plugin, so the browser's own cookie jar carries the backend session and
+  requests use `credentials: "include"`. It keeps its own `onAuthStateChange`
+  subscriber list and notifies it after sign-in, OTP verification, and sign-out
+  by reading `getSession({ forceFetch: true })`. `getBetterAuthInstance()` passes
+  through to the underlying client. The browser Data API client's `getToken`
+  returns `"bps_anon"`.
 - **Telling the screens (`tellScreens`):** the sign-in adapter reports the session
   once, when a screen subscribes, so a sign-in, a confirmed code, or a sign-out
   reached no mounted screen. `announceSessionChanges()` runs at import and wraps
@@ -74,8 +95,8 @@ failure.
   held in `phoneSubscribers`. `tellScreens` calls `forgetModeration()` (imported
   from `moderation-state`, so the two modules do not import each other), forces a
   fresh `getSession({ forceFetch: true })`, then notifies every subscriber with
-  `SIGNED_IN` or `SIGNED_OUT`. It returns early in the browser, where the broker
-  announces its own listeners.
+  `SIGNED_IN` or `SIGNED_OUT`. It returns early in the browser, where
+  `brokerAuth` announces its own listeners.
 
 ## Account UI
 

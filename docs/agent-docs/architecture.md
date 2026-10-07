@@ -3,12 +3,17 @@
 Source paths are relative to `apps/mobile/` unless noted.
 
 Robin Talks is one Expo React Native application, `apps/mobile`, inside a
-monorepo. All code that runs lives under `src/`, and the app talks to two remote
-systems: the Borel cloud proxy (accounts, Postgres data, file storage, image
-generation) and OpenRouter (chat completions and speech-to-text). The app is
+monorepo. All code that runs lives under `src/`, and the app talks to three remote
+systems: the backend in `apps/backend` (auth and the app's own data on both
+surfaces), the Borel cloud proxy (file storage, image
+generation, moderation, notifications), and OpenRouter (chat completions and
+speech-to-text). The app is
 client-only: it holds no server code and no build step. `apps/backend/` is a
-fresh Hono scaffold added in preparation to move off the Borel proxy; it is
-standalone and not yet wired to the app.
+separate Hono service that runs a better-auth account service at `/api/auth/*`
+and an authenticated data API at `/api/data/*` over drizzle and Neon Postgres
+(see [backend-and-ai.md](backend-and-ai.md)); the native app authenticates against
+it and stores its profile, sessions, and memory through `/api/data/*`, and the
+browser preview uses the same backend with cookie credentials.
 
 ## Layer map
 
@@ -31,12 +36,14 @@ then `RootNavigator`.
 
 ## Data and state flow
 
-- **Remote source of truth:** Postgres and auth live behind the Borel proxy.
-  `src/lib/core/db.ts` assembles one `db` object from submodules and attaches
-  `auth`, `storage`, `ai`, `account`, `moderation`, `notify`.
-- **Domain hooks** in `src/lib/api/` read and write through `db.from(table)`,
-  combining the signed-in user from `useAuth()` and, for profile state, a
-  module-scope store from `src/lib/core/borel/borel-store.js`. Screens import
+- **Remote source of truth:** auth and the app's Postgres data live behind
+  `apps/backend` on both surfaces. `src/lib/core/db.ts` assembles one `db` object
+  from submodules and attaches `auth`, `storage`, `ai`, `account`, `moderation`,
+  `notify`.
+- **Domain hooks** in `src/lib/api/` call the backend data client
+  (`src/lib/core/db/data.ts`, `/api/data/*`) on both surfaces. Both combine the
+  signed-in user from `useAuth()` and, for profile state, a module-scope store
+  from `src/lib/core/borel/borel-store.js`. Screens import
   these hooks, not `db`, except for the `db.ai.transcribe` call in the Session
   screen.
 - **Shared UI state** uses `createStore` from

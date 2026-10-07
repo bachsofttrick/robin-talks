@@ -1,4 +1,5 @@
 import { db, authCall } from "../db";
+import { upsertProfile } from "../db/data";
 import type { User, AuthResult } from "./types";
 import { SUCCESS, failed, authErrorMessage, displayNameFor, madeWithoutSession } from "./errors";
 import { AUTH_REDIRECT_URL, WRONG_CURRENT_PASSWORD } from "./constants";
@@ -110,15 +111,21 @@ export async function confirmEmail(email: string, code: string): Promise<AuthRes
 }
 
 /**
+ * The live better-auth client behind the Supabase-shaped auth adapter.
+ */
+function betterAuthInstance(): any {
+  return (db.auth as unknown as { getBetterAuthInstance?: () => any }).getBetterAuthInstance?.();
+}
+
+/**
  * Set a new password for the user who is already signed in. The current
  * password is required: the server will not change one without it.
  */
 export async function updatePassword(password: string, currentPassword?: string): Promise<AuthResult> {
   if (!currentPassword) return failed("Enter your current password first.");
   try {
-    const better = (db.auth as unknown as { getBetterAuthInstance?: () => any }).getBetterAuthInstance?.();
-    // Only the preview has no password change of its own (the session lives on Borel there).
-    if (!better || !better.changePassword) return failed("You can change your password in the app on your phone.");
+    const better = betterAuthInstance();
+    if (!better || !better.changePassword) return failed("Your password couldn't be changed. Please try again.");
     const res = await better.changePassword({ newPassword: password, currentPassword, revokeOtherSessions: false });
     if (!res || !res.error) return SUCCESS;
     const said = String(res.error.message || res.error.code || "").toLowerCase().replace(/_/g, " ");
@@ -135,20 +142,26 @@ export async function resendConfirmation(email: string): Promise<AuthResult> {
 }
 
 /**
- * Delete the signed-in person's account, for real: the sign-in, every row of
- * theirs in this app's tables, and every file they uploaded are removed on the
- * server, and then this device is signed out. Apple requires this inside any
- * app that has accounts (Guideline 5.1.1(v)).
+ * Delete the signed-in person's account, for real: the backend better-auth
+ * service removes the user and every session of theirs, and then this device is
+ * signed out. Apple requires this inside any app that has accounts (Guideline
+ * 5.1.1(v)).
  *
  * Ask for confirmation BEFORE calling it - it cannot be undone. On ok, the
  * provider has already moved to the signed-out state. On not ok, the person is
  * still signed in and `error` says what to do.
  */
 export async function deleteAccount(): Promise<AuthResult> {
-  const result = await db.account.delete();
-  if (!result.ok) return failed(result.error || "Your account couldn't be deleted. Please try again.");
-  await signOut();
-  return SUCCESS;
+  const better = betterAuthInstance();
+  if (!better || !better.deleteUser) return failed("Your account couldn't be deleted. Please try again.");
+  try {
+    const res = await better.deleteUser();
+    if (res && res.error) return failed(authErrorMessage(res.error));
+    await signOut();
+    return SUCCESS;
+  } catch (err) {
+    return failed(authErrorMessage(err));
+  }
 }
 
 // One row per person in public.profiles, kept by this file so no screen has
@@ -159,16 +172,11 @@ export async function syncProfile(user: User | null | undefined): Promise<void> 
   if (!user || !user.id || synced.has(user.id)) return;
   synced.add(user.id);
   try {
-    await db.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email ?? null,
-        display_name: (user.name as string | undefined) ?? null,
-        avatar_url: (user.image as string | undefined) ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    );
+    await upsertProfile({
+      email: user.email ?? null,
+      display_name: (user.name as string | undefined) ?? null,
+      avatar_url: (user.image as string | undefined) ?? null,
+    });
   } catch {
     synced.delete(user.id);
   }
