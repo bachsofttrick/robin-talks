@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { desc, eq } from "drizzle-orm";
-import { getDb, robinMemory } from "../db/index.js";
+import { getDb, robinMemory } from "../lib/db/index.js";
 
 const memoryColumns = {
   id: robinMemory.id,

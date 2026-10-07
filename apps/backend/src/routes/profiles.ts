@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getDb, profiles } from "../db/index.js";
+import { getDb, profiles } from "../lib/db/index.js";
 
 const fullProfileColumns = {
   id: profiles.id,

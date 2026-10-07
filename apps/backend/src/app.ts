@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { auth } from "./auth.js";
+import { auth } from "./lib/auth.js";
 import { dataRouter } from "./routes/index.js";
-import { trustedOrigins } from "./env.js";
+import { trustedOrigins } from "./lib/env.js";
 
 export function createApp() {
   const app = new Hono();

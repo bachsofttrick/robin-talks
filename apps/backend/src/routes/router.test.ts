@@ -9,9 +9,9 @@ import {
   profiles,
   robinMemory,
   user,
-} from "../db/index.js";
-import { baseUrl, databaseUrlOrNull } from "../env.js";
-import { outbox, resetOutbox, type OtpPayload, type OtpType } from "../mail/otp-transport.js";
+} from "../lib/db/index.js";
+import { baseUrl, databaseUrlOrNull } from "../lib/env.js";
+import { outbox, resetOutbox, type OtpPayload, type OtpType } from "../lib/mail/otp-transport.js";
 
 const noDb = databaseUrlOrNull() === null;
 

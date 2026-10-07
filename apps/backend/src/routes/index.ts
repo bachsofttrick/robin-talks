@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { auth } from "../auth.js";
+import { auth } from "../lib/auth.js";
 import { memoryRouter } from "./memory.js";
 import { profileRouter } from "./profile.js";
 import { profilesRouter } from "./profiles.js";

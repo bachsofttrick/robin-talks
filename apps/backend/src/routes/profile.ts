@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
-import { getDb, learnerProfiles } from "../db/index.js";
+import { getDb, learnerProfiles } from "../lib/db/index.js";
 
 const profileColumns = {
   display_name: learnerProfiles.displayName,

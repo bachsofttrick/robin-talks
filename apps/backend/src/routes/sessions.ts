@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import { getDb, practiceSessions } from "../db/index.js";
+import { getDb, practiceSessions } from "../lib/db/index.js";
 
 const sessionColumns = {
   id: practiceSessions.id,

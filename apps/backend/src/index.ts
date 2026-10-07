@@ -1,5 +1,5 @@
 import { app } from "./app.js";
-import { port, requireDatabaseUrl } from "./env.js";
+import { port, requireDatabaseUrl } from "./lib/env.js";
 
 export default app;
 
