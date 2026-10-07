@@ -187,8 +187,9 @@ describe("AC-4: missing database configuration", () => {
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: "test" };
     for (const key of DATABASE_ENV_KEYS) delete env[key];
 
+    const entry = new URL("./index.ts", import.meta.url).pathname;
     const result = Bun.spawnSync({
-      cmd: ["bun", "--no-env-file", "/app/apps/backend/src/index.ts"],
+      cmd: ["bun", "--no-env-file", entry],
       cwd: tmpdir(),
       env,
       stdout: "pipe",

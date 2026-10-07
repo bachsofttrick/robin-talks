@@ -1,5 +1,4 @@
 import { sessionCookieHeader } from "./auth";
-import { backendDataUrl } from "./config";
 import {
   addMemory,
   createSession,
@@ -20,16 +19,18 @@ jest.mock("./auth", () => ({
 }));
 
 let mockInBrowser = false;
+let mockBackendDataUrl = "http://localhost:3000/api/data";
 
 jest.mock("./config", () => ({
-  backendDataUrl: jest.fn(() => "http://localhost:3000/api/data"),
+  get BACKEND_DATA_URL() {
+    return mockBackendDataUrl;
+  },
   get IN_BROWSER() {
     return mockInBrowser;
   },
 }));
 
 const cookieMock = sessionCookieHeader as unknown as jest.Mock;
-const dataUrlMock = backendDataUrl as unknown as jest.Mock;
 
 const BASE = "http://localhost:3000/api/data";
 const COOKIE = "better-auth.session_token=abc.def";
@@ -44,10 +45,9 @@ function jsonResponse(body: unknown, ok = true, status = 200) {
 
 beforeEach(() => {
   mockInBrowser = false;
+  mockBackendDataUrl = "http://localhost:3000/api/data";
   cookieMock.mockReset();
   cookieMock.mockResolvedValue(COOKIE);
-  dataUrlMock.mockReset();
-  dataUrlMock.mockReturnValue(BASE);
   fetchMock = jest.fn().mockResolvedValue(jsonResponse({}));
   (globalThis as any).fetch = fetchMock;
 });
@@ -117,7 +117,7 @@ describe("data client requests", () => {
   });
 
   test("an unconfigured backend resolves an error without fetching", async () => {
-    dataUrlMock.mockReturnValue("");
+    mockBackendDataUrl = "";
     const res = await getProfile();
     expect(res.data).toBeNull();
     expect(res.error).toEqual({ message: "The backend is not configured." });
@@ -126,29 +126,3 @@ describe("data client requests", () => {
   });
 });
 
-describe("backendDataUrl", () => {
-  const originalAuthUrl = process.env.EXPO_PUBLIC_BACKEND_AUTH_URL;
-
-  function realBackendDataUrl(value: string): string {
-    process.env.EXPO_PUBLIC_BACKEND_AUTH_URL = value;
-    let url = "";
-    jest.isolateModules(() => {
-      url = (jest.requireActual("./config") as typeof import("./config")).backendDataUrl();
-    });
-    return url;
-  }
-
-  test.each([
-    ["http://localhost:3000/api/auth", "http://localhost:3000/api/data"],
-    ["http://localhost:3000/api/auth/", "http://localhost:3000/api/data"],
-    ["", ""],
-    ["http://localhost:3000/api/other", ""],
-  ])("maps %p to %p", (input, expected) => {
-    expect(realBackendDataUrl(input)).toBe(expected);
-  });
-
-  afterAll(() => {
-    if (originalAuthUrl === undefined) delete process.env.EXPO_PUBLIC_BACKEND_AUTH_URL;
-    else process.env.EXPO_PUBLIC_BACKEND_AUTH_URL = originalAuthUrl;
-  });
-});

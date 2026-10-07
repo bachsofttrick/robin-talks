@@ -24,7 +24,7 @@ type BrowserAuthModule = typeof import("./browser-auth");
 type ConfigModule = typeof import("./config");
 
 const ENV = {
-  EXPO_PUBLIC_BACKEND_AUTH_URL: "http://localhost:3000/api/auth",
+  EXPO_PUBLIC_BACKEND_URL: "http://localhost:3000/api",
   EXPO_PUBLIC_AUTH_URL: "https://borel.example/auth",
   EXPO_PUBLIC_PREVIEW_AUTH_URL: "https://preview.borel.example",
 };
@@ -36,7 +36,7 @@ describe("browser-auth", () => {
   let cfg: ConfigModule;
 
   beforeAll(() => {
-    process.env.EXPO_PUBLIC_BACKEND_AUTH_URL = ENV.EXPO_PUBLIC_BACKEND_AUTH_URL;
+    process.env.EXPO_PUBLIC_BACKEND_URL = ENV.EXPO_PUBLIC_BACKEND_URL;
     process.env.EXPO_PUBLIC_AUTH_URL = ENV.EXPO_PUBLIC_AUTH_URL;
     process.env.EXPO_PUBLIC_PREVIEW_AUTH_URL = ENV.EXPO_PUBLIC_PREVIEW_AUTH_URL;
     (globalThis as any).document = {};
@@ -58,7 +58,7 @@ describe("browser-auth", () => {
   test("builds the underlying client against the backend auth url and data api", () => {
     const options = createClientMock.mock.calls[0][0];
     expect(options.auth.url).toBe("http://localhost:3000/api/auth");
-    expect(options.auth.url).toBe(ENV.EXPO_PUBLIC_BACKEND_AUTH_URL);
+    expect(options.auth.url).toBe(ENV.EXPO_PUBLIC_BACKEND_URL + "/auth");
     expect(options.auth.url).not.toBe(cfg.AUTH_URL);
     expect(options.auth.url).not.toBe(cfg.PREVIEW_AUTH_URL);
     expect(options.auth.adapter).toBe(adapterMock.mock.results[0].value);

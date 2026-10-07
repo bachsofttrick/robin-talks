@@ -24,7 +24,7 @@ const createClientMock = createClient as unknown as jest.Mock;
 
 type AuthModule = typeof import("./auth");
 
-const ENV = { EXPO_PUBLIC_BACKEND_AUTH_URL: "http://localhost:3000/api/auth" };
+const ENV = { EXPO_PUBLIC_BACKEND_URL: "http://localhost:3000/api" };
 const originalEnv = { ...process.env };
 
 describe("db/auth (browser)", () => {
@@ -33,7 +33,7 @@ describe("db/auth (browser)", () => {
   const originalFetch = globalThis.fetch;
 
   beforeAll(() => {
-    process.env.EXPO_PUBLIC_BACKEND_AUTH_URL = ENV.EXPO_PUBLIC_BACKEND_AUTH_URL;
+    process.env.EXPO_PUBLIC_BACKEND_URL = ENV.EXPO_PUBLIC_BACKEND_URL;
     (globalThis as any).document = {};
     fetchMock = jest.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }));
     (globalThis as any).fetch = fetchMock;
@@ -46,8 +46,8 @@ describe("db/auth (browser)", () => {
   afterAll(() => {
     delete (globalThis as any).document;
     (globalThis as any).fetch = originalFetch;
-    if (originalEnv.EXPO_PUBLIC_BACKEND_AUTH_URL === undefined) delete process.env.EXPO_PUBLIC_BACKEND_AUTH_URL;
-    else process.env.EXPO_PUBLIC_BACKEND_AUTH_URL = originalEnv.EXPO_PUBLIC_BACKEND_AUTH_URL;
+    if (originalEnv.EXPO_PUBLIC_BACKEND_URL === undefined) delete process.env.EXPO_PUBLIC_BACKEND_URL;
+    else process.env.EXPO_PUBLIC_BACKEND_URL = originalEnv.EXPO_PUBLIC_BACKEND_URL;
   });
 
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe("db/auth (browser)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:3000/api/auth/reset");
-    expect(url).toBe(ENV.EXPO_PUBLIC_BACKEND_AUTH_URL + "/reset");
+    expect(url).toBe(ENV.EXPO_PUBLIC_BACKEND_URL + "/auth/reset");
     expect(init.method).toBe("POST");
     expect(init.credentials).toBe("include");
 
