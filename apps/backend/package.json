@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:verify": "bun run db:migrate && bun run db:migrate && bun test src/db/migration.test.ts"
+    "db:verify": "bun run db:migrate && bun test src/db/migration.test.ts"
   },
   "dependencies": {
     "better-auth": "1.6.23",

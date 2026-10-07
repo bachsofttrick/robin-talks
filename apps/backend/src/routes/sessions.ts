@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { getDb, practiceSessions } from "../lib/db/index.js";
 
 const sessionColumns = {
@@ -16,9 +16,15 @@ export const sessionsRouter = new Hono();
 
 sessionsRouter.post("/sessions", async (c) => {
   const body = await c.req.json<{ scenario_id?: string | null }>();
+  const userId = c.get("userId");
+  // Close any open session so each user has at most one continued session.
+  await getDb()
+    .update(practiceSessions)
+    .set({ endedAt: sql`now()` })
+    .where(and(eq(practiceSessions.userId, userId), isNull(practiceSessions.endedAt)));
   const rows = await getDb()
     .insert(practiceSessions)
-    .values({ userId: c.get("userId"), scenarioId: body.scenario_id ?? null, transcript: [] })
+    .values({ userId, scenarioId: body.scenario_id ?? null, transcript: [] })
     .returning({ id: practiceSessions.id });
   return c.json(rows[0]);
 });
