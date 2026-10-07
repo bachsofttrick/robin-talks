@@ -1,6 +1,6 @@
 # Tasks: Move the mobile app's AI logic into the Hono backend
 
-Status: in progress
+Status: complete
 
 ## Wave 1
 - [x] T1: Backend AI router module with injected seams (commit c8ad353)
@@ -35,7 +35,7 @@ Status: in progress
   - Depends: T1, T2
 
 ## Wave 3
-- [ ] T5: Whole-feature quality gates and end-to-end verification
+- [x] T5: Whole-feature quality gates and end-to-end verification (commits see SPEC Verification; no fix-forward needed)
   - Satisfies: AC-10 (gate matrix), and evidences AC-1 through AC-9 end to end
   - Files: none expected (fix-forward only if a gate fails)
   - Do: Run the full matrix from the root: `bun run lint`, `bun run typecheck`, `bun run test` (backend `bun test`, mobile Jest), then `bun run build` last; boot `bun run dev` in `apps/backend` and curl `GET /health`, an unauthorized `POST /api/ai/chat` (expect the exact 401 body), and with `TRUSTED_ORIGINS=http://localhost:8081` a preflight `OPTIONS /api/ai/chat` (expect 204 + allow headers); record the Verification section of SPEC.md per AC. Fix any failing criterion by sending one correction to an implementation subagent, re-verify, and commit the fix.

@@ -1,6 +1,6 @@
 # Spec: Move the mobile app's AI logic into the Hono backend
 
-Status: approved (adversarial-agent, round 4: AGREE)
+Status: verified (adversarial-agent, round 4: AGREE)
 Request: create a new spec for: move all AI logic in the mobile app down to hono backend, with its own route `/ai`. Get your spec and plan **(not tasks)** reviewed by `adversarial-agent` until both reach an agreement before approved and proceed. No human shall be in the loop.
 
 Overview note: the user's "route `/ai`" is interpreted as a dedicated AI router named `/ai`, mounted under the backend's existing `/api` prefix so its endpoint paths are `/api/ai/*`, exactly matching how `/api/auth` and `/api/data` are derived from `EXPO_PUBLIC_BACKEND_URL=http://localhost:3000/api` (`.env.example` line 3). The mobile client reaches it at `BACKEND_AI_URL = BACKEND_URL + "/ai"`, the same derivation pattern as `BACKEND_AUTH_URL` and `BACKEND_DATA_URL` in `apps/mobile/src/lib/core/db/config.ts`.
@@ -67,3 +67,18 @@ Today the mobile app holds and runs the AI pipeline itself: `apps/mobile/src/lib
 - Q-2: Should `/ai` require authentication? Resolved: yes, the same better-auth session gate as `/api/data/*` (AC-1); consent remains the learner-facing disclosure. (blocks: nothing)
 - Q-3: Does the mobile client keep choosing between the `fast` and `smart` model ids? Resolved: yes; `ai.models` stays client-side with the backend allowlisting the set of ids its values name, today one distinct id (AC-3, AC-6). (blocks: nothing)
 - Q-4: Is the route `/ai` as literally written, or `/api/ai`? Resolved: `/api/ai`, so the mobile derivation `BACKEND_AI_URL = BACKEND_URL + "/ai"` matches how `/api/auth` and `/api/data` are already derived; the router's own name remains `/ai`. (blocks: nothing)
+
+## Verification
+- AC-1: pass (booted `bun run dev` in apps/backend; `curl -X POST localhost:3000/api/ai/chat` and the other three paths, no cookie, each returned HTTP 401 with exactly `{"error":"You need to sign in first."}`; `bun test src/routes/router.test.ts` -> 9 pass 0 fail including the DB-backed authorized `POST /api/ai/chat` -> 200 result object with the key forced empty)
+- AC-2: pass (`bun test src/routes/ai.test.ts` -> 50 pass 0 fail: all four unconfigured shapes with no provider call; `.env.example` lines 23-24 carry `OPENROUTER_API_KEY=`/`BOREL_AI_URL=` under the backend section with both `EXPO_PUBLIC_*` keys gone; root `.env` swapped with carried values, verified non-empty by name only; mobile `config.ts` exports `BACKEND_AI_URL`)
+- AC-3: pass (ai.test.ts AC-3 suite: chatSend request shape with `provider: { only: ["openai"] }`/`maxTokens`/camelCase media/strict response_format; allowlist rejection HTTP 200 + inner status 400; 2-attempt retry; too-long/unreadable schema-path only; schema-less `truncated: true, error: null`; transport + status sentence table; `reason` always null; live provider call intentionally not fired)
+- AC-4: pass (ai.test.ts AC-4 suite: pinned `qwen/qwen3-asr-0.6b`, default m4a, 60s budget, 3 MB cap and empty-body guards with no OpenRouter call, noSpeech details, status table rows)
+- AC-5: pass (ai.test.ts AC-5 suite: Borel URLs/bodies with 150s budget, verbatim Authorization/X-Borel-Surface/X-Borel-Build forwarding present and absent, three refusal sentences + plain-message passthrough + per-endpoint fallbacks, `reused` true/false/none mapping, offline/timeout shapes)
+- AC-6: pass (mobile jest `bun run test` -> 10 suites, 148 tests green, consent.test.ts unchanged; ai.test.ts pins the public surface, consent kinds, normalization sentences, image-only dedupe, metered post on false and null, noteRefusal image-only, both surfaces' cookie/credentials and image Borel headers, 65000/160000 timeouts, and the 401/offline/unconfigured sentences)
+- AC-7: pass (mobile `tsc --noEmit` green with the unchanged public surface, so `useRobin` and the Session screen compile with zero edits; full mobile suite green)
+- AC-8: pass (live preflight `OPTIONS /api/ai/chat` with `Origin: http://localhost:8081` -> HTTP 204 with `Access-Control-Allow-Origin: http://localhost:8081` and `Access-Control-Allow-Credentials: true`; credentialed POST -> 401 body with the same allow headers; backend test suite covers both)
+- AC-9: pass (backend package.json declares `@openrouter/sdk@^1.4.18`; mobile package.json free of it, transformIgnorePatterns keeps zod only; `bun.lock` single backend resolution; `bun install` idempotent exit 0)
+- AC-10: pass (root `bun run lint`, `bun run typecheck` -> 2/2 workspaces; `bun run test` -> mobile 148/148, backend 135 pass + the pre-existing AC-26 `bun -e` probe failure unrelated to this feature; `bun run build` -> 1/1 last)
+- AC-11: pass (grep of apps/mobile/src shows no `@openrouter/sdk` import and the lowercase `openrouter.ai` scan in the mobile suite passes, exempting consent.ts only)
+
+Notes: the pre-existing `app.test.ts` AC-26 spawned-process probe failure (`bun -e` cannot resolve `./auth.js` in this sandbox) predates this feature and is untouched by it; no other failure anywhere.
