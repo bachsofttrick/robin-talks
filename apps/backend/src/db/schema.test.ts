@@ -12,7 +12,7 @@ import {
   session,
   user,
   verification,
-} from "./schema.js";
+} from "./schema/index.js";
 
 const tables = { user, session, account, verification };
 

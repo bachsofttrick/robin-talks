@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { getDb } from "./client.js";
 import * as barrel from "./index.js";
-import { account, session, user, verification } from "./schema.js";
+import { account, session, user, verification } from "./schema/index.js";
 
 const ENV_KEYS = [
   "PGUSER",
