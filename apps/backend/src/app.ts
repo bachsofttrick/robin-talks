@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./lib/auth.js";
 import { dataRouter } from "./routes/index.js";
+import { createAiRouter } from "./routes/ai.js";
 import { trustedOrigins } from "./lib/env.js";
 
 export function createApp() {
@@ -16,6 +17,10 @@ export function createApp() {
   app.use("/api/data/*", cors({ origin: trustedOrigins(), credentials: true }));
 
   app.route("/api/data", dataRouter);
+
+  app.use("/api/ai/*", cors({ origin: trustedOrigins(), credentials: true }));
+
+  app.route("/api/ai", createAiRouter());
 
   return app;
 }
