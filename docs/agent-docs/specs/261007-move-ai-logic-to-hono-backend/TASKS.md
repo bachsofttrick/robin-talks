@@ -26,7 +26,7 @@ Status: in progress
   - Done when: `bun test src/app.test.ts src/routes/router.test.ts` passes (router additions skip with the reported reason when no DB); backend `lint`, `typecheck`, and `test` pass.
   - Depends: T1
 
-- [ ] T4: Dependency move and env key repoint
+- [x] T4: Dependency move and env key repoint (commit e9d83f6)
   - Satisfies: AC-2 (env files), AC-9, AC-11 (dependency removal)
   - Files: `apps/backend/package.json`, `apps/mobile/package.json`, `bun.lock`, `/app/.env.example`, `/app/.env`
   - Do: Add `"@openrouter/sdk": "^1.4.18"` to backend `dependencies`; drop it from mobile `dependencies` and remove the `@openrouter/sdk` segment from the Jest `transformIgnorePatterns` regex (keep the `zod` segment); run `bun install` at the root so `bun.lock` records the swap. In `.env.example`, remove the `EXPO_PUBLIC_OPENROUTER_API_KEY` and `EXPO_PUBLIC_BOREL_AI` lines and add `OPENROUTER_API_KEY` and `BOREL_AI_URL` under the `# Backend (apps/backend)` section; in the root `.env`, apply the same swap carrying over the existing values (`OPENROUTER_API_KEY` gets the old `EXPO_PUBLIC_OPENROUTER_API_KEY` value; `BOREL_AI_URL` gets the old `EXPO_PUBLIC_BOREL_AI` value).
