@@ -17,7 +17,7 @@ const noDb = databaseUrlOrNull() === null;
 
 if (noDb) {
   console.warn(
-    "data/router.test.ts: skipping data API integration checks, no PG* variables configured",
+    "routes/router.test.ts: skipping data API integration checks, no PG* variables configured",
   );
 }
 
