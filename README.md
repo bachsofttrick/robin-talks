@@ -1,6 +1,6 @@
 # Robin Talks
 
-A voice-first [Expo](https://expo.dev) React Native app for non-English speakers who want to speak English, not study it. Each practice session drops you into a short, realistic scenario (ordering coffee, asking for directions) where the AI agent Robin plays the other person, talks through the device, listens to your reply, and coaches your English in passing. Accounts and the app's profile, sessions, and memory are backed by the `apps/backend` Hono service (better-auth plus a drizzle/Neon Postgres data API) on both a device and the browser preview; file storage and AI image generation use the Borel cloud at `api.borel.one`, while chat and speech-to-text go directly to OpenRouter.
+A voice-first [Expo](https://expo.dev) React Native app for non-English speakers who want to speak English, not study it. Each practice session drops you into a short, realistic scenario (ordering coffee, asking for directions) where the AI agent Robin plays the other person, talks through the device, listens to your reply, and coaches your English in passing. Accounts and the app's profile, sessions, and memory are backed by the `apps/backend` Hono service (better-auth plus a drizzle/Neon Postgres data API) on both a device and the browser preview, and all AI transport runs in that backend's `/api/ai` router, which calls OpenRouter for chat and speech-to-text and proxies Borel's AI image generation. The Borel cloud at `api.borel.one` still fronts file storage, moderation, and notifications.
 
 ## Repository layout
 
@@ -12,7 +12,7 @@ This is a Bun and Turborepo monorepo. The app described here lives in `apps/mobi
 - `scripts/link-env.mjs` - `bun run env:link`, which points each workspace `.env` symlink at the root `.env`
 - `.env` / `.env.example` - the only real env files; `apps/mobile/.env` and `apps/backend/.env` are symlinks to `../../.env`
 - `apps/mobile/` - the Expo React Native app (all of this README's subject matter)
-- `apps/backend/` - a Hono service that runs a better-auth account service (drizzle + Neon Postgres) at `/api/auth/*` and the app's authenticated data API at `/api/data/*`; both the device app and the browser preview talk to it
+- `apps/backend/` - a Hono service that runs a better-auth account service (drizzle + Neon Postgres) at `/api/auth/*`, the app's authenticated data API at `/api/data/*`, and the AI router at `/api/ai`; both the device app and the browser preview talk to it
 - `docs/agent-docs/` - the agent knowledge base, plus sdd/pdd specs and plans
 
 ## What it does
@@ -57,7 +57,7 @@ From the repository root, every task fans out through Turborepo:
 | `bun run dev` | `turbo run dev`; runs `env:link` first, then starts the dev servers |
 | `bun run lint` | `eslint .` in both workspaces (`eslint-config-expo` in mobile, a flat config in the backend) |
 | `bun run typecheck` | `tsc --noEmit` in both workspaces |
-| `bun run test` | `jest` with the `jest-expo` preset in mobile (10 suites, 122 tests) and `bun test` in the backend |
+| `bun run test` | `jest` with the `jest-expo` preset in mobile (10 suites, 148 tests) and `bun test` in the backend |
 | `bun run build` | `tsc -p tsconfig.build.json` in `apps/backend`, emitting `dist/` |
 | `bun run env:link` | Points `apps/*/.env` at the shared root `.env` |
 
@@ -85,7 +85,7 @@ The Robin turn is one `db.ai.chat` call. `nextTurn` (`src/lib/api/useRobin.tsx`)
 
 Voice turns are owned by the Session screen (`src/screens/Session/index.tsx`). It opens the mic only after `speak()` resolves, records through `src/lib/core/borel/borel-systemui.js`, then calls `db.ai.transcribe` on manual stop. Audio is never stored; only the transcript and debrief reach the database.
 
-The Borel cloud proxy remains the remote service layer for file storage, AI images, moderation, and notifications; the app's own data and auth are served by `apps/backend` on both surfaces. `src/lib/core/db.ts` defines the endpoints and exposes `db.auth`, `db.storage`, `db.ai`, `db.account`, `db.moderation`, and `db.notify`. Chat and transcription go straight from the device to OpenRouter (`fast` and `smart` are both `openai/gpt-6-luna`, transcription is `qwen/qwen3-asr-0.6b`); image generation stays on Borel. Data lives in four Postgres tables (`profiles`, `learner_profiles`, `practice_sessions`, `robin_memory`), created by `apps/backend/drizzle/0001_complete_silver_fox.sql` and scoped to the signed-in user. These tables are served by the backend's `/api/data/*` router on both surfaces. See `docs/agent-docs/backend-and-ai.md`.
+The Borel cloud proxy remains the remote service layer for file storage, moderation, and notifications; the app's own data, auth, and AI are served by `apps/backend` on both surfaces. `src/lib/core/db.ts` defines the endpoints and exposes `db.auth`, `db.storage`, `db.ai`, `db.account`, `db.moderation`, and `db.notify`. `db.ai` is a thin client over the backend's `/api/ai` router: chat (`fast` and `smart` are both `openai/gpt-6-luna`) and transcription (`qwen/qwen3-asr-0.6b`) call OpenRouter from the backend, while image generation is proxied to Borel, which stores the picture and reuses it for the same prompt. Data lives in four Postgres tables (`profiles`, `learner_profiles`, `practice_sessions`, `robin_memory`), created by `apps/backend/drizzle/0001_complete_silver_fox.sql` and scoped to the signed-in user. These tables are served by the backend's `/api/data/*` router on both surfaces. See `docs/agent-docs/backend-and-ai.md`.
 
 ## Borel-managed files
 

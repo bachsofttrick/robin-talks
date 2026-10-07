@@ -57,14 +57,14 @@ robin-talks/
 │   │   │       │   │   ├── borel-store.js     Vendor reactive store (createStore, usePersistedState, ...).
 │   │   │       │   │   └── borel-systemui.js  Vendor native-module bridge (permissions, recording, speech, ...).
 │   │   │       │   ├── db/
-│   │   │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders.
+│   │   │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders; BACKEND_URL (an /api base) with /auth, /data, /ai appended.
 │   │   │       │   │   ├── errors.ts     Neutral error sentences, plainError, looksPlain, refusals.
 │   │   │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
 │   │   │       │   │   ├── auth.ts       neon-js client, cookie session (native), tellScreens, sessionCookieHeader; re-exports brokerAuth.
 │   │   │       │   │   ├── browser-auth.ts  Browser wrapper over the backend neon-js client: own onAuthStateChange, getBetterAuthInstance.
 │   │   │       │   │   ├── data.ts       Backend data client for /api/data/* on both surfaces: profile, sessions, memory, profiles.
 │   │   │       │   │   ├── storage.ts    File upload/presign and account deletion.
-│   │   │       │   │   ├── ai.ts         OpenRouter chat/transcribe (AiJsonSchema structured output) + Borel image/editImage.
+│   │   │       │   │   ├── ai.ts         Thin client over the backend's /api/ai router: consent, device-file normalization, image dedupe, metering.
 │   │   │       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration.
 │   │   │       │   │   ├── moderation-state.ts  Reported/blocked cache, imported by db/auth.ts.
 │   │   │       │   │   └── notify.ts     borelFetch, push notify, device linking.
@@ -108,20 +108,24 @@ robin-talks/
 │   │   ├── eslint.config.mjs  eslint-config-expo flat config with ignores.
 │   │   └── LICENSE
 │   └── backend/               Hono service, package @robin-talks/backend; runs better-auth at
-│       │                      /api/auth/* and the app data API at /api/data/* over drizzle +
-│       │                      Neon Postgres. The native app talks to it over HTTP.
+│       │                      /api/auth/*, the app data API at /api/data/*, and the AI router at
+│       │                      /api/ai over drizzle + Neon Postgres. The native app talks to it over HTTP.
 │           ├── .env           Symlink to ../../.env, maintained by env:link.
-│           ├── drizzle.config.ts  drizzle-kit config (Postgres, schema ./src/db/schema.ts, out ./drizzle).
+│           ├── drizzle.config.ts  drizzle-kit config (Postgres credentials from PG*, out ./drizzle).
 │           ├── drizzle/       Committed migrations 0000_lean_george_stacy.sql (auth) and
 │           │                  0001_complete_silver_fox.sql (app tables), plus meta/ snapshots.
 │           ├── src/
 │           │   ├── index.ts   Entry: default-exports app; under import.meta.main calls requireDatabaseUrl() then Bun.serve.
-│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/* and /api/data/*, app.all("/api/auth/*", auth.handler), app.route("/api/data", dataRouter).
-│           │   ├── auth.ts    betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0.
-│           │   ├── env.ts     process.env readers: database URLs, auth base URL/secret, trusted origins, mail, port.
-│           │   ├── db/        client.ts (lazy memoized pg Pool + drizzle), schema.ts (four auth + four app tables), index.ts barrel.
-│           │   ├── data/      router.ts: authenticated /api/data/* CRUD (profile, sessions, memory, profiles); router.test.ts.
-│           │   └── mail/      otp-transport.ts: dev outbox vs fetch provider transport.
+│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, /api/data/*, and /api/ai/*; auth.handler; app.route("/api/data", dataRouter); app.route("/api/ai", createAiRouter()).
+│           │   ├── conformance.test.ts  Proves the backend serves the auth paths the mobile client issues.
+│           │   ├── lib/       auth.ts (betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0),
+│           │   │              env.ts (process.env readers: database URLs, auth base URL/secret, trusted
+│           │   │              origins, mail, port, openRouterApiKey, borelAiUrl), db/ (client.ts lazy
+│           │   │              memoized pg Pool + drizzle; schema/ auth-schema.ts + schema.ts + index.ts), and
+│           │   │              mail/otp-transport.ts (dev outbox vs fetch provider transport).
+│           │   └── routes/    index.ts (session middleware + the /api/data mounts of profile.ts, sessions.ts,
+│           │                  memory.ts, profiles.ts) and ai.ts (createAiRouter: /api/ai chat, transcribe,
+│           │                  images/generations, images/edits, with injectable session/chatSend/fetch seams).
 │           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
 │           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
 │           ├── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, bun-types.
@@ -133,9 +137,10 @@ robin-talks/
 ```
 
 `apps/backend/src/**/*.test.ts` holds the `bun:test` suites next to source (app,
-auth e2e, conformance, data, db, env, mail); the database-backed ones
-(`auth.e2e.test.ts`, `data/router.test.ts`, `db/migration.test.ts`) skip with a
-reported reason when no database is configured.
+ai, auth e2e, conformance, routes, db, env, mail); the database-backed ones
+(`lib/auth.e2e.test.ts`, `routes/router.test.ts`, `lib/db/migration.test.ts`)
+skip with a reported reason when no database is configured. `routes/ai.test.ts`
+runs the AI router with injected seams and needs neither.
 
 Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
 mobile, `7.0.2` in backend); every other dependency is hoisted to the root

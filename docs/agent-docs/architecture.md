@@ -3,14 +3,16 @@
 Source paths are relative to `apps/mobile/` unless noted.
 
 Robin Talks is one Expo React Native application, `apps/mobile`, inside a
-monorepo. All code that runs lives under `src/`, and the app talks to three remote
-systems: the backend in `apps/backend` (auth and the app's own data on both
-surfaces), the Borel cloud proxy (file storage, image
-generation, moderation, notifications), and OpenRouter (chat completions and
-speech-to-text). The app is
+monorepo. All code that runs lives under `src/`, and the app talks to two remote
+systems: the backend in `apps/backend` (auth, the app's own data, and all AI
+transport on both surfaces) and the Borel cloud proxy (file storage,
+moderation, notifications; AI image generation reaches Borel through the
+backend's `/api/ai` proxy, so the device never calls OpenRouter or Borel's AI
+endpoints directly). The app is
 client-only: it holds no server code and no build step. `apps/backend/` is a
-separate Hono service that runs a better-auth account service at `/api/auth/*`
-and an authenticated data API at `/api/data/*` over drizzle and Neon Postgres
+separate Hono service that runs a better-auth account service at `/api/auth/*`,
+an authenticated data API at `/api/data/*`, and an authenticated AI router at
+`/api/ai` over drizzle and Neon Postgres
 (see [backend-and-ai.md](backend-and-ai.md)); the native app authenticates against
 it and stores its profile, sessions, and memory through `/api/data/*`, and the
 browser preview uses the same backend with cookie credentials.
@@ -45,7 +47,8 @@ then `RootNavigator`.
   signed-in user from `useAuth()` and, for profile state, a module-scope store
   from `src/lib/core/borel/borel-store.js`. Screens import
   these hooks, not `db`, except for the `db.ai.transcribe` call in the Session
-  screen.
+  screen; every AI call, including that one, reaches the backend's `/api/ai`
+  router through the thin client in `src/lib/core/db/ai.ts`.
 - **Shared UI state** uses `createStore` from
   `src/lib/core/borel/borel-store.js`: a module singleton read through
   `useSyncExternalStore`, so every screen sees one value. Only `robin.profile`
@@ -94,18 +97,24 @@ card rather than the tab bar.
 
 ## AI boundary
 
-`src/lib/core/db/ai.ts` owns all AI transport:
-- `ai.chat` uses the `@openrouter/sdk` client (`OpenRouterCore` + `chatSend`)
-  directly against `https://openrouter.ai/api/v1`, keyed by
-  `EXPO_PUBLIC_OPENROUTER_API_KEY`. A `jsonSchema` call sends that schema as
-  OpenRouter's `response_format` (`json_schema`, `strict: true`) and pins the
-  provider to OpenAI, then reads the reply with `readJson` (fences and
-  surrounding words tolerated) and retries once before reporting the
-  "unreadable" sentence.
-- `ai.transcribe` uses plain `fetch` to OpenRouter's
+All AI transport runs in the backend's `/api/ai` router
+(`apps/backend/src/routes/ai.ts`), mounted by `createApp()`; `src/lib/core/db/ai.ts`
+is the thin client that POSTs to it and keeps the public `db.ai` surface:
+- `ai.chat` POSTs to `/api/ai/chat`. The backend calls OpenRouter through the
+  `@openrouter/sdk` (`OpenRouterCore` + `chatSend`), pins the provider to
+  OpenAI, turns a `jsonSchema` into OpenRouter's `response_format` (`json_schema`,
+  `strict: true`), reads the reply with `readJson` (fences and surrounding words
+  tolerated), and retries once before reporting the "unreadable" sentence. The
+  key is backend-only (`OPENROUTER_API_KEY` in `apps/backend`); the mobile app
+  no longer reads `EXPO_PUBLIC_OPENROUTER_API_KEY`.
+- `ai.transcribe` POSTs to `/api/ai/transcribe`; the backend fetches OpenRouter's
   `/audio/transcriptions` with model `qwen/qwen3-asr-0.6b`.
-- `ai.image` and `ai.editImage` stay on the Borel proxy (`borelFetch` to
-  `BOREL_AI`), because Borel stores generated images in the app's own files.
+- `ai.image` and `ai.editImage` POST to `/api/ai/images/generations` and
+  `/images/edits`, which transparently proxy Borel (`BOREL_AI_URL`), because
+  Borel stores generated images in the app's own files.
+- The router is session-gated by the better-auth cookie: no session is 401
+  `{ "error": "You need to sign in first." }`, and 200 with a result body is the
+  only other outcome.
 - Every AI call asks for consent first (`src/lib/core/db/consent.ts`), once per
   company and per kind, before anything leaves the device.
 

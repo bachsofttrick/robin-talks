@@ -96,8 +96,14 @@ The AI surface for the session loop.
   closed so OpenAI's strict structured-output mode accepts them; optional values
   are unions with `null`, as `remember` is.
 
+`db.ai` is the thin client in `src/lib/core/db/ai.ts` (see
+[backend-and-ai.md](backend-and-ai.md)): the call POSTs `{ model, messages,
+temperature, max_tokens, jsonSchema }` to the backend's `/api/ai/chat`, and the
+reply shape is unchanged. The schemas stay client-side; the backend turns them
+into OpenRouter's `response_format`.
+
 Note: `db.ai.models.fast` and `db.ai.models.smart` are both `openai/gpt-6-luna`
-in the current code (`src/lib/core/db/ai.ts:429`).
+in the current code (`src/lib/core/db/ai.ts:283`).
 
 ## Database tables used
 
