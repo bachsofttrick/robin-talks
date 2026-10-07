@@ -122,7 +122,7 @@ replays the persisted session cookie and rewires `useProfile`, `useSessions`,
 - `apps/backend/src/app.ts`: mount the data router at `/api/data/*` (AC-17).
 - `apps/backend/src/data/router.test.ts` (new): the DB-backed e2e data tests (AC-17, AC-19).
 - `apps/mobile/src/lib/core/db/auth.ts`: export `async sessionCookieHeader(): Promise<string>` that awaits the cookie-jar load (AC-18).
-- `apps/mobile/src/lib/core/db/config.ts`: add `backendDataUrl()` derived from `BACKEND_AUTH_URL` (AC-18).
+- `apps/mobile/src/lib/core/db/config.ts`: add `BACKEND_DATA_URL` derived from `BACKEND_AUTH_URL` (AC-18).
 - `apps/mobile/src/lib/core/db/data.ts` (new): the typed backend data client (AC-18).
 - `apps/mobile/src/lib/api/useProfile.tsx`, `useSessions.tsx`, `useMemory.tsx`: branch on `IN_BROWSER` and call the data client on native, keeping each hook's shape (AC-18).
 - `apps/mobile/src/lib/core/auth/actions.ts`: `syncProfile` uses the data client on native (AC-18).
@@ -184,7 +184,7 @@ auth wrapper into `src/lib/core/db/browser-auth.ts`, a module that imports only
 `./config`, `./moderation-state` (to keep `forgetModeration()` on sign-in/out), and
 `@neondatabase/neon-js`, builds a `createClient({ auth: { url:
 BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() }, dataApi: { url:
-backendDataUrl() } })` with no `sessionPlugin` (so the browser cookie jar with
+BACKEND_DATA_URL } })` with no `sessionPlugin` (so the browser cookie jar with
 `credentials: "include"` carries the session), and wraps it so `onAuthStateChange`
 owns a subscriber list that sign-in/verify/sign-out notify. `db/auth.ts` imports
 that wrapper, removes the Borel broker helpers, makes `authCall` target
@@ -205,7 +205,7 @@ origin.
 - `apps/mobile/src/lib/core/auth/constants.ts`: correct the now-false `IN_PREVIEW` comment (AC-25).
 - `apps/mobile/src/lib/core/auth/actions.ts`: `syncProfile` always calls `upsertProfile`; drop the dead Borel-preview fallbacks now that `getBetterAuthInstance()` exists in the browser, and correct the now-false comments at `:114-117` and `:129-130` (AC-23, AC-24).
 - `apps/mobile/src/lib/api/useProfile.tsx`, `useSessions.tsx`, `useMemory.tsx`: remove the `IN_BROWSER` `db.from` branch, always the data client (AC-23).
-- Mobile tests: `src/lib/core/db/browser-auth.test.ts` (new, browser-mode; AC-21, AC-28), a browser-mode case in `src/lib/core/db/data.test.ts` (whose `./config` mock must add `IN_BROWSER`, since it currently mocks only `backendDataUrl`) (AC-22, AC-23), a browser-mode case in `src/lib/api/data-hooks.test.tsx` (AC-23), and a wrapper test for `updatePassword`/`deleteAccount` through `getBetterAuthInstance` that also asserts `PASSWORD_RESET_AVAILABLE === true` and `AUTH_REDIRECT_URL === BACKEND_AUTH_URL` stay true (AC-24).
+- Mobile tests: `src/lib/core/db/browser-auth.test.ts` (new, browser-mode; AC-21, AC-28), a browser-mode case in `src/lib/core/db/data.test.ts` (whose `./config` mock must add `IN_BROWSER`, since it currently mocks only `BACKEND_DATA_URL`) (AC-22, AC-23), a browser-mode case in `src/lib/api/data-hooks.test.tsx` (AC-23), and a wrapper test for `updatePassword`/`deleteAccount` through `getBetterAuthInstance` that also asserts `PASSWORD_RESET_AVAILABLE === true` and `AUTH_REDIRECT_URL === BACKEND_AUTH_URL` stay true (AC-24).
 - Gates: run root `bun run lint`, `bun run typecheck`, and `bun run test` (backend `bun test`, mobile `jest`), then `bun run build` last; database-backed tests skip with a reported reason when no database is configured (AC-27).
 - `apps/mobile/package.json`: no `jest.transformIgnorePatterns` change; the SDK is mocked, not loaded.
 

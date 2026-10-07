@@ -138,7 +138,7 @@ In the browser the `auth` half of `db` is `brokerAuth`, re-exported from
 `src/lib/core/db/auth.ts` and built in `src/lib/core/db/browser-auth.ts`.
 `createBrowserAuth(auth)` wraps one neon-js `createClient({ auth: { url:
 BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() }, dataApi: { url:
-backendDataUrl() } })` with no session plugin, so the browser's own cookie jar
+BACKEND_DATA_URL } })` with no session plugin, so the browser's own cookie jar
 carries the session. It keeps its own `onAuthStateChange` subscriber list and
 calls `getSession({ forceFetch: true })` after sign-in, OTP verification, and
 sign-out to notify subscribers, because the neon-js adapter otherwise notifies
@@ -155,8 +155,8 @@ All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
 - `IN_BROWSER` (`typeof document !== "undefined"`), `SURFACE`
   (`"preview" | "dev" | "release"`), `BUILD_STAMP`, and `borelHeaders()` which
   sends `X-Borel-Surface` (and `X-Borel-Build` in a release build).
-- `backendDataUrl()` replaces a trailing `/api/auth` in `BACKEND_AUTH_URL` with
-  `/api/data`, and returns `""` when `BACKEND_AUTH_URL` is unset or does not end
+- `BACKEND_DATA_URL` replaces a trailing `/api/auth` in `BACKEND_AUTH_URL` with
+  `/api/data`, and is `""` when `BACKEND_AUTH_URL` is unset or does not end
   that way.
 - `createInviteLink(code)` composes `BOREL_INVITE_URL`.
 

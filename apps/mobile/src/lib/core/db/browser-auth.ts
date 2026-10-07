@@ -1,5 +1,5 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
-import { BACKEND_AUTH_URL, backendDataUrl } from "./config";
+import { BACKEND_AUTH_URL, BACKEND_DATA_URL } from "./config";
 import { forgetModeration } from "./moderation-state";
 
 type AuthCallback = (event: string, session: any) => void;
@@ -68,7 +68,7 @@ export function createBrowserAuth(auth: any) {
 
 const browserClient: any = createClient({
   auth: { url: BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() },
-  dataApi: { url: backendDataUrl() },
+  dataApi: { url: BACKEND_DATA_URL },
 });
 
 export const brokerAuth = createBrowserAuth(browserClient.auth);

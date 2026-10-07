@@ -79,7 +79,7 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
   `../../.env`; never replace a symlink with a workspace copy. Run `bun run env:link`
   after cloning to recreate them.
 - `EXPO_PUBLIC_BACKEND_AUTH_URL` is the auth base for both surfaces and includes
-  the `/api/auth` mount (see `.env.example`); `backendDataUrl()` in
+  the `/api/auth` mount (see `.env.example`); `BACKEND_DATA_URL` in
   `src/lib/core/db/config.ts` derives the `/api/data` base from it. Native replays
   the stored session cookie; the browser preview sends it with
   `credentials: "include"`.

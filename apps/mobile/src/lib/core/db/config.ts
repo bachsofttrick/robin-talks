@@ -2,9 +2,9 @@ import Constants from "expo-constants";
 
 export const DATA_API_URL = process.env.EXPO_PUBLIC_DATA_API_URL ?? "";
 export const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL ?? "";
-// The Hono better-auth service in apps/backend, mounted at /api/auth. This is
-// the full base the native auth client talks to, e.g. https://host/api/auth.
-export const BACKEND_AUTH_URL = process.env.EXPO_PUBLIC_BACKEND_AUTH_URL ?? "";
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+export const BACKEND_AUTH_URL = BACKEND_URL + "/auth";
+export const BACKEND_DATA_URL = BACKEND_URL + "/data";
 export const PREVIEW_AUTH_URL = process.env.EXPO_PUBLIC_PREVIEW_AUTH_URL ?? "";
 export const BOREL_STORAGE = process.env.EXPO_PUBLIC_BOREL_STORAGE ?? "";
 export const BOREL_AI = process.env.EXPO_PUBLIC_BOREL_AI ?? "";
@@ -12,13 +12,6 @@ export const BOREL_ACCOUNT = process.env.EXPO_PUBLIC_BOREL_ACCOUNT ?? "";
 export const BOREL_USAGE_URL = process.env.EXPO_PUBLIC_BOREL_USAGE_URL ?? "";
 export const BOREL_INVITE_URL = process.env.EXPO_PUBLIC_BOREL_INVITE_URL ?? "";
 export const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? "";
-
-// The backend data API sits beside better-auth on the same host, at /api/data.
-// It exists only when BACKEND_AUTH_URL points at the better-auth base.
-export function backendDataUrl(): string {
-  if (!/\/api\/auth\/?$/.test(BACKEND_AUTH_URL)) return "";
-  return BACKEND_AUTH_URL.replace(/\/api\/auth\/?$/, "/api/data");
-}
 
 /**
  * The link to share for one of this app's invite codes (a group's join code,

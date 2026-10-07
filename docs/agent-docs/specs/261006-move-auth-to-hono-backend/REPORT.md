@@ -174,7 +174,7 @@ any code changed.
 |---|---|---|
 | mobile repoint | `1112cc7` | `BACKEND_AUTH_URL`, backend auth client, backend `deleteUser`, `PASSWORD_RESET_AVAILABLE = true` |
 | T11 | `479de46` | App tables + `0001` migration, cascade FKs, `session: { freshAge: 0 }` |
-| T13 | `add00e9` | Async `sessionCookieHeader()`, `backendDataUrl()`, typed mobile data client + tests |
+| T13 | `add00e9` | Async `sessionCookieHeader()`, `BACKEND_DATA_URL`, typed mobile data client + tests |
 | T12 | `7978454` | `/api/data/*` router with session-cookie auth, snake_case projections, per-user scoping + tests |
 | T14 | `eb47968` | Hooks and `syncProfile` route through the backend on native; browser keeps `db.from` + hook tests |
 | T15 | verified, no changes | Root lint/typecheck/test/build all green |

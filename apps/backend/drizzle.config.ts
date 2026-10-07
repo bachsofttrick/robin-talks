@@ -12,10 +12,12 @@ function stripPooler(host: string): string {
   return host.replace(/-pooler(?=\.|$)/, "");
 }
 
-function databaseUrl(): string | undefined {
+function databaseUrl(): string {
   const { PGUSER, PGPASSWORD, PGDATABASE, PGHOST } = process.env;
   const host = PGHOST ? stripPooler(PGHOST) : undefined;
-  if (!PGUSER || !PGPASSWORD || !host || !PGDATABASE) return undefined;
+  if (!PGUSER || !PGPASSWORD || !host || !PGDATABASE) {
+    throw new Error("PGUSER, PGPASSWORD, PGHOST, and PGDATABASE must be set");
+  }
 
   return `postgresql://${encodeURIComponent(PGUSER)}:${encodeURIComponent(PGPASSWORD)}@${host}:5432/${PGDATABASE}?sslmode=require`;
 }

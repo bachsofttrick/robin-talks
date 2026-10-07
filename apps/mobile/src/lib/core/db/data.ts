@@ -1,4 +1,4 @@
-import { backendDataUrl, IN_BROWSER } from "./config";
+import { BACKEND_DATA_URL, IN_BROWSER } from "./config";
 import { sessionCookieHeader } from "./auth";
 import { messageOf } from "./errors";
 
@@ -43,7 +43,7 @@ type DataError = { message: string };
 type DataResult<T> = { data: T | null; error: DataError | null };
 
 async function request<T>(path: string, init?: RequestInit): Promise<DataResult<T>> {
-  const base = backendDataUrl();
+  const base = BACKEND_DATA_URL;
   if (!base) return { data: null, error: { message: "The backend is not configured." } };
   const cookie = IN_BROWSER ? "" : await sessionCookieHeader();
   try {
