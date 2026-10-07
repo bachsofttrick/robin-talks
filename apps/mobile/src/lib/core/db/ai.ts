@@ -1,16 +1,8 @@
-import { BOREL_AI, IN_BROWSER, OPENROUTER_API_KEY } from "./config";
-import { postToParent, refusalOf, noteRefusal, looksPlain, messageOf, AiRefusal } from "./errors";
+import { BACKEND_AI_URL, IN_BROWSER, borelHeaders } from "./config";
+import { postToParent, noteRefusal, messageOf } from "./errors";
+import type { AiRefusal } from "./errors";
 import { askAiConsent, AI_DECLINED, AI_AUDIO_MODEL } from "./consent";
-import { borelFetch } from "./notify";
-import { OpenRouterCore } from "@openrouter/sdk/core";
-import { chatSend } from "@openrouter/sdk/funcs/chatSend";
-import type { ChatRequest } from "@openrouter/sdk/models";
-
-const NEUTRAL_ERROR: Record<AiRefusal, string> = {
-  wallet_empty: "AI isn't available right now, so please try again later.",
-  daily_allowance_used: "AI has reached today's limit, so it's back tomorrow.",
-  cloud_paused: "This isn't available right now, so please try again later.",
-};
+import { sessionCookieHeader, authHeader } from "./auth";
 
 /** One piece of a message: words, a photo for the AI to look at, or one recording for it to hear (raw base64). */
 export type ChatContentPart =
@@ -140,27 +132,21 @@ async function sendableAudio(input: AiAudioInput): Promise<{ data: string; forma
   throw new Error(EMPTY_RECORDING);
 }
 
-/** One request to one model: a minute is generous, and the app owns the retry loop. */
-const AI_TIMEOUT_MS = 60000;
-
-const OPENROUTER_URL = "https://openrouter.ai/api/v1";
-const OPENROUTER_OPTIONS = { retries: { strategy: "none" } } as const;
-// One client for the whole app; retries stay off because chat's JSON loop retries on its own.
-const openRouter = new OpenRouterCore({ apiKey: OPENROUTER_API_KEY, retryConfig: { strategy: "none" } });
-
 const AI_SAYS = {
   offline: "Couldn't reach the AI, so check your connection and try again.",
   slow: "The AI took too long to answer, so please try again.",
-  failed: "The AI couldn't answer that right now, so please try again.",
-  tooLong: "That answer was too long, so try asking for less.",
-  unreadable: "That answer came back in a form this app couldn't read, so please try again.",
-  photo: "That photo couldn't be read, so try picking it again.",
-  picture: "The picture couldn't be made right now, so please try again.",
   pictureSlow: "The picture took too long, so please try again.",
-  edit: "That picture couldn't be changed right now, so please try again.",
+  failed: "The AI couldn't answer that right now, so please try again.",
+  photo: "That photo couldn't be read, so try picking it again.",
+  back: "Sign in to use this feature.",
+  noBackend: "The backend is not configured.",
   transcribe: "Couldn't write down that recording right now, so please try again.",
   noSpeech: "No words were heard in that recording, so please try again.",
 };
+
+// The provider's own 60s/150s budgets plus the client's margin.
+const CHAT_TIMEOUT_MS = 65000;
+const IMAGE_TIMEOUT_MS = 160000;
 
 /**
  * What db.ai.chat resolves. `text` is the reply as it came; with `json: true`,
@@ -191,184 +177,16 @@ export type AiJsonSchema = {
   schema: Record<string, unknown>;
 };
 
-/** Where the object or list that starts at `start` ends, skipping brackets inside strings; -1 when it never does. */
-function balancedEnd(s: string, start: number): number {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < s.length; i++) {
-    const c = s[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (s.charCodeAt(i) === 92) escaped = true;
-      else if (c === '"') inString = false;
-      continue;
-    }
-    if (c === '"') inString = true;
-    else if (c === "{" || c === "[") depth++;
-    else if (c === "}" || c === "]") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-}
-
-/** A model's reply read as JSON: inside a code fence, or the first whole object or list among other words. */
-function readJson(text: string | null): { ok: true; value: any } | { ok: false } {
-  if (typeof text !== "string") return { ok: false };
-  let s = text.trim();
-  const fence = String.fromCharCode(96, 96, 96);
-  const open = s.indexOf(fence);
-  if (open !== -1) {
-    const lineEnd = s.indexOf(String.fromCharCode(10), open);
-    if (lineEnd !== -1) {
-      const close = s.indexOf(fence, lineEnd);
-      s = s.slice(lineEnd + 1, close === -1 ? undefined : close).trim();
-    }
-  }
-  try {
-    return { ok: true, value: JSON.parse(s) };
-  } catch {
-    // words around it; look for the object or list itself
-  }
-  let tries = 0;
-  for (let start = 0; start < s.length && tries < 20; start++) {
-    const c = s[start];
-    if (c !== "{" && c !== "[") continue;
-    tries++;
-    const end = balancedEnd(s, start);
-    if (end === -1) continue;
-    try {
-      return { ok: true, value: JSON.parse(s.slice(start, end + 1)) };
-    } catch {
-      // not this one
-    }
-  }
-  return { ok: false };
-}
-
-function chatFailure(error: string, status: number, extra: Partial<AiChatResult> = {}): AiChatResult {
-  return { text: null, data: null, error, status, reason: null, truncated: false, raw: null, detail: null, ...extra };
-}
-
-/** The wire form the SDK expects: image and audio parts get the SDK's camelCase field names. */
-function toOpenRouterMessages(messages: ChatMessage[]): ChatRequest["messages"] {
-  return messages.map((m) => {
-    if (typeof m.content === "string") return { role: m.role, content: m.content };
-    const content = m.content.map((part) => {
-      if (part.type === "text") return { type: "text" as const, text: part.text };
-      if (part.type === "image_url") return { type: "image_url" as const, imageUrl: { url: part.image_url.url } };
-      return { type: "input_audio" as const, inputAudio: { data: part.input_audio.data, format: part.input_audio.format || "m4a" } };
-    });
-    return { role: m.role, content };
-  }) as ChatRequest["messages"];
-}
-
-/** The assistant's words, whether the model sent one string or a list of text parts. */
-function assistantText(message: any): string | null {
-  if (!message) return null;
-  if (typeof message.content === "string") return message.content;
-  if (Array.isArray(message.content)) {
-    const joined = message.content.map((part: any) => (part && typeof part.text === "string" ? part.text : "")).join("");
-    return joined || null;
-  }
-  return null;
-}
-
-/** The OpenRouter error's own words, wherever they sit (parsed body first, then the error message). */
-function openRouterSaid(err: any): string | null {
-  if (err && typeof err.body === "string" && err.body.trim()) {
-    try {
-      const said = messageOf(JSON.parse(err.body));
-      if (said) return said;
-    } catch {
-      // Not JSON; fall through to the error's own message.
-    }
-  }
-  return err && typeof err.message === "string" ? err.message : null;
-}
-
-/**
- * One plain sentence for an OpenRouter failure. Codes that mean a state the
- * learner cannot fix resolve to the app's standing sentences; any other code
- * shows the API's words only when they already read as one plain sentence.
- */
-function openRouterSays(status: number, said: string | null): string {
-  if (status === 402 || status === 404) return NEUTRAL_ERROR.wallet_empty;
-  if (status === 403 || status === 429) return NEUTRAL_ERROR.daily_allowance_used;
-  if (status === 401 || status === 502) return AI_SAYS.failed;
-  return looksPlain(said) ? said.trim() : AI_SAYS.failed;
-}
-
-/** Whatever technical text the error carries, kept for whoever reads the code. */
-function openRouterDetail(err: any, said: string | null): string | null {
-  if (err && typeof err.body === "string" && err.body.trim()) return err.body;
-  return said;
-}
-
-/** One request to OpenRouter's chat completions, settled with a plain sentence whatever happens. */
-async function chatOnce(body: {
-  model: string;
-  messages: ChatMessage[];
-  temperature?: number;
-  max_tokens?: number;
-  response_format?: ChatRequest["responseFormat"];
-}): Promise<AiChatResult> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-  try {
-    const result = await chatSend(
-      openRouter,
-      {
-        chatRequest: {
-          model: body.model,
-          messages: toOpenRouterMessages(body.messages),
-          temperature: body.temperature ?? undefined,
-          maxTokens: body.max_tokens ?? undefined,
-          responseFormat: body.response_format ?? undefined,
-          provider: { only: ["openai"]},
-        },
-      },
-      { signal: controller.signal, ...OPENROUTER_OPTIONS },
-    );
-    if (!result.ok) {
-      const err: any = result.error;
-      if (err && err.name === "RequestAbortedError") return chatFailure(AI_SAYS.slow, 0, { detail: err.message || null });
-      if (err && err.name === "RequestTimeoutError") return chatFailure(AI_SAYS.slow, 0, { detail: err.message || null });
-      if (err && err.name === "ConnectionError") return chatFailure(AI_SAYS.offline, 0, { detail: err.message || null });
-      const status = err && typeof err.statusCode === "number" ? err.statusCode : 0;
-      const said = openRouterSaid(err);
-      return chatFailure(openRouterSays(status, said), status, { detail: openRouterDetail(err, said) });
-    }
-    const value: any = result.value;
-    const choice = value && Array.isArray(value.choices) ? value.choices[0] : null;
-    const content = assistantText(choice && choice.message);
-    if (content == null) return chatFailure(AI_SAYS.failed, 200, { raw: value, detail: "The answer carried no text." });
-    return {
-      text: content,
-      data: null,
-      error: null,
-      status: 200,
-      reason: null,
-      truncated: Boolean(choice && choice.finishReason === "length"),
-      raw: value,
-      detail: null,
-    };
-  } catch (err) {
-    const aborted = err instanceof Error && err.name === "AbortError";
-    return chatFailure(aborted ? AI_SAYS.slow : AI_SAYS.offline, 0, { detail: err instanceof Error ? err.message : null });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 /**
  * What db.ai.transcribe resolves. `text` is what was said, and null exactly
  * when `error` is set; `error` is one sentence to show; `detail` is for
  * whoever reads the code.
  */
 export type AiTranscribeResult = { text: string | null; error: string | null; status: number; reason: AiRefusal | null; detail: string | null };
+
+function chatFailure(error: string, status: number, extra: Partial<AiChatResult> = {}): AiChatResult {
+  return { text: null, data: null, error, status, reason: null, truncated: false, raw: null, detail: null, ...extra };
+}
 
 function transcribeFailure(error: string, status: number, detail: string | null = null): AiTranscribeResult {
   return { text: null, error, status, reason: null, detail };
@@ -382,33 +200,70 @@ function base64Body(data: string): string {
 }
 
 /**
- * One request to OpenRouter's Speech-to-Text API. The endpoint takes only a
- * model and the audio bytes, so callers' `language` and `prompt` are dropped.
+ * What db.ai.image and db.ai.editImage resolve. `url` is null exactly when
+ * `error` is set; `error` is one sentence to show.
  */
-async function transcribeOnce(clip: { data: string; format: string }): Promise<AiTranscribeResult> {
+export type AiImageResult = { url: string | null; error: string | null; status: number; reason: AiRefusal | null };
+
+// One POST to one /api/ai endpoint: the reply parsed, or the transport-level
+// failure mapped to its sentence (unset config, timeout, network, 401).
+type AiReply = { status: number; json: any; error: string | null };
+
+async function aiRequest(path: string, body: unknown, timeoutMs: number, slow: string, withBorelHeaders: boolean): Promise<AiReply> {
+  if (!BACKEND_AI_URL) return { status: 0, json: null, error: AI_SAYS.noBackend };
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-  try {
-    const res = await fetch(OPENROUTER_URL + "/audio/transcriptions", {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      const err = new Error(slow);
+      err.name = "AbortError";
+      reject(err);
+    }, timeoutMs);
+  });
+  const request = (async () => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (withBorelHeaders) {
+      Object.assign(headers, borelHeaders());
+      const bearer = await authHeader();
+      if (bearer) headers.Authorization = "Bearer " + bearer;
+    }
+    if (IN_BROWSER) {
+      return await fetch(BACKEND_AI_URL + path, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        credentials: "include",
+        signal: controller.signal,
+      });
+    }
+    const cookie = await sessionCookieHeader();
+    if (cookie) headers.Cookie = cookie;
+    return await fetch(BACKEND_AI_URL + path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + OPENROUTER_API_KEY },
-      body: JSON.stringify({ model: AI_AUDIO_MODEL, input_audio: { data: base64Body(clip.data), format: clip.format || "m4a" } }),
+      headers,
+      body: JSON.stringify(body),
+      credentials: "omit",
       signal: controller.signal,
     });
+  })();
+  try {
+    const res = await Promise.race([request, timedOut]);
     const json: any = await res.json().catch(() => null);
-    if (!res.ok) {
-      const said = messageOf(json);
-      return transcribeFailure(openRouterSays(res.status, said), res.status, json ? JSON.stringify(json) : said);
-    }
-    const text = json && typeof json.text === "string" ? json.text.trim() : "";
-    if (!text) return transcribeFailure(AI_SAYS.noSpeech, res.status, "The recording had no speech in it.");
-    return { text, error: null, status: res.status, reason: null, detail: null };
+    if (res.status === 401) return { status: res.status, json, error: messageOf(json) || AI_SAYS.back };
+    if (!res.ok) return { status: res.status, json, error: AI_SAYS.offline };
+    return { status: res.status, json, error: null };
   } catch (err) {
     const aborted = err instanceof Error && err.name === "AbortError";
-    return transcribeFailure(aborted ? AI_SAYS.slow : AI_SAYS.offline, 0, err instanceof Error ? err.message : null);
+    return { status: 0, json: null, error: aborted ? slow : AI_SAYS.offline };
   } finally {
     clearTimeout(timer);
   }
+}
+
+function asRefusal(json: any): AiRefusal | null {
+  const reason = json && typeof json.reason === "string" ? json.reason : null;
+  return reason === "wallet_empty" || reason === "daily_allowance_used" || reason === "cloud_paused" ? reason : null;
 }
 
 /**
@@ -419,27 +274,24 @@ async function transcribeOnce(clip: { data: string; format: string }): Promise<A
  * components mounting at once (or React re-running an effect) would otherwise
  * fire two requests for the same picture, and the first one would still be
  * generating when the second arrived to find nothing stored yet. Sharing the
- * promise makes that one call. Failures are dropped so a retry is possible.
+ * promise makes that call. Failures are dropped so a retry is possible.
  */
-export type AiImageResult = { url: string | null; error: string | null; status: number; reason: AiRefusal | null };
 const inFlightImages = new Map<string, Promise<AiImageResult>>();
 
 export const ai = {
   /** Curated ids. Do not invent others. Both answer today; "smart" is a stronger model for harder asks. */
   models: { fast: "openai/gpt-6-luna", smart: "openai/gpt-6-luna" },
-  // json: true asks for JSON only and reads the reply into data (fences and
-  // words around it are fine); pass a schema to force the reply through
-  // OpenRouter's structured outputs; an answer that can't be read is asked for
-  // once more.
+  // The backend reads the reply as JSON when a schema is passed, retrying once
+  // and wording a cut-off answer; the app only forwards the schema.
   async chat(input: { model?: string; messages: ChatMessage[]; temperature?: number; max_tokens?: number; jsonSchema?: AiJsonSchema }): Promise<AiChatResult> {
     try {
-      if (!OPENROUTER_API_KEY) return chatFailure(AI_SAYS.failed, 0, { detail: "EXPO_PUBLIC_OPENROUTER_API_KEY is not set." });
+      const model = input.model || ai.models.fast;
       const withPhoto = input.messages.some((m) => typeof m.content !== "string" && m.content.some((part) => part.type === "image_url"));
       const withAudio = input.messages.some((m) => typeof m.content !== "string" && m.content.some((part) => part.type === "input_audio"));
-      if (!(await askAiConsent(withAudio ? "audio" : withPhoto ? "photoChat" : "chat", input.model || ai.models.fast))) {
+      if (!(await askAiConsent(withAudio ? "audio" : withPhoto ? "photoChat" : "chat", model))) {
         return chatFailure(AI_DECLINED, 0);
       }
-      // A photo from the device becomes something OpenRouter can read before it is sent.
+      // A photo from the device becomes something the backend can read before it is sent.
       let messages: ChatMessage[] = [];
       try {
         for (const m of input.messages) {
@@ -457,35 +309,25 @@ export const ai = {
         const detail = err instanceof Error ? err.message : null;
         return chatFailure(detail === NO_PHOTO ? NO_PHOTO : AI_SAYS.photo, 0, { detail });
       }
-      const schema = input.jsonSchema;
-      const response_format: ChatRequest["responseFormat"] | undefined = schema
-        ? {
-            type: "json_schema",
-            jsonSchema: {
-              name: schema.name,
-              strict: true,
-              schema: schema.schema
-            },
-          }
-        : undefined;
-      const body = {
-        model: input.model || ai.models.fast,
-        messages,
-        temperature: input.temperature,
-        max_tokens: input.max_tokens,
-        response_format,
+      const reply = await aiRequest(
+        "/chat",
+        { model, messages, temperature: input.temperature, max_tokens: input.max_tokens, jsonSchema: input.jsonSchema },
+        CHAT_TIMEOUT_MS,
+        AI_SAYS.slow,
+        false,
+      );
+      if (reply.error) return chatFailure(reply.error, reply.status);
+      const body = reply.json && typeof reply.json === "object" ? reply.json : {};
+      return {
+        text: typeof body.text === "string" ? body.text : null,
+        data: body.data ?? null,
+        error: typeof body.error === "string" ? body.error : null,
+        status: typeof body.status === "number" ? body.status : reply.status,
+        reason: asRefusal(body),
+        truncated: Boolean(body.truncated),
+        raw: body.raw ?? null,
+        detail: typeof body.detail === "string" ? body.detail : null,
       };
-      if (!input.jsonSchema) return await chatOnce(body);
-      let last: AiChatResult = chatFailure(AI_SAYS.unreadable, 0);
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const r = await chatOnce(body);
-        if (r.error) return r;
-        if (r.truncated) return { ...r, error: AI_SAYS.tooLong, detail: "The answer reached max_tokens and was cut off." };
-        const read = readJson(r.text);
-        if (read.ok) return { ...r, data: read.value };
-        last = { ...r, error: AI_SAYS.unreadable, detail: "The answer was not valid JSON." };
-      }
-      return last;
     } catch (err) {
       return chatFailure(AI_SAYS.failed, 0, { detail: err instanceof Error ? err.message : null });
     }
@@ -497,7 +339,6 @@ export const ai = {
   // names or words the recording may contain, never the answer hoped for.
   async transcribe(input: { audio: AiAudioInput; language?: string; prompt?: string }): Promise<AiTranscribeResult> {
     try {
-      if (!OPENROUTER_API_KEY) return transcribeFailure(AI_SAYS.failed, 0, "EXPO_PUBLIC_OPENROUTER_API_KEY is not set.");
       let clip: { data: string; format: string };
       try {
         clip = await sendableAudio(input ? input.audio : null);
@@ -509,13 +350,23 @@ export const ai = {
       }
       if (!base64Body(clip.data).trim()) return transcribeFailure(AI_SAYS.noSpeech, 0, "The recording had no audio in it.");
       if (!(await askAiConsent("audio", AI_AUDIO_MODEL))) return transcribeFailure(AI_DECLINED, 0);
-      return await transcribeOnce(clip);
+      const reply = await aiRequest("/transcribe", { audio: { data: clip.data, format: clip.format } }, CHAT_TIMEOUT_MS, AI_SAYS.slow, false);
+      if (reply.error) return transcribeFailure(reply.error, reply.status);
+      const body = reply.json && typeof reply.json === "object" ? reply.json : {};
+      return {
+        text: typeof body.text === "string" ? body.text : null,
+        error: typeof body.error === "string" ? body.error : null,
+        status: typeof body.status === "number" ? body.status : reply.status,
+        reason: null,
+        detail: typeof body.detail === "string" ? body.detail : null,
+      };
     } catch (err) {
       return transcribeFailure(AI_SAYS.transcribe, 0, err instanceof Error ? err.message : null);
     }
   },
-  // Generate an image from a text prompt. No key, no config: Borel makes the
-  // picture, stores it in this app's files, and hands back a ready image URL.
+  // Generate an image from a text prompt. Borel makes the picture, stores it
+  // in this app's files, and hands back a ready image URL; the backend
+  // forwards the request to Borel, so the app sends no provider key.
   image(input: {
     prompt: string;
     size?: "1024x1024" | "1024x1536" | "1536x1024";
@@ -526,26 +377,22 @@ export const ai = {
     const pending = (async () => {
       try {
         if (!(await askAiConsent("image", ""))) return { url: null, error: AI_DECLINED, status: 0, reason: null };
-        const res = await borelFetch(BOREL_AI + "/images/generations", { prompt: input.prompt, size: input.size }, 150000);
-        const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string | { message?: string } };
-        if (!res.ok) {
-          const reason = refusalOf(res.status, json);
-          if (reason) noteRefusal(reason);
-          const message = typeof json.error === "string" ? json.error : json.error && json.error.message;
-          return {
-            url: null,
-            error: reason ? NEUTRAL_ERROR[reason] : looksPlain(message) ? message.trim() : AI_SAYS.picture,
-            status: res.status,
-            reason,
-          };
-        }
-        if (IN_BROWSER && !(json as any).reused) postToParent({ type: "ai:metered" });
-        return { url: typeof json.url === "string" ? json.url : null, error: null, status: res.status, reason: null };
-      } catch (err) {
-        const aborted = err instanceof Error && err.name === "AbortError";
+        const reply = await aiRequest("/images/generations", { prompt: input.prompt, size: input.size }, IMAGE_TIMEOUT_MS, AI_SAYS.pictureSlow, true);
+        if (reply.error) return { url: null, error: reply.error, status: reply.status, reason: null };
+        const body = reply.json && typeof reply.json === "object" ? reply.json : {};
+        if (IN_BROWSER && body.reused !== true) postToParent({ type: "ai:metered" });
+        const reason = asRefusal(body);
+        if (reason) noteRefusal(reason);
+        return {
+          url: typeof body.url === "string" ? body.url : null,
+          error: typeof body.error === "string" ? body.error : null,
+          status: typeof body.status === "number" ? body.status : reply.status,
+          reason,
+        };
+      } catch {
         return {
           url: null,
-          error: aborted ? AI_SAYS.pictureSlow : AI_SAYS.offline,
+          error: AI_SAYS.offline,
           status: 0,
           reason: null,
         };
@@ -571,30 +418,27 @@ export const ai = {
   }): Promise<AiImageResult> {
     try {
       if (!(await askAiConsent("editImage", ""))) return { url: null, error: AI_DECLINED, status: 0, reason: null };
-      const image = await sendableImage(input.image);
-      const res = await borelFetch(BOREL_AI + "/images/edits", { image, prompt: input.prompt, size: input.size }, 150000);
-      const json = (await res.json().catch(() => ({}))) as { url?: string; reused?: boolean; error?: string | { message?: string } };
-      if (!res.ok) {
-        const reason = refusalOf(res.status, json);
-        if (reason) noteRefusal(reason);
-        const message = typeof json.error === "string" ? json.error : json.error && json.error.message;
-        return {
-          url: null,
-          error: reason ? NEUTRAL_ERROR[reason] : looksPlain(message) ? message.trim() : AI_SAYS.edit,
-          status: res.status,
-          reason,
-        };
+      let image: string;
+      try {
+        image = await sendableImage(input.image);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : null;
+        return { url: null, error: detail === NO_PHOTO ? NO_PHOTO : AI_SAYS.offline, status: 0, reason: null };
       }
-      if (IN_BROWSER && !json.reused) postToParent({ type: "ai:metered" });
-      return { url: typeof json.url === "string" ? json.url : null, error: null, status: res.status, reason: null };
-    } catch (err) {
-      const aborted = err instanceof Error && err.name === "AbortError";
+      const reply = await aiRequest("/images/edits", { image, prompt: input.prompt, size: input.size }, IMAGE_TIMEOUT_MS, AI_SAYS.pictureSlow, true);
+      if (reply.error) return { url: null, error: reply.error, status: reply.status, reason: null };
+      const body = reply.json && typeof reply.json === "object" ? reply.json : {};
+      if (IN_BROWSER && body.reused !== true) postToParent({ type: "ai:metered" });
+      const reason = asRefusal(body);
+      if (reason) noteRefusal(reason);
       return {
-        url: null,
-        error: aborted ? AI_SAYS.pictureSlow : err instanceof Error && err.message === NO_PHOTO ? NO_PHOTO : AI_SAYS.offline,
-        status: 0,
-        reason: null,
+        url: typeof body.url === "string" ? body.url : null,
+        error: typeof body.error === "string" ? body.error : null,
+        status: typeof body.status === "number" ? body.status : reply.status,
+        reason,
       };
+    } catch {
+      return { url: null, error: AI_SAYS.offline, status: 0, reason: null };
     }
   },
 };
