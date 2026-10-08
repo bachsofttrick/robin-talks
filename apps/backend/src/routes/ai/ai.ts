@@ -2,8 +2,8 @@ import { Hono, type Context } from "hono";
 import { OpenRouterCore } from "@openrouter/sdk/core";
 import { chatSend } from "@openrouter/sdk/funcs/chatSend";
 import type { ChatRequest } from "@openrouter/sdk/models";
-import { auth } from "../lib/auth.js";
-import { borelAiUrl, openRouterApiKey } from "../lib/env.js";
+import { auth } from "../../lib/auth.js";
+import { borelAiUrl, openRouterApiKey } from "../../lib/env.js";
 
 // Provider bodies and SDK results are read loosely, as the moved transport did.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
