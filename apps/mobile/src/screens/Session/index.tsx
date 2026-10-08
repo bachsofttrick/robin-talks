@@ -258,6 +258,11 @@ export default function SessionScreen() {
       void openMic();
       return;
     }
+    if (/[^\x00-\x7F]/.test(heard.text)) {
+      setNotice("I heard some non-English words. Please speak again in English.");
+      void openMic();
+      return;
+    }
     setNotice(null);
     void advance([...transcript, { role: "user", text: heard.text.trim() }]);
   };
