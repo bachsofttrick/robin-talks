@@ -30,6 +30,7 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 // calls it, so nothing here depends on React at the moment this file loads.
 import * as React from "react";
 import { Linking, Platform, Share } from "react-native";
+import { File } from 'expo-file-system';
 
 // --- Native modules, loaded on first use -----------------------------------
 //
@@ -372,8 +373,7 @@ function createRecorder(audio, options) {
   });
 }
 
-// The recorder hands back a file:// path. There is no expo-file-system here
-// (it is deliberately not in the app's dependency list), so the bytes are read
+// The recorder hands back a file:// path. The bytes are read
 // the way React Native itself can: fetch the local file and read the blob.
 // Non-fatal by design — a recording that cannot be encoded is still one that
 // plays.
@@ -400,17 +400,28 @@ async function finalizeRecording(recorder, durationMs) {
   if (!uri) return null;
   let size = 0;
   let mimeType = "audio/m4a";
+  let base64;
   try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    size = blob.size;
-    // The web recorder produces audio/webm rather than the native audio/m4a,
-    // so trust the blob's own type when it names an audio format.
-    if (typeof blob.type === "string" && blob.type.startsWith("audio/")) mimeType = blob.type;
+    const protocol = (new URL(uri)).protocol
+    // Expo Go use file:// protocol, which does not work on fetch()
+    if (protocol === "file:") {
+      const response = new File(uri);
+      size = response.size;
+      // Get the actual media type
+      if (typeof response.type === "string" && response.type.startsWith("audio/")) mimeType = response.type;
+      base64 = await response.base64();
+    } else {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      size = blob.size;
+      // The web recorder produces audio/webm rather than the native audio/m4a,
+      // so trust the blob's own type when it names an audio format.
+      if (typeof blob.type === "string" && blob.type.startsWith("audio/")) mimeType = blob.type;
+      base64 = await readBase64(uri, size);
+    }
   } catch {
     size = 0;
   }
-  const base64 = await readBase64(uri, size);
   return {
     // A playable handle, NOT something to send: on a phone this is a file://
     // path and in the preview it is a data: URL. `base64` is the field that

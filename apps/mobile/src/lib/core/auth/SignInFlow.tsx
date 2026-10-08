@@ -157,7 +157,7 @@ export function SignInFlow(props: {
           <Text style={{ color: KIT.muted, fontSize: 15, marginBottom: 12 }}>{t.resetBody}</Text>
           <Field label={t.email} value={email} onChangeText={setEmail} keyboard="email-address" textContentType="emailAddress" autoComplete="email" />
           <PrimaryButton title={t.sendCode} onPress={onForgot} busy={busy} disabled={!email.trim()} />
-          <LinkButton title={t.cancel} onPress={() => go("signIn")} />
+          <LinkButton title={t.signIn} onPress={() => go("signIn")} />
         </View>
       ) : step === "reset" ? (
         <View>
