@@ -55,7 +55,8 @@ re-export it from the connector.
 - User-facing failures are exactly one plain, non-technical sentence with a
   leading capital and terminal punctuation. DB failures go through
   `plainError(error, "save" | "load")`; AI failures map in the backend's
-  `apps/backend/src/routes/ai.ts` (provider codes) and the thin client's
+  `src/lib/ai/functions.ts` (provider codes, shared by the `src/routes/ai/`
+  sub-routers) and the thin client's
   `src/lib/core/db/ai.ts` (transport). Technical text belongs in a separate
   `detail` field. `looksPlain` (`src/lib/core/db/errors.ts`) gates any message
   the API itself supplies.

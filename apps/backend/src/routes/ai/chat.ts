@@ -14,11 +14,8 @@ import {
   type AiChatResult,
   type AiJsonSchema,
   type ChatMessage,
-  type ChatSendSeam,
   type Loose,
 } from "../../lib/ai/index.js";
-
-const sendChat = chatSend as unknown as ChatSendSeam;
 
 /** Where the object or list that starts at `start` ends, skipping brackets inside strings; -1 when it never does. */
 function balancedEnd(s: string, start: number): number {
@@ -141,7 +138,7 @@ async function chatOnce(body: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
-    const result = await sendChat(
+    const result = await chatSend(
       openRouterCore(),
       {
         chatRequest: {

@@ -85,7 +85,7 @@ paths the mobile client issues.
   documented dev constant when `NODE_ENV !== "production"` and throws otherwise;
   the module never throws at import. `.env.example` lists the full set.
 - **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,
-  and `db:verify` (runs `migrate` twice, then asserts the auth and app tables
+  and `db:verify` (runs `migrate` once, then asserts the auth and app tables
   through `information_schema`). The database-backed tests skip with a reported
   reason when no database is configured, so the suite stays green in a
   database-less environment. `build` compiles `src` (excluding `*.test.ts`) through
@@ -93,12 +93,12 @@ paths the mobile client issues.
 
 ## Backend data API (`apps/backend/src/routes/`)
 
-`src/routes/index.ts` is mounted at `/api/data` by `createApp()`
+`src/routes/data/index.ts` is mounted at `/api/data` by `createApp()`
 (`src/app.ts:19`). A middleware resolves the caller from the better-auth session
 cookie with `auth.api.getSession({ headers: c.req.raw.headers })`, returns 401
 `{ error: "You need to sign in first." }` when there is no session, and sets the
 route's `userId`. The operations live in four sibling routers,
-`src/routes/profile.ts`, `sessions.ts`, `memory.ts`, and `profiles.ts`, mounted
+`src/routes/data/profile.ts`, `sessions.ts`, `memory.ts`, and `profiles.ts`, mounted
 under it. There is no bearer path, so the native data client replays the
 persisted session cookie and the browser sends its cookie with
 `credentials: "include"` (see [auth.md](auth.md)). Every read and write is scoped
@@ -110,7 +110,9 @@ projections.
 
 - `GET /profile` -> the `learner_profiles` row or `null`
 - `PUT /profile` `{ display_name, level }` -> upsert on `user_id`
-- `POST /sessions` `{ scenario_id }` -> `{ id }`
+- `POST /sessions` `{ scenario_id }` -> `{ id }`. The handler first closes
+  any open session (`ended_at = now()` where `ended_at is null`) so each user
+  has at most one open session, then inserts with an empty transcript.
 - `GET /sessions/open` -> the open row (`ended_at is null`, newest first) or `null`
 - `GET /sessions/recent` -> up to 5 ended rows, newest first
 - `GET /sessions/:id` -> the row or 404
@@ -211,26 +213,36 @@ server-side, so no secret is held in `db.ts`.
   lives in `db/auth.ts` as `tellScreens` and `announceSessionChanges`, because
   it has to wrap the auth client's own methods.
 
-## AI (`apps/backend/src/routes/ai.ts` and the thin client `src/lib/core/db/ai.ts`)
+## AI (`apps/backend/src/routes/ai/` and `src/lib/ai/`, plus the thin client `src/lib/core/db/ai.ts`)
 
 All AI transport runs in the backend's `/api/ai` router, mounted by `createApp()`
 (`src/app.ts`). `src/routes/ai/index.ts` exports the `aiRouter` const (same shape
-as `dataRouter`): a session-gate middleware plus the four sub-router consts
-(`chatRouter`, `transcribeRouter`, `generationRouter`, `editRouter`). The
-provider calls use the real implementations directly: better-auth's
-`auth.api.getSession({ headers })`, the SDK's standalone `chatSend`, and real
-`fetch` (each racing its own `AbortController` timeout).
-`src/routes/ai/ai.test.ts` (50 tests) patches those modules with
+as `dataRouter`): a session-gate middleware plus four sub-router consts
+(`chatRouter` in `chat.ts`, `transcribeRouter` in `transcribe.ts`,
+`generationRouter` in `generations.ts`, `editRouter` in `edits.ts`), mounted at
+`/chat`, `/transcribe`, `/images/generations`, and `/images/edits`. There is no
+router factory and no injected deps object: each sub-router is a plain const and
+the provider calls use the real implementations directly: better-auth's
+`auth.api.getSession({ headers })`, the SDK's standalone `chatSend` imported
+directly in `chat.ts`, and real `fetch` through the timeout helpers in
+`src/lib/ai/functions.ts` (each racing its own `AbortController` timeout).
+`src/routes/ai/ai.test.ts` (44 tests) patches those modules with
 `bun:test`'s `mock.module`, so the suite needs no database or network.
+
+Shared AI types and helpers live in `src/lib/ai/`: `types.ts` (`ChatMessage`,
+`AiJsonSchema`, result shapes, the `AiSession` gate type, and the `FetchSeam`
+fetch-seam type; the chat fake type lives locally in the test), `constants.ts` (models, timeouts, audio cap),
+`functions.ts` (`looksPlain`, `openRouterSays`, timeout fetches, JSON and image
+proxies), re-exported by `index.ts`.
 
 - **Gate:** router middleware resolves the better-auth session from the cookie
   on every `/api/ai/*` path; no session is 401
   `{ "error": "You need to sign in first." }` (a lookup that throws counts as
   signed out), and 200 with a result body is the only other outcome.
 - **`POST /chat`:** OpenRouter chat completions through `@openrouter/sdk`.
-  `new OpenRouterCore({ apiKey: openRouterApiKey(), retryConfig: { strategy:
-  "none" } })` is memoized per router and `chatSend` is called with
-  `retries: { strategy: "none" }`, because the JSON loop retries on its own.
+  `openRouterCore()` in `chat.ts` memoizes one module-scope `OpenRouterCore`
+  (`{ apiKey: openRouterApiKey(), retryConfig: { strategy: "none" } }`) and
+  `chatSend` is called with `retries: { strategy: "none" }`, because the JSON loop retries on its own.
   Every request pins `provider: { only: ["openai"] }`. Models are allow-listed
   (`openai/gpt-6-luna`, the only value the client sends; it is the default when
   `model` is omitted). A 60 s budget (`AI_TIMEOUT_MS`) covers one request.
@@ -290,10 +302,10 @@ the backend's 60 s/150 s budgets plus margin. What stays device-side:
   `BACKEND_AI_URL` map to plain sentences (`AI_SAYS`); the backend's sentences
   pass through in the result body.
 
-### Error mapping (`apps/backend/src/routes/ai.ts` and `src/lib/core/db/errors.ts`)
+### Error mapping (`apps/backend/src/lib/ai/functions.ts` and `src/lib/core/db/errors.ts`)
 
 Every failure becomes one plain sentence. The backend maps OpenRouter codes
-(`openRouterSays`): 402/404 → "AI isn't available right now", 403/429 → "AI has
+(`openRouterSays` in `src/lib/ai/functions.ts`): 402/404 → "AI isn't available right now", 403/429 → "AI has
 reached today's limit", 401/502 → "The AI couldn't answer that right now",
 network failure → "Couldn't reach the AI", timeout → "The AI took too long".
 The API's own message

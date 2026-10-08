@@ -53,6 +53,7 @@ cookie as a `Cookie` header; the browser sends its cookie with
 - `PracticeSession = { id, scenario_id, transcript: Turn[], debrief: string | null, ended_at, started_at, summary }`
 - Actions (`practice_sessions`, `/api/data/sessions/*`): `reload` (the
   open session, `GET /sessions/open`), `create(scenarioId)` (`POST /sessions`,
+  closes any open session server-side so each user keeps at most one, then
   inserts with an empty transcript and returns the id), `fetchOne(id)` (`GET
   /sessions/:id`), `saveTranscript(id, transcript)` and `finish(id, transcript,
   debrief, summary)` (`PATCH /sessions/:id`, the latter sets `ended_at`),

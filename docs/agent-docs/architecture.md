@@ -98,7 +98,7 @@ card rather than the tab bar.
 ## AI boundary
 
 All AI transport runs in the backend's `/api/ai` router
-(`apps/backend/src/routes/ai.ts`), mounted by `createApp()`; `src/lib/core/db/ai.ts`
+(`apps/backend/src/routes/ai/`, shared helpers in `apps/backend/src/lib/ai/`), mounted by `createApp()`; `src/lib/core/db/ai.ts`
 is the thin client that POSTs to it and keeps the public `db.ai` surface:
 - `ai.chat` POSTs to `/api/ai/chat`. The backend calls OpenRouter through the
   `@openrouter/sdk` (`OpenRouterCore` + `chatSend`), pins the provider to

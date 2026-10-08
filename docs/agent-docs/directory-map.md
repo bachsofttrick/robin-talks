@@ -9,8 +9,8 @@ Annotated tree of tracked source. Generated output (`dist/`, `.expo/`,
 ```
 robin-talks/
 ├── package.json               Private root, "robin-talks-monorepo": workspaces ["apps/*"],
-│   │                          packageManager bun@1.4.2, turbo + typescript devDeps, five
-│   │                          turbo scripts (build, dev, lint, typecheck, test) plus env:link.
+│   │                          packageManager bun@1.4.2, turbo + typescript devDeps, six
+│   │                          turbo scripts (build, dev, lint, typecheck, test, db:migrate) plus env:link.
 ├── turbo.json                 Task graph: build, typecheck, lint, test, start, //#env:link;
 │   │                          agentGuidance false keeps AGENTS.md a symlink.
 ├── bunfig.toml                [install] linker = "hoisted" (required by the mobile Jest
@@ -121,12 +121,16 @@ robin-talks/
 │           │   ├── lib/       auth.ts (betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0),
 │           │   │              env.ts (process.env readers: database URLs, auth base URL/secret, trusted
 │           │   │              origins, mail, port, openRouterApiKey, borelAiUrl), db/ (client.ts lazy
-│           │   │              memoized pg Pool + drizzle; schema/ auth-schema.ts + schema.ts + index.ts), and
+│           │   │              memoized pg Pool + drizzle; schema/ auth-schema.ts + schema.ts + index.ts), ai/
+│           │   │              (types.ts shared shapes and the FetchSeam seam + AiSession gate type,
+│           │   │              constants.ts models/timeouts/caps, functions.ts looksPlain/openRouterSays/timeout
+│           │   │              fetches/JSON and image proxies, index.ts barrel), and
 │           │   │              mail/otp-transport.ts (dev outbox vs fetch provider transport).
-│           │   └── routes/    index.ts (session middleware + the /api/data mounts of profile.ts, sessions.ts,
-│           │                  memory.ts, profiles.ts) and ai/ (index.ts exporting the aiRouter const: /api/ai
-│           │                  chat, transcribe, images/generations, images/edits over the chat, transcribe,
-│           │                  generations, and edits sub-router consts).
+│           │   └── routes/    data/ (index.ts exporting the dataRouter const with the session gate; profile.ts,
+│           │                  sessions.ts, memory.ts, profiles.ts) and ai/ (index.ts exporting the aiRouter const
+│           │                  with the session gate; chat.ts, transcribe.ts, generations.ts, edits.ts holding the
+│           │                  chatRouter, transcribeRouter, generationRouter, and editRouter consts; ai.test.ts
+│           │                  with 44 tests patching the provider modules via mock.module, no database or network).
 │           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
 │           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
 │           ├── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, bun-types.
@@ -138,10 +142,11 @@ robin-talks/
 ```
 
 `apps/backend/src/**/*.test.ts` holds the `bun:test` suites next to source (app,
-ai, auth e2e, conformance, routes, db, env, mail); the database-backed ones
+ai, auth e2e, conformance, data router, db, env, mail); the database-backed ones
 (`lib/auth.e2e.test.ts`, `routes/router.test.ts`, `lib/db/migration.test.ts`)
 skip with a reported reason when no database is configured. `routes/ai/ai.test.ts`
-patches the AI provider modules with `mock.module` and needs neither.
+(44 tests) patches the AI provider modules with `mock.module` and needs neither.
+`routes/router.test.ts` still lives at `routes/`, not under `routes/data/`.
 
 Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
 mobile, `7.0.2` in backend); every other dependency is hoisted to the root

@@ -19,10 +19,11 @@ task to `turbo run <task>`:
 | `bun run typecheck` | `turbo run typecheck` |
 | `bun run test` | `turbo run test` |
 | `bun run build` | `turbo run build` |
+| `bun run db:migrate` | `turbo run db:migrate` (backend only) |
 | `bun run env:link` | `bun scripts/link-env.mjs` |
 
 `turbo.json` declares `build` (`dependsOn: ["^build"]`, `outputs: ["dist/**"]`),
-`typecheck`, `lint`, and `test` (each `dependsOn: ["^<same task>"]`), `start`
+`typecheck`, `lint`, and `test` (each `dependsOn: ["^<same task>"]`), `dev`
 (`cache: false`, `persistent: true`, `dependsOn: ["//#env:link"]`), and the root
 task `//#env:link`. `agentGuidance: false` is deliberate: without it Turborepo
 rewrites `AGENTS.md`, and `AGENTS.md` is a symlink to `CLAUDE.md`.
@@ -134,7 +135,7 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 | File | Covers |
 |---|---|
 | `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*`, `/api/data/*`, and `/api/ai/*`, the AI 401 gate on all four paths, missing-`PGHOST` subprocess exit |
-| `src/routes/ai.test.ts` | the `/api/ai` router end to end with injected session, `chatSend`, and fetch seams: structured output and the JSON retry, truncation, model allowlist, transcribe caps and guards, the Borel image proxy and refusal mapping, and the 401 gate (50 tests, no database or network) |
+| `src/routes/ai/ai.test.ts` | the `/api/ai` router end to end with `mock.module` session, `chatSend`, and fetch seams: structured output and the JSON retry, truncation, model allowlist, transcribe caps and guards, the Borel image proxy and refusal mapping, and the 401 gate (44 tests, no database or network) |
 | `src/lib/auth.e2e.test.ts` | sign-up/verify/sign-in/sign-out, email verification resend, reset, change-password, delete-user, edge cases (skips without a database) |
 | `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
 | `src/routes/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
@@ -232,11 +233,11 @@ bun run lint         # eslint .
 bun run build        # tsc -p tsconfig.build.json, emits dist/
 bun run db:generate  # drizzle-kit generate
 bun run db:migrate   # drizzle-kit migrate
-bun run db:verify    # migrate twice, then assert the auth and app tables via bun test
+bun run db:verify    # migrate once, then assert the auth and app tables via bun test
 ```
 
-`bun run dev` is `apps/backend`-only; `typecheck`, `test`, `lint`, and `build` also
-run from the repository root through Turbo.
+`bun run dev` is `apps/backend`-only; `typecheck`, `test`, `lint`, `build`, and
+`db:migrate` also run from the repository root through Turbo.
 
 The `build` and `typecheck` tasks run under TypeScript `7.0.2`, nested in
 `apps/backend/node_modules`. `tsconfig.json` targets ESNext/NodeNext in strict mode
