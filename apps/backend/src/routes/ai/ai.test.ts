@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { createAiRouter, type AiRouterDeps } from "./ai.js";
+import { createAiRouter, type AiRouterDeps } from "./index.js";
 
 // Loose is any: these fakes mirror the provider's untyped surfaces.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
