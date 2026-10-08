@@ -201,7 +201,7 @@ describe("AC-8: CORS headers for ai routes", () => {
 });
 
 const ORIGIN_PROBE_SCRIPT =
-  "const { auth } = await import('./auth.js');" +
+  "const { auth } = await import('./lib/auth.js');" +
   "const r = await auth.handler(new Request('http://localhost:3000/api/auth/sign-in/email'," +
   "{ method: 'POST', headers: { 'content-type': 'application/json', origin: '" +
   PREVIEW_ORIGIN +
