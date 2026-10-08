@@ -56,25 +56,14 @@ export type AiTranscribeResult = { text: string | null; error: string | null; st
  */
 export type AiImageResult = { url: string | null; error: string | null; status: number; reason: AiRefusal | null; reused: boolean | null };
 
-/**
- * Injected seams for createAiRouter. All default to the real implementations:
- * `getSession` calls better-auth's `auth.api.getSession({ headers })`,
- * `chatSend` calls the OpenRouter SDK's standalone function, and the two fetch
- * seams run the real `fetch` with their own timeout (AbortController race).
- */
 export type AiSession = { user: { id: string } };
 
+/** The OpenRouter SDK's standalone chat function, typed loosely for the router. */
 export type ChatSendSeam = (
   core: unknown,
   args: { chatRequest: ChatRequest },
   options?: Record<string, Loose>,
 ) => Promise<{ ok: boolean; error?: Loose; value?: Loose }>;
 
+/** A provider fetch that races its own timeout. */
 export type FetchSeam = (url: string, init: RequestInit, timeoutMs: number) => Promise<Response>;
-
-export type AiRouterDeps = {
-  getSession?: (headers: Headers) => Promise<AiSession | null>;
-  chatSend?: ChatSendSeam;
-  openrouterFetch?: FetchSeam;
-  borelFetch?: FetchSeam;
-};

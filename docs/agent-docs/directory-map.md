@@ -116,7 +116,7 @@ robin-talks/
 │           │                  0001_complete_silver_fox.sql (app tables), plus meta/ snapshots.
 │           ├── src/
 │           │   ├── index.ts   Entry: default-exports app; under import.meta.main calls requireDatabaseUrl() then Bun.serve.
-│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, /api/data/*, and /api/ai/*; auth.handler; app.route("/api/data", dataRouter); app.route("/api/ai", createAiRouter()).
+│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, /api/data/*, and /api/ai/*; auth.handler; app.route("/api/data", dataRouter); app.route("/api/ai", aiRouter).
 │           │   ├── conformance.test.ts  Proves the backend serves the auth paths the mobile client issues.
 │           │   ├── lib/       auth.ts (betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0),
 │           │   │              env.ts (process.env readers: database URLs, auth base URL/secret, trusted
@@ -124,8 +124,9 @@ robin-talks/
 │           │   │              memoized pg Pool + drizzle; schema/ auth-schema.ts + schema.ts + index.ts), and
 │           │   │              mail/otp-transport.ts (dev outbox vs fetch provider transport).
 │           │   └── routes/    index.ts (session middleware + the /api/data mounts of profile.ts, sessions.ts,
-│           │                  memory.ts, profiles.ts) and ai.ts (createAiRouter: /api/ai chat, transcribe,
-│           │                  images/generations, images/edits, with injectable session/chatSend/fetch seams).
+│           │                  memory.ts, profiles.ts) and ai/ (index.ts exporting the aiRouter const: /api/ai
+│           │                  chat, transcribe, images/generations, images/edits over the chat, transcribe,
+│           │                  generations, and edits sub-router consts).
 │           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
 │           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
 │           ├── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, bun-types.
@@ -139,8 +140,8 @@ robin-talks/
 `apps/backend/src/**/*.test.ts` holds the `bun:test` suites next to source (app,
 ai, auth e2e, conformance, routes, db, env, mail); the database-backed ones
 (`lib/auth.e2e.test.ts`, `routes/router.test.ts`, `lib/db/migration.test.ts`)
-skip with a reported reason when no database is configured. `routes/ai.test.ts`
-runs the AI router with injected seams and needs neither.
+skip with a reported reason when no database is configured. `routes/ai/ai.test.ts`
+patches the AI provider modules with `mock.module` and needs neither.
 
 Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
 mobile, `7.0.2` in backend); every other dependency is hoisted to the root

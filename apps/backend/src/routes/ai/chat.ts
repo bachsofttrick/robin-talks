@@ -13,11 +13,12 @@ import {
   openRouterSays,
   type AiChatResult,
   type AiJsonSchema,
-  type AiRouterDeps,
   type ChatMessage,
   type ChatSendSeam,
   type Loose,
 } from "../../lib/ai/index.js";
+
+const sendChat = chatSend as unknown as ChatSendSeam;
 
 /** Where the object or list that starts at `start` ends, skipping brackets inside strings; -1 when it never does. */
 function balancedEnd(s: string, start: number): number {
@@ -123,117 +124,113 @@ function openRouterDetail(err: Loose, said: string | null): string | null {
   return said;
 }
 
-export function createChatRouter(deps: Pick<AiRouterDeps, "chatSend"> = {}): Hono {
-  const sendChat = deps.chatSend ?? (chatSend as unknown as ChatSendSeam);
-
-  let core: OpenRouterCore | null = null;
-  function openRouterCore(): OpenRouterCore {
-    if (!core) core = new OpenRouterCore({ apiKey: openRouterApiKey(), retryConfig: { strategy: "none" } });
-    return core;
-  }
-
-  /** One request to OpenRouter's chat completions, settled with a plain sentence whatever happens. */
-  async function chatOnce(body: {
-    model: string;
-    messages: ChatMessage[];
-    temperature?: number;
-    max_tokens?: number;
-    response_format?: ChatRequest["responseFormat"];
-  }): Promise<AiChatResult> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-    try {
-      const result = await sendChat(
-        openRouterCore(),
-        {
-          chatRequest: {
-            model: body.model,
-            messages: toOpenRouterMessages(body.messages),
-            temperature: body.temperature ?? undefined,
-            maxTokens: body.max_tokens ?? undefined,
-            responseFormat: body.response_format ?? undefined,
-            provider: { only: ["openai"]},
-          },
-        },
-        { signal: controller.signal, retries: { strategy: "none" } },
-      );
-      if (!result.ok) {
-        const err: Loose = result.error;
-        if (err && err.name === "RequestAbortedError") return chatFailure(AI_SAYS.slow, 0, { detail: err.message || null });
-        if (err && err.name === "RequestTimeoutError") return chatFailure(AI_SAYS.slow, 0, { detail: err.message || null });
-        if (err && err.name === "ConnectionError") return chatFailure(AI_SAYS.offline, 0, { detail: err.message || null });
-        const status = err && typeof err.statusCode === "number" ? err.statusCode : 0;
-        const said = openRouterSaid(err);
-        return chatFailure(openRouterSays(status, said), status, { detail: openRouterDetail(err, said) });
-      }
-      const value: Loose = result.value;
-      const choice = value && Array.isArray(value.choices) ? value.choices[0] : null;
-      const content = assistantText(choice && choice.message);
-      if (content == null) return chatFailure(AI_SAYS.failed, 200, { raw: value, detail: "The answer carried no text." });
-      return {
-        text: content,
-        data: null,
-        error: null,
-        status: 200,
-        reason: null,
-        truncated: Boolean(choice && choice.finishReason === "length"),
-        raw: value,
-        detail: null,
-      };
-    } catch (err) {
-      const aborted = err instanceof Error && err.name === "AbortError";
-      return chatFailure(aborted ? AI_SAYS.slow : AI_SAYS.offline, 0, { detail: err instanceof Error ? err.message : null });
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  const chatRouter = new Hono();
-  chatRouter.post("/", async (c) => {
-    try {
-      const body = await jsonBody(c);
-      if (!openRouterApiKey()) return c.json(chatFailure(AI_SAYS.failed, 0, { detail: "OPENROUTER_API_KEY is not set." }));
-      const model = typeof body.model === "string" ? body.model : DEFAULT_MODEL;
-      if (!MODEL_ALLOWLIST.has(model)) {
-        return c.json(chatFailure(AI_SAYS.badModel, 400, { detail: `model "${model}" is not on the allowlist` }));
-      }
-      const messages: ChatMessage[] = Array.isArray(body.messages) ? body.messages : [];
-      const schema = body.jsonSchema;
-      const jsonSchema: AiJsonSchema | undefined =
-        schema && typeof schema === "object" && typeof schema.name === "string" && schema.schema && typeof schema.schema === "object"
-          ? { name: schema.name, schema: schema.schema }
-          : undefined;
-      const response_format: ChatRequest["responseFormat"] | undefined = jsonSchema
-        ? {
-            type: "json_schema",
-            jsonSchema: {
-              name: jsonSchema.name,
-              strict: true,
-              schema: jsonSchema.schema,
-            },
-          }
-        : undefined;
-      const request = {
-        model,
-        messages,
-        temperature: typeof body.temperature === "number" ? body.temperature : undefined,
-        max_tokens: typeof body.max_tokens === "number" ? body.max_tokens : undefined,
-        response_format,
-      };
-      if (!jsonSchema) return c.json(await chatOnce(request));
-      let last: AiChatResult = chatFailure(AI_SAYS.unreadable, 0);
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const r = await chatOnce(request);
-        if (r.error) return c.json(r);
-        if (r.truncated) return c.json({ ...r, error: AI_SAYS.tooLong, detail: "The answer reached max_tokens and was cut off." });
-        const read = readJson(r.text);
-        if (read.ok) return c.json({ ...r, data: read.value });
-        last = { ...r, error: AI_SAYS.unreadable, detail: "The answer was not valid JSON." };
-      }
-      return c.json(last);
-    } catch (err) {
-      return c.json(chatFailure(AI_SAYS.failed, 0, { detail: err instanceof Error ? err.message : null }));
-    }
-  });
-  return chatRouter;
+let core: OpenRouterCore | null = null;
+function openRouterCore(): OpenRouterCore {
+  if (!core) core = new OpenRouterCore({ apiKey: openRouterApiKey(), retryConfig: { strategy: "none" } });
+  return core;
 }
+
+/** One request to OpenRouter's chat completions, settled with a plain sentence whatever happens. */
+async function chatOnce(body: {
+  model: string;
+  messages: ChatMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  response_format?: ChatRequest["responseFormat"];
+}): Promise<AiChatResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  try {
+    const result = await sendChat(
+      openRouterCore(),
+      {
+        chatRequest: {
+          model: body.model,
+          messages: toOpenRouterMessages(body.messages),
+          temperature: body.temperature ?? undefined,
+          maxTokens: body.max_tokens ?? undefined,
+          responseFormat: body.response_format ?? undefined,
+          provider: { only: ["openai"]},
+        },
+      },
+      { signal: controller.signal, retries: { strategy: "none" } },
+    );
+    if (!result.ok) {
+      const err: Loose = result.error;
+      if (err && err.name === "RequestAbortedError") return chatFailure(AI_SAYS.slow, 0, { detail: err.message || null });
+      if (err && err.name === "RequestTimeoutError") return chatFailure(AI_SAYS.slow, 0, { detail: err.message || null });
+      if (err && err.name === "ConnectionError") return chatFailure(AI_SAYS.offline, 0, { detail: err.message || null });
+      const status = err && typeof err.statusCode === "number" ? err.statusCode : 0;
+      const said = openRouterSaid(err);
+      return chatFailure(openRouterSays(status, said), status, { detail: openRouterDetail(err, said) });
+    }
+    const value: Loose = result.value;
+    const choice = value && Array.isArray(value.choices) ? value.choices[0] : null;
+    const content = assistantText(choice && choice.message);
+    if (content == null) return chatFailure(AI_SAYS.failed, 200, { raw: value, detail: "The answer carried no text." });
+    return {
+      text: content,
+      data: null,
+      error: null,
+      status: 200,
+      reason: null,
+      truncated: Boolean(choice && choice.finishReason === "length"),
+      raw: value,
+      detail: null,
+    };
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === "AbortError";
+    return chatFailure(aborted ? AI_SAYS.slow : AI_SAYS.offline, 0, { detail: err instanceof Error ? err.message : null });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export const chatRouter = new Hono();
+
+chatRouter.post("/", async (c) => {
+  try {
+    const body = await jsonBody(c);
+    if (!openRouterApiKey()) return c.json(chatFailure(AI_SAYS.failed, 0, { detail: "OPENROUTER_API_KEY is not set." }));
+    const model = typeof body.model === "string" ? body.model : DEFAULT_MODEL;
+    if (!MODEL_ALLOWLIST.has(model)) {
+      return c.json(chatFailure(AI_SAYS.badModel, 400, { detail: `model "${model}" is not on the allowlist` }));
+    }
+    const messages: ChatMessage[] = Array.isArray(body.messages) ? body.messages : [];
+    const schema = body.jsonSchema;
+    const jsonSchema: AiJsonSchema | undefined =
+      schema && typeof schema === "object" && typeof schema.name === "string" && schema.schema && typeof schema.schema === "object"
+        ? { name: schema.name, schema: schema.schema }
+        : undefined;
+    const response_format: ChatRequest["responseFormat"] | undefined = jsonSchema
+      ? {
+          type: "json_schema",
+          jsonSchema: {
+            name: jsonSchema.name,
+            strict: true,
+            schema: jsonSchema.schema,
+          },
+        }
+      : undefined;
+    const request = {
+      model,
+      messages,
+      temperature: typeof body.temperature === "number" ? body.temperature : undefined,
+      max_tokens: typeof body.max_tokens === "number" ? body.max_tokens : undefined,
+      response_format,
+    };
+    if (!jsonSchema) return c.json(await chatOnce(request));
+    let last: AiChatResult = chatFailure(AI_SAYS.unreadable, 0);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const r = await chatOnce(request);
+      if (r.error) return c.json(r);
+      if (r.truncated) return c.json({ ...r, error: AI_SAYS.tooLong, detail: "The answer reached max_tokens and was cut off." });
+      const read = readJson(r.text);
+      if (read.ok) return c.json({ ...r, data: read.value });
+      last = { ...r, error: AI_SAYS.unreadable, detail: "The answer was not valid JSON." };
+    }
+    return c.json(last);
+  } catch (err) {
+    return c.json(chatFailure(AI_SAYS.failed, 0, { detail: err instanceof Error ? err.message : null }));
+  }
+});

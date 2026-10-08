@@ -37,7 +37,7 @@ paths the mobile client issues.
   `trustedOrigins()` and credentials on `/api/auth/*`, `/api/data/*`, and
   `/api/ai/*`, `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`,
   `app.route("/api/data", dataRouter)`, and
-  `app.route("/api/ai", createAiRouter())`. `index.ts`
+  `app.route("/api/ai", aiRouter)`. `index.ts`
   default-exports `app` and, under `import.meta.main`, calls
   `requireDatabaseUrl()` then `Bun.serve`.
 - **Auth config** (`src/lib/auth.ts`): `betterAuth` 1.6.23 with
@@ -214,12 +214,14 @@ server-side, so no secret is held in `db.ts`.
 ## AI (`apps/backend/src/routes/ai.ts` and the thin client `src/lib/core/db/ai.ts`)
 
 All AI transport runs in the backend's `/api/ai` router, mounted by `createApp()`
-(`src/app.ts:23`). `createAiRouter(deps: AiRouterDeps = {})` takes injected
-seams: `getSession` (better-auth's `auth.api.getSession({ headers })` by
-default), `chatSend` (the SDK's standalone function), and `openrouterFetch`/
-`borelFetch` (real `fetch`, each racing its own `AbortController` timeout).
-`src/routes/ai.test.ts` (50 tests) replaces them, so the suite needs no database
-or network.
+(`src/app.ts`). `src/routes/ai/index.ts` exports the `aiRouter` const (same shape
+as `dataRouter`): a session-gate middleware plus the four sub-router consts
+(`chatRouter`, `transcribeRouter`, `generationRouter`, `editRouter`). The
+provider calls use the real implementations directly: better-auth's
+`auth.api.getSession({ headers })`, the SDK's standalone `chatSend`, and real
+`fetch` (each racing its own `AbortController` timeout).
+`src/routes/ai/ai.test.ts` (50 tests) patches those modules with
+`bun:test`'s `mock.module`, so the suite needs no database or network.
 
 - **Gate:** router middleware resolves the better-auth session from the cookie
   on every `/api/ai/*` path; no session is 401
