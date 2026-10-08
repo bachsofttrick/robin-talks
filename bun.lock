@@ -12,6 +12,7 @@
     "apps/backend": {
       "name": "@robin-talks/backend",
       "dependencies": {
+        "@openrouter/sdk": "^1.4.18",
         "better-auth": "1.6.23",
         "drizzle-orm": "0.45.3",
         "hono": "^4.13.13",
@@ -38,7 +39,6 @@
         "@expo-google-fonts/lora": "^0.4.0",
         "@expo-google-fonts/manrope": "^0.4.0",
         "@neondatabase/neon-js": "^0.7.0-beta",
-        "@openrouter/sdk": "^1.4.18",
         "@react-native-async-storage/async-storage": "2.2.0",
         "@react-navigation/bottom-tabs": "^7.18.17",
         "@react-navigation/native": "^7.3.17",

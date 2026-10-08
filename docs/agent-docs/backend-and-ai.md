@@ -3,8 +3,11 @@
 Source paths are relative to `apps/mobile/` unless noted.
 
 The app is client-only. Remote work is split between the backend
-service in `apps/backend`, the Borel cloud proxy, and OpenRouter; auth and the
-app's data use the backend on both a device and the browser preview. The `db`
+service in `apps/backend` (auth, the app's data, and all AI transport) and the
+Borel cloud proxy (file storage, moderation, notifications, and the account and
+usage/invite links); AI image generation reaches Borel through the backend's
+proxy, so the device never talks to OpenRouter or Borel's AI endpoints directly.
+The `db`
 object is assembled in `src/lib/core/db.ts` and every submodule is reachable from
 there.
 
@@ -12,44 +15,50 @@ there.
 repository's single root install and root `.env` (see [workflows.md](workflows.md)),
 and its `typecheck`, `build`, `dev`, `test`, `lint`, and database scripts run either
 through the root Turborepo scripts or directly in that directory. The native app
-reaches it over HTTP for auth and for its own data; its auth service and data API
-are described next.
+reaches it over HTTP for auth, its own data, and AI; its auth service, data API,
+and AI router are described next.
 
 ## Backend auth service (`apps/backend`)
 
 The backend runs a better-auth account service on Hono, mounted at `/api/auth/*`,
-and an authenticated data API at `/api/data/*`, both backed by drizzle over a Neon
+an authenticated data API at `/api/data/*`, and an authenticated AI router at
+`/api/ai`, all backed by drizzle over a Neon
 Postgres database. Both surfaces authenticate against it through
-`EXPO_PUBLIC_BACKEND_AUTH_URL` (which includes the `/api/auth` mount) and read and
-write their profile, sessions, and memory through `/api/data/*`. File storage, AI
-image generation, moderation, and notifications still go through `api.borel.one`;
-chat and speech-to-text go directly to OpenRouter. A
+`EXPO_PUBLIC_BACKEND_URL` (an `/api` base from which `config.ts` derives the
+`/auth`, `/data`, and `/ai` mounts) and read and write their profile, sessions,
+and memory through `/api/data/*`. File storage, moderation, notifications, and
+the account and usage/invite links still go through `api.borel.one` directly; AI
+image generation reaches Borel through the backend's proxy. A
 backend test (`src/conformance.test.ts`) proves the backend serves the exact auth
 paths the mobile client issues.
 
 - **Server** (`src/app.ts`, `src/index.ts`): `createApp()` returns a Hono app with
   `GET /health` -> `{ status: "ok" }`, CORS with
-  `trustedOrigins()` and credentials on both `/api/auth/*` and `/api/data/*`, and
-  `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`. `index.ts`
+  `trustedOrigins()` and credentials on `/api/auth/*`, `/api/data/*`, and
+  `/api/ai/*`, `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`,
+  `app.route("/api/data", dataRouter)`, and
+  `app.route("/api/ai", aiRouter)`. `index.ts`
   default-exports `app` and, under `import.meta.main`, calls
   `requireDatabaseUrl()` then `Bun.serve`.
-- **Auth config** (`src/auth.ts`): `betterAuth` 1.6.23 with
+- **Auth config** (`src/lib/auth.ts`): `betterAuth` 1.6.23 with
   `drizzleAdapter(getDb(), { provider: "pg", schema })`; `baseURL`, `secret`, and
-  `trustedOrigins` from `src/env.ts`; email+password enabled with
+  `trustedOrigins` from `src/lib/env.ts`; email+password enabled with
   `requireEmailVerification: true` and `minPasswordLength: 8`; `emailVerification:
   { sendOnSignIn: true }`; `user.deleteUser.enabled`; `session: { freshAge: 0 }`
   (no freshness gate on `delete-user`); `useSecureCookies` derived
   from an `https` base URL; origin checks on. The `emailOTP` plugin
   (`otpLength: 6`, `overrideDefaultEmailVerification: true`) handles email
   verification and password reset and hands each code to the transport seam.
-- **Tables** (`src/db/schema.ts`): better-auth's four tables `user` (a quoted
+- **Tables** (`src/lib/db/schema/`): `auth-schema.ts` holds better-auth's four
+  tables `user` (a quoted
   reserved word), `session`, `account`, and `verification`, with better-auth's
   camelCase columns, unique `user.email` and `session.token`, indexed
   `verification.identifier`, and cascade FKs `session.userId`/`account.userId` ->
-  `user.id`. The committed migrations are `drizzle/0000_lean_george_stacy.sql`
-  (auth tables) and `drizzle/0001_complete_silver_fox.sql` (the four app tables,
-  see the data API below).
-- **Database** (`src/db/client.ts`, `src/db/index.ts`): a lazy memoized `getDb()`
+  `user.id`; `schema.ts` holds the four app tables (see the data API below);
+  `index.ts` re-exports both. The committed migrations are
+  `drizzle/0000_lean_george_stacy.sql`
+  (auth tables) and `drizzle/0001_complete_silver_fox.sql` (the four app tables).
+- **Database** (`src/lib/db/client.ts`, `src/lib/db/index.ts`): a lazy memoized `getDb()`
   builds one `drizzle(new Pool({ connectionString: databaseUrlOrNull() ?? undefined
   }), { schema })`; it does not connect or throw when no database is configured.
 - **Flows** (emailOTP): sign-up creates an unverified `user` and emails a 6-digit
@@ -61,32 +70,36 @@ paths the mobile client issues.
   path; `POST /change-password` changes the password and can retain other sessions;
   `POST /delete-user` removes the user and cascades its session, account, and app
   data rows.
-- **OTP transport** (`src/mail/otp-transport.ts`): `createOtpTransport(mailConfig())`
+- **OTP transport** (`src/lib/mail/otp-transport.ts`): `createOtpTransport(mailConfig())`
   returns the dev transport when `MAIL_PROVIDER` is unset, which logs the code and
   pushes `{ email, otp, type }` to an exported in-process `outbox` (`resetOutbox`
   clears it, both used by tests), and a `fetch`-based provider transport when it is
   set. Provider completeness is checked in `send`.
-- **Env vars** (`src/env.ts`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
+- **Env vars** (`src/lib/env.ts`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
   `BETTER_AUTH_URL`
   (default `http://localhost:3000`), `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`,
-  `MAIL_PROVIDER`/`MAIL_API_KEY`/`MAIL_FROM`, and `PORT`. Migrations derive the
+  `MAIL_PROVIDER`/`MAIL_API_KEY`/`MAIL_FROM`, `OPENROUTER_API_KEY` and
+  `BOREL_AI_URL` (the AI router's keys, read at call time by
+  `openRouterApiKey()`/`borelAiUrl()`), and `PORT`. Migrations derive the
   unpooled host by stripping `-pooler` from `PGHOST`. `authSecret()` returns a
   documented dev constant when `NODE_ENV !== "production"` and throws otherwise;
   the module never throws at import. `.env.example` lists the full set.
 - **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,
-  and `db:verify` (runs `migrate` twice, then asserts the auth and app tables
+  and `db:verify` (runs `migrate` once, then asserts the auth and app tables
   through `information_schema`). The database-backed tests skip with a reported
   reason when no database is configured, so the suite stays green in a
   database-less environment. `build` compiles `src` (excluding `*.test.ts`) through
   `tsconfig.build.json`.
 
-## Backend data API (`apps/backend/src/data/`)
+## Backend data API (`apps/backend/src/routes/`)
 
-`src/data/router.ts` is mounted at `/api/data` by `createApp()`
-(`src/app.ts:16`). A middleware resolves the caller from the better-auth session
+`src/routes/data/index.ts` is mounted at `/api/data` by `createApp()`
+(`src/app.ts:19`). A middleware resolves the caller from the better-auth session
 cookie with `auth.api.getSession({ headers: c.req.raw.headers })`, returns 401
 `{ error: "You need to sign in first." }` when there is no session, and sets the
-route's `userId`. There is no bearer path, so the native data client replays the
+route's `userId`. The operations live in four sibling routers,
+`src/routes/data/profile.ts`, `sessions.ts`, `memory.ts`, and `profiles.ts`, mounted
+under it. There is no bearer path, so the native data client replays the
 persisted session cookie and the browser sends its cookie with
 `credentials: "include"` (see [auth.md](auth.md)). Every read and write is scoped
 to the session user: reads filter on `user_id = session.user.id`; `GET`/`PATCH
@@ -97,7 +110,9 @@ projections.
 
 - `GET /profile` -> the `learner_profiles` row or `null`
 - `PUT /profile` `{ display_name, level }` -> upsert on `user_id`
-- `POST /sessions` `{ scenario_id }` -> `{ id }`
+- `POST /sessions` `{ scenario_id }` -> `{ id }`. The handler first closes
+  any open session (`ended_at = now()` where `ended_at is null`) so each user
+  has at most one open session, then inserts with an empty transcript.
 - `GET /sessions/open` -> the open row (`ended_at is null`, newest first) or `null`
 - `GET /sessions/recent` -> up to 5 ended rows, newest first
 - `GET /sessions/:id` -> the row or 404
@@ -112,7 +127,7 @@ The four app tables (`learner_profiles`, `practice_sessions`, `robin_memory`,
 `profiles`) are added by `drizzle/0001_complete_silver_fox.sql` with snake_case
 columns, `gen_random_uuid()::text` ids for the two generated-id tables, and
 `ON DELETE CASCADE` foreign keys to `"user"(id)`. The mobile data client is
-`src/lib/core/db/data.ts` (see [api-layer.md](api-layer.md)). `src/data/router.test.ts`
+`src/lib/core/db/data.ts` (see [api-layer.md](api-layer.md)). `src/routes/router.test.ts`
 drives `app.request` with a signed-in cookie across the operations, the
 second-user isolation cases, and the account-deletion cascade; it skips with a
 reported reason when no database is configured.
@@ -149,15 +164,15 @@ underlying client, which `updatePassword` and `deleteAccount` use.
 
 All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
 
-- `DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`, `BACKEND_AUTH_URL`, `BOREL_STORAGE`,
-  `BOREL_AI`, `BOREL_ACCOUNT`, `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
-- `OPENROUTER_API_KEY` (`EXPO_PUBLIC_OPENROUTER_API_KEY`)
+- `DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`, `BACKEND_AUTH_URL`,
+  `BACKEND_DATA_URL`, `BACKEND_AI_URL`, `BOREL_STORAGE`, `BOREL_ACCOUNT`,
+  `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
 - `IN_BROWSER` (`typeof document !== "undefined"`), `SURFACE`
   (`"preview" | "dev" | "release"`), `BUILD_STAMP`, and `borelHeaders()` which
   sends `X-Borel-Surface` (and `X-Borel-Build` in a release build).
-- `BACKEND_DATA_URL` replaces a trailing `/api/auth` in `BACKEND_AUTH_URL` with
-  `/api/data`, and is `""` when `BACKEND_AUTH_URL` is unset or does not end
-  that way.
+- `BACKEND_AUTH_URL`, `BACKEND_DATA_URL`, and `BACKEND_AI_URL` append `/auth`,
+  `/data`, and `/ai` to `EXPO_PUBLIC_BACKEND_URL` (an `/api` base), and are `""`
+  when that variable is unset.
 - `createInviteLink(code)` composes `BOREL_INVITE_URL`.
 
 ## Borel cloud proxy
@@ -177,10 +192,13 @@ server-side, so no secret is held in `db.ts`.
 - **Account** (`BOREL_ACCOUNT`): `account.delete()` removes the account, its
   rows, and its files. Account deletion from the app now calls the backend's
   `/api/auth/delete-user` instead.
-- **AI images** (`BOREL_AI`): `ai.image` and `ai.editImage` POST to
-  `/images/generations` and `/images/edits`. Borel makes and stores the picture
-  and returns a ready URL; identical prompts reuse the stored image. These paths
-  still use `borelFetch` and Borel's refusal handling.
+- **AI images** (`BOREL_AI_URL`, backend-only): `ai.image` and `ai.editImage`
+  POST to the backend's `/api/ai/images/generations` and `/images/edits`, and
+  the backend forwards them to `BOREL_AI_URL` + path (see the AI section
+  below). Borel makes and stores the picture
+  and returns a ready URL; identical prompts reuse the stored image. The
+  client still sends `borelHeaders()` and the auth bearer so Borel's metering
+  and surface policy behave as when it was called directly.
 - **Moderation** (`BOREL_ACCOUNT`'s sibling `/moderation`,
   `src/lib/core/db/moderation.ts`): report, block/unblock, load state, and
   `check(text)`. The reported/blocked cache lives in
@@ -189,58 +207,113 @@ server-side, so no secret is held in `db.ts`.
   the client, which needs auth for its bearer token. `moderation.ts` re-exports
   `forgetModeration` from there.
 - **Notifications** (`src/lib/core/db/notify.ts`): `borelFetch(url, body,
-  timeoutMs)` (used by image generation), `notify.notify(input)` to push to named
+  timeoutMs)` (now used only by the notify call), `notify.notify(input)` to push to named
   users, and device-token linking that follows the signed-in user. This file also
   runs `watchDevice()` at import time. Telling the screens who is signed in
   lives in `db/auth.ts` as `tellScreens` and `announceSessionChanges`, because
   it has to wrap the auth client's own methods.
 
-## OpenRouter AI (`src/lib/core/db/ai.ts`)
+## AI (`apps/backend/src/routes/ai/` and `src/lib/ai/`, plus the thin client `src/lib/core/db/ai.ts`)
 
-Chat and speech-to-text go directly from the device to OpenRouter; only image
-generation stays on Borel.
+All AI transport runs in the backend's `/api/ai` router, mounted by `createApp()`
+(`src/app.ts`). `src/routes/ai/index.ts` exports the `aiRouter` const (same shape
+as `dataRouter`): a session-gate middleware plus four sub-router consts
+(`chatRouter` in `chat.ts`, `transcribeRouter` in `transcribe.ts`,
+`generationRouter` in `generations.ts`, `editRouter` in `edits.ts`), mounted at
+`/chat`, `/transcribe`, `/images/generations`, and `/images/edits`. There is no
+router factory and no injected deps object: each sub-router is a plain const and
+the provider calls use the real implementations directly: better-auth's
+`auth.api.getSession({ headers })`, the SDK's standalone `chatSend` imported
+directly in `chat.ts`, and real `fetch` through the timeout helpers in
+`src/lib/ai/functions.ts` (each racing its own `AbortController` timeout).
+`src/routes/ai/ai.test.ts` (44 tests) patches those modules with
+`bun:test`'s `mock.module`, so the suite needs no database or network.
 
-- **Client:** `new OpenRouterCore({ apiKey: OPENROUTER_API_KEY, retryConfig: {
-  strategy: "none" } })` and the standalone `chatSend` for tree-shaking. SDK
-  retries are off because the JSON loop retries on its own. A missing key
-  resolves the neutral error before any request and never triggers a consent
-  prompt.
-- **Models:** `ai.models.fast` and `ai.models.smart` are both
-  `openai/gpt-6-luna`. Transcribed audio uses `AI_AUDIO_MODEL`
-  (`qwen/qwen3-asr-0.6b`, `src/lib/core/db/consent.ts:21`).
-- **Chat:** `chat(input)` sends one request with a 60 s `AbortController` timeout.
-  It takes `jsonSchema?: AiJsonSchema`, which becomes OpenRouter's
-  `response_format` `{ type: "json_schema", jsonSchema: { name, strict: true,
-  schema } }`; every request also pins `provider: { only: ["openai"] }`. With a
-  schema, the reply is parsed with `readJson` (code fences and surrounding words
-  tolerated; balanced object/list search) and retried once when it cannot be
-  read; without one the reply comes back as plain text. A `finishReason ===
-  "length"` reply sets `truncated`. Photos in message parts are turned into
-  `data:` URLs by `sendableImage` before sending.
-- **Schema type:** `AiJsonSchema` (`{ name, schema }`) is exported from
-  `ai.ts`, so callers describe the shape they want instead of asking for JSON in
-  prose. `src/lib/api/useRobin.tsx` is its only current caller.
-- **Transcribe:** `transcribe(input)` turns a recording into raw base64 with a
-  short format name (`sendableAudio`, `audioFormatOf`), enforces a 3 MB / 4 MB
-  cap client-side, then POSTs `{ model, input_audio: { data, format } }` to
-  `/audio/transcriptions`. `language` and `prompt` are accepted and ignored. A
-  recording whose base64 is empty, or whose uri-only payload reads back empty,
-  resolves the "no words" sentence without any network request
-  (`src/lib/core/db/ai.ts:510`). Empty `text` in a successful reply means no
-  speech.
+Shared AI types and helpers live in `src/lib/ai/`: `types.ts` (`ChatMessage`,
+`AiJsonSchema`, result shapes, the `AiSession` gate type, and the `FetchSeam`
+fetch-seam type; the chat fake type lives locally in the test), `constants.ts` (models, timeouts, audio cap),
+`functions.ts` (`looksPlain`, `openRouterSays`, timeout fetches, JSON and image
+proxies), re-exported by `index.ts`.
+
+- **Gate:** router middleware resolves the better-auth session from the cookie
+  on every `/api/ai/*` path; no session is 401
+  `{ "error": "You need to sign in first." }` (a lookup that throws counts as
+  signed out), and 200 with a result body is the only other outcome.
+- **`POST /chat`:** OpenRouter chat completions through `@openrouter/sdk`.
+  `openRouterCore()` in `chat.ts` memoizes one module-scope `OpenRouterCore`
+  (`{ apiKey: openRouterApiKey(), retryConfig: { strategy: "none" } }`) and
+  `chatSend` is called with `retries: { strategy: "none" }`, because the JSON loop retries on its own.
+  Every request pins `provider: { only: ["openai"] }`. Models are allow-listed
+  (`openai/gpt-6-luna`, the only value the client sends; it is the default when
+  `model` is omitted). A 60 s budget (`AI_TIMEOUT_MS`) covers one request.
+- **Structured output:** a `jsonSchema?: AiJsonSchema` (`{ name, schema }`)
+  becomes OpenRouter's `response_format` `{ type: "json_schema", jsonSchema: {
+  name, strict: true, schema } }`. On that path the backend reads the reply
+  with `readJson` (code fences and surrounding words tolerated; balanced
+  object/list search) and retries once (2 attempts in total) before answering
+  the "unreadable" sentence. A `finishReason === "length"` reply sets
+  `truncated`; on the schema path that becomes the "too long" sentence.
+  Without a schema the reply comes back as plain text. An unset
+  `OPENROUTER_API_KEY` resolves the "failed" sentence (with `detail`) before
+  any request.
+- **`POST /transcribe`:** plain `fetch` to OpenRouter's
+  `/audio/transcriptions` with the pinned model `qwen/qwen3-asr-0.6b`
+  (`AI_AUDIO_MODEL`); the body is `{ audio: { data, format } }`, so callers'
+  `language` and `prompt` are dropped. The 3 MB cap (`MAX_AUDIO_BASE64`)
+  and empty-body guards answer locally with the "too long" or "no words"
+  sentence; empty `text` in a success means no speech.
+- **`POST /images/generations` and `/images/edits`:** a transparent Borel proxy
+  to `borelAiUrl()` + `/images/generations|/images/edits` with a 150 s budget
+  (`BOREL_TIMEOUT_MS`). The caller's `Authorization`, `X-Borel-Surface`, and
+  `X-Borel-Build` headers are forwarded verbatim, Borel's refusal reasons
+  (`wallet_empty`, `daily_allowance_used`, `cloud_paused`, plus the 402 text
+  patterns) map to the standing sentences, and success carries Borel's own
+  `reused` flag (null when Borel sent none).
 - **Result shapes:** `AiChatResult` carries `text`, `data`, `error`, `status`,
   `reason`, `truncated`, `raw`, `detail`; `AiTranscribeResult` carries `text`,
-  `error`, `status`, `reason`, `detail`. Technical text always goes to `detail`.
+  `error`, `status`, `reason`, `detail`; `AiImageResult` carries `url`, `error`,
+  `status`, `reason`, `reused`. Technical text always goes to `detail`.
 
-### Error mapping (`src/lib/core/db/errors.ts` and `ai.ts`)
+### The mobile thin client (`src/lib/core/db/ai.ts`)
 
-Every failure becomes one plain sentence. OpenRouter codes map as:
-402/404 → "AI isn't available right now", 403/429 → "AI has reached today's
-limit", 401/502 → "The AI couldn't answer that right now", network failure →
-"Couldn't reach the AI", timeout → "The AI took too long". The API's own message
+`db.ai` keeps its public surface verbatim (`ai.chat`, `ai.transcribe`,
+`ai.image`, `ai.editImage`, and `ai.models`, where `fast` and `smart` are both
+`openai/gpt-6-luna`, plus ten type exports) and only POSTs to `BACKEND_AI_URL`
++ `/chat`, `/transcribe`, `/images/generations`, and `/images/edits` through
+`aiRequest`. Native replays the stored session cookie header
+(`sessionCookieHeader()`); the browser sends `credentials: "include"`. The image
+paths also send `borelHeaders()` and the auth bearer, which the backend forwards
+to Borel. Client timeouts are 65 s (chat and transcribe) and 160 s (images),
+the backend's 60 s/150 s budgets plus margin. What stays device-side:
+
+- **Consent** per kind (`chat`, `photoChat`, `audio`, `image`, `editImage`),
+  asked before anything leaves the device.
+- **Device-file normalization:** `sendableImage` (a picker result, asset, uri,
+  https address, or base64 becomes something the backend can read) and
+  `sendableAudio` (a recording, its whole result, or a data: URL becomes
+  `{ data, format }` via `audioFormatOf`), with the 3 MB cap still enforced
+  client-side and empty recordings resolving "no words" without a request.
+- **Image-only in-flight dedupe:** one request per `prompt|size` key
+  (`inFlightImages`); failures are dropped from the map so a retry is possible.
+- **Metering and refusals:** in the browser, an image success with
+  `reused !== true` posts `{ type: "ai:metered" }` to the parent window
+  (`postToParent`), and image refusal reasons go through `noteRefusal`.
+- **Transport mapping:** timeout, non-401 `!ok`, 401, and unset
+  `BACKEND_AI_URL` map to plain sentences (`AI_SAYS`); the backend's sentences
+  pass through in the result body.
+
+### Error mapping (`apps/backend/src/lib/ai/functions.ts` and `src/lib/core/db/errors.ts`)
+
+Every failure becomes one plain sentence. The backend maps OpenRouter codes
+(`openRouterSays` in `src/lib/ai/functions.ts`): 402/404 → "AI isn't available right now", 403/429 → "AI has
+reached today's limit", 401/502 → "The AI couldn't answer that right now",
+network failure → "Couldn't reach the AI", timeout → "The AI took too long".
+The API's own message
 is shown only when it passes `looksPlain` (one capitalised, punctuated sentence
 with no code characters or technical words); otherwise it stays in `detail`.
-`plainError(error, action)` provides the Data API equivalents.
+The client's `aiRequest` maps its own transport failures (timeout, offline,
+401, unconfigured backend), and `plainError(error, action)` provides the Data
+API equivalents.
 
 ## AI consent (`src/lib/core/db/consent.ts`)
 

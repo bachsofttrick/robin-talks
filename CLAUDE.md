@@ -11,10 +11,11 @@ the learner into a short, realistic
 scenario (ordering coffee, asking for directions, a job interview) where the AI
 partner Robin plays the other person, speaks through text-to-speech, listens to
 the reply, coaches English inline, and writes a debrief at the end. The mobile app
-is client-only: it holds no server, API layer, or build step of its own. File
-storage, AI image generation, moderation, and notifications go through the Borel
-cloud proxy at `api.borel.one`; chat and speech-to-text go directly to
-OpenRouter.
+is client-only: it holds no server, API layer, or build step of its own. All AI
+transport runs in the backend's `/api/ai` router, which calls OpenRouter for chat
+and speech-to-text and proxies the Borel cloud at `api.borel.one` for AI image
+generation; Borel remains the direct remote layer for file storage, moderation,
+notifications, and the account and usage/invite links.
 
 ## Tech Stack
 - Bun `1.4.2` as the package manager, one root install for both workspaces
@@ -25,8 +26,10 @@ OpenRouter.
 - TypeScript `7.0.2` nested in `apps/backend/node_modules` for its `tsc` build
 - React Navigation 7: native, native-stack, bottom-tabs
 - `@neondatabase/neon-js` `^0.7.0-beta` for the Data API and auth client (Supabase-shaped)
-- `@openrouter/sdk` `^1.4.18` for chat completions (speech-to-text uses plain `fetch`)
-- Hono `^4.13.13` in `apps/backend`, mounting better-auth at `/api/auth/*` and the data API at `/api/data/*`
+- `@openrouter/sdk` `^1.4.18` in `apps/backend` for chat completions; its
+  speech-to-text endpoint is called with plain `fetch`
+- Hono `^4.13.13` in `apps/backend`, mounting better-auth at `/api/auth/*`, the
+  data API at `/api/data/*`, and the AI router at `/api/ai`
 - `better-auth` `1.6.23` (email/password + emailOTP plugin, drizzle adapter)
 - `drizzle-orm` `0.45.3`, `drizzle-kit` `0.31.11` and `pg` `8.23.1` against Neon Postgres
 - Jest `~29.7` with the `jest-expo` preset in `apps/mobile`; `bun test` (`bun:test`) in `apps/backend`
@@ -50,11 +53,10 @@ OpenRouter.
 - `apps/mobile/src/navigation/` - React Navigation container and root navigator
 - `apps/mobile/src/screens/` - the four screens: Onboarding, Practice, Session, Settings
 - `apps/mobile/assets/` - app icon, splash, favicon
-- `apps/backend/` - `@robin-talks/backend` Hono service: better-auth at `/api/auth/*`, the authenticated data API at `/api/data/*`, drizzle schema and migrations, OTP mail transport
-- `apps/backend/src/db/` - drizzle schema, lazy memoized `pg` pool (`getDb`), and barrel
-- `apps/backend/src/data/` - `/api/data/*` Hono router over the profile, session, memory, and profiles tables
+- `apps/backend/` - `@robin-talks/backend` Hono service: better-auth at `/api/auth/*`, the authenticated data API at `/api/data/*`, the AI router at `/api/ai`, drizzle schema and migrations, OTP mail transport
+- `apps/backend/src/lib/` - better-auth config, env readers, drizzle schema, lazy memoized `pg` pool (`getDb`), and OTP mail transport
+- `apps/backend/src/routes/` - the `/api/data/*` router (profile, sessions, memory, profiles) and the `/api/ai` router (`ai.ts`)
 - `apps/backend/drizzle/` - committed SQL migrations and meta snapshots
-- `apps/backend/src/mail/` - OTP transport seam (dev outbox vs provider `fetch`)
 - `docs/agent-docs/` - this knowledge base, plus specs and plans working artifacts
 
 ## Key Commands
@@ -78,11 +80,11 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Edit the root `.env` only. `apps/mobile/.env` and `apps/backend/.env` are symlinks to
   `../../.env`; never replace a symlink with a workspace copy. Run `bun run env:link`
   after cloning to recreate them.
-- `EXPO_PUBLIC_BACKEND_AUTH_URL` is the auth base for both surfaces and includes
-  the `/api/auth` mount (see `.env.example`); `BACKEND_DATA_URL` in
-  `src/lib/core/db/config.ts` derives the `/api/data` base from it. Native replays
-  the stored session cookie; the browser preview sends it with
-  `credentials: "include"`.
+- `EXPO_PUBLIC_BACKEND_URL` is the base for both surfaces and includes the `/api`
+  mount (see `.env.example`); `BACKEND_AUTH_URL`, `BACKEND_DATA_URL`, and
+  `BACKEND_AI_URL` in `src/lib/core/db/config.ts` append `/auth`, `/data`, and
+  `/ai` to it. Native replays the stored session cookie; the browser preview
+  sends it with `credentials: "include"`.
 - Keep `bunfig.toml`'s `linker = "hoisted"`. Bun 1.4 would otherwise default a new
   workspace to the isolated linker, whose `node_modules/.bun` store path defeats the
   mobile Jest `transformIgnorePatterns` allow-list.
@@ -104,7 +106,9 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
   `db/` and `auth/` subfolders, and the top-level file re-exports the public
   surface. Keep that shape when adding code.
 - Screens reach data only through the hooks in `src/lib/api/`, never through
-  `db` directly (except the AI `transcribe` call in the Session screen). Hooks
+  `db` directly (except the AI `transcribe` call in the Session screen). AI
+  calls reach the backend's `/api/ai` router through the thin client in
+  `src/lib/core/db/ai.ts`; the public `db.ai` surface is unchanged. Hooks
   return `{ data, loading, error, ...actions }`.
 - Every user-facing error is one plain, non-technical sentence. Use
   `plainError(error, "save" | "load")` for db failures; keep technical text in a
@@ -115,15 +119,19 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Import from the local barrel (`../ui`, `../api`, `../core/db`, `../core/auth`)
   rather than deep paths where a barrel exists.
 - Never store raw audio. Only the transcript and debrief reach the database.
-- Backend code is an ESM Hono service. `src/env.ts` reads `process.env` only and
-  never throws at import; `getDb()` in `src/db/client.ts` is lazy and memoized, so
-  a database-less environment still loads every module. The only DB thrower is
-  `requireDatabaseUrl()`, called inside `index.ts`'s `import.meta.main` guard.
+- Backend code is an ESM Hono service. `src/lib/env.ts` reads `process.env` only
+  and never throws at import; `getDb()` in `src/lib/db/client.ts` is lazy and
+  memoized, so a database-less environment still loads every module. The only
+  DB thrower is `requireDatabaseUrl()`, called inside `index.ts`'s
+  `import.meta.main` guard. AI secrets are backend-only: `OPENROUTER_API_KEY`
+  and `BOREL_AI_URL`, read by `openRouterApiKey()` and `borelAiUrl()` in
+  `src/lib/env.ts`.
 - Backend tests use `bun:test` and live next to source as `*.test.ts`. The
-  database-backed ones (`auth.e2e.test.ts`, `data/router.test.ts`,
-  `db/migration.test.ts`) skip with a
-  reported reason when no `PG*` configuration is present. OTP email
-  goes through `createOtpTransport` in `src/mail/otp-transport.ts`; never write the
+  database-backed ones (`lib/auth.e2e.test.ts`, `routes/router.test.ts`,
+  `lib/db/migration.test.ts`) skip with a reported reason when no `PG*`
+  configuration is present; the AI router has `src/routes/ai.test.ts` (50 tests
+  with injected seams, no database or network). OTP email
+  goes through `createOtpTransport` in `src/lib/mail/otp-transport.ts`; never write the
   database password or `BETTER_AUTH_SECRET` into the repo.
 - Specs and plans live under `docs/agent-docs/specs/` (sdd) and
   `docs/agent-docs/plans/` (pdd). The earlier `openspec/` directory was removed.
@@ -133,7 +141,7 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - [directory-map.md](docs/agent-docs/directory-map.md) - Annotated tree of the repository
 - [screens-and-navigation.md](docs/agent-docs/screens-and-navigation.md) - Navigators, screens, and their flows
 - [api-layer.md](docs/agent-docs/api-layer.md) - Domain hooks, scenarios, and the database tables they read
-- [backend-and-ai.md](docs/agent-docs/backend-and-ai.md) - The `db` module, Borel cloud, the Hono better-auth service, OpenRouter AI, and AI consent
+- [backend-and-ai.md](docs/agent-docs/backend-and-ai.md) - The `db` module, Borel cloud, the Hono better-auth service, the backend AI router, and AI consent
 - [auth.md](docs/agent-docs/auth.md) - The `core/auth` connector, provider, actions, and account UI
 - [ui-kit.md](docs/agent-docs/ui-kit.md) - Theme tokens, shared components, motion, and texture
 - [conventions.md](docs/agent-docs/conventions.md) - Code style, naming, and patterns observed in the source
@@ -143,4 +151,4 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: 10bcb55badc02d528e9d791da7e8a8a805d27082 -->
+<!-- docs-baseline: 5bf327ca57f83aaf2bb27f11915c333b0e5ebc10 -->

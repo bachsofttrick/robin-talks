@@ -53,6 +53,14 @@ export function trustedOrigins(): string[] {
   return [baseUrl()];
 }
 
+export function openRouterApiKey(): string {
+  return process.env.OPENROUTER_API_KEY ?? "";
+}
+
+export function borelAiUrl(): string {
+  return process.env.BOREL_AI_URL ?? "";
+}
+
 export function mailConfig(): MailConfig {
   const config: MailConfig = {};
   if (process.env.MAIL_PROVIDER) config.provider = process.env.MAIL_PROVIDER;

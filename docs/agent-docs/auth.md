@@ -8,8 +8,9 @@ surface from the subfolder; implementation lives in `src/lib/core/auth/`.
 
 The auth client is built against the better-auth implementation in
 `apps/backend` (see [backend-and-ai.md](backend-and-ai.md)): `native()` in
-`src/lib/core/db/auth.ts` uses `EXPO_PUBLIC_BACKEND_AUTH_URL`, whose value
-includes the `/api/auth` mount, so `db.auth` resolves to the backend client
+`src/lib/core/db/auth.ts` uses `BACKEND_AUTH_URL`, which `config.ts` derives by
+appending `/auth` to `EXPO_PUBLIC_BACKEND_URL` (an `/api` base), so `db.auth`
+resolves to the backend client
 without editing the Borel-managed `db.ts`. In the browser `db.auth` is
 `brokerAuth`, a wrapper over the same backend URL (see below). The backend is
 reached over HTTP, not imported.
@@ -69,7 +70,7 @@ failure.
 ## Session transport (`src/lib/core/db/auth.ts`)
 
 - **Native:** the neon-js auth client is built against
-  `EXPO_PUBLIC_BACKEND_AUTH_URL` (the backend `/api/auth` mount). A `sessionPlugin`
+  `BACKEND_AUTH_URL` (derived from `EXPO_PUBLIC_BACKEND_URL`, an `/api` base). A `sessionPlugin`
   writes every `Set-Cookie` to AsyncStorage under
   `backend-auth-session:<BACKEND_AUTH_URL>` and replays it as a `Cookie` header,
   with the platform cookie jar off. `sessionCookieHeader()` is exported and async:
@@ -80,7 +81,7 @@ failure.
   carry the app's own tables; `authHeader()` is still used by the Borel storage,
   moderation, and notify modules.
 - **Browser preview:** `brokerAuth` in `src/lib/core/db/browser-auth.ts` wraps a
-  neon-js client built against `EXPO_PUBLIC_BACKEND_AUTH_URL` with no session
+  neon-js client built against `BACKEND_AUTH_URL` with no session
   plugin, so the browser's own cookie jar carries the backend session and
   requests use `credentials: "include"`. It keeps its own `onAuthStateChange`
   subscriber list and notifies it after sign-in, OTP verification, and sign-out

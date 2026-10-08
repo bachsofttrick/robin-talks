@@ -337,6 +337,51 @@ describe("AC-19: a second user cannot touch the first user's rows", () => {
   });
 });
 
+const aiBase = `${origin}/api/ai`;
+
+async function withoutOpenRouterKey(run: () => Promise<void>): Promise<void> {
+  const previous = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = "";
+  try {
+    await run();
+  } finally {
+    if (previous === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = previous;
+  }
+}
+
+describe("AC-1/AC-10: ai router session gate and authorized chat", () => {
+  skip("POST /api/ai/chat with a session returns a result object; without a cookie returns the 401 body", async () => {
+    const { cookie } = await newSignedInUser();
+
+    const unauthorized = await call(`${aiBase}/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin },
+      body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+    });
+    expect(unauthorized.status, `POST /ai/chat -> ${unauthorized.status}: ${unauthorized.body}`).toBe(401);
+    expect(JSON.parse(unauthorized.body)).toEqual({ error: "You need to sign in first." });
+
+    await withoutOpenRouterKey(async () => {
+      const chat = await call(
+        `${aiBase}/chat`,
+        jsonInit("POST", cookie, { messages: [{ role: "user", content: "Hello" }] }),
+      );
+      expect(chat.status, `POST /ai/chat -> ${chat.status}: ${chat.body}`).toBe(200);
+      expect(JSON.parse(chat.body)).toEqual({
+        text: null,
+        data: null,
+        error: "The AI couldn't answer that right now, so please try again.",
+        status: 0,
+        reason: null,
+        truncated: false,
+        raw: null,
+        detail: "OPENROUTER_API_KEY is not set.",
+      });
+    });
+  });
+});
+
 describe("AC-19: deleting an account cascades the user's data rows", () => {
   skip("delete-user removes learner_profiles, practice_sessions, robin_memory, and profiles", async () => {
     const { email, cookie, userId } = await newSignedInUser();

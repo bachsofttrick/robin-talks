@@ -149,8 +149,59 @@ describe("AC-26/AC-29: CORS headers for auth and data routes", () => {
   });
 });
 
+const AI_PATHS: Array<string> = [
+  "/api/ai/chat",
+  "/api/ai/transcribe",
+  "/api/ai/images/generations",
+  "/api/ai/images/edits",
+];
+
+describe("AC-1: /api/ai is mounted and gated by the session", () => {
+  for (const path of AI_PATHS) {
+    test(`POST ${path} without a session returns the 401 sign-in body`, async () => {
+      const response = await app.request(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      expect(response.status, `${path} -> ${response.status}`).toBe(401);
+      expect(await response.json()).toEqual({ error: "You need to sign in first." });
+    });
+  }
+});
+
+describe("AC-8: CORS headers for ai routes", () => {
+  test("OPTIONS /api/ai/chat preflight allows the preview origin", async () => {
+    await withTrustedOrigin(async (scoped) => {
+      const response = await scoped.request("/api/ai/chat", {
+        method: "OPTIONS",
+        headers: { origin: PREVIEW_ORIGIN, "access-control-request-method": "POST" },
+      });
+      expect(response.status).toBe(204);
+      expectPreviewCors(response);
+    });
+  });
+
+  test("credentialed POST /api/ai/chat echoes the preview origin alongside the 401 body", async () => {
+    await withTrustedOrigin(async (scoped) => {
+      const response = await scoped.request("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: PREVIEW_ORIGIN,
+          cookie: "probe=1",
+        },
+        body: "{}",
+      });
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "You need to sign in first." });
+      expectPreviewCors(response);
+    });
+  });
+});
+
 const ORIGIN_PROBE_SCRIPT =
-  "const { auth } = await import('./auth.js');" +
+  "const { auth } = await import('./lib/auth.js');" +
   "const r = await auth.handler(new Request('http://localhost:3000/api/auth/sign-in/email'," +
   "{ method: 'POST', headers: { 'content-type': 'application/json', origin: '" +
   PREVIEW_ORIGIN +
