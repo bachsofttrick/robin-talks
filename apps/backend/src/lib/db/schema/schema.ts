@@ -21,7 +21,7 @@ export const practiceSessions = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     scenarioId: text("scenario_id"),
     transcript: jsonb("transcript").default(sql`'[]'::jsonb`),
-    debrief: text("debrief"),
+    debrief: jsonb("debrief").default(sql`'{}'::jsonb`),
     summary: text("summary"),
     startedAt: timestamp("started_at", { withTimezone: true }).defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
