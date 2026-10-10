@@ -4,4 +4,6 @@ import { serve } from '@hono/node-server';
 
 requireDatabaseUrl();
 
-serve(app);
+serve(app)
+
+export default app;
