@@ -81,7 +81,7 @@ export async function signOut(): Promise<void> {
  * an account, we sent it a code", then show the step-two screen.
  */
 export async function sendPasswordReset(email: string): Promise<AuthResult> {
-  const r = await authCall("/forget-password/email-otp", { email: email.trim() });
+  const r = await authCall("/email-otp/request-password-reset", { email: email.trim() });
   return r.ok ? SUCCESS : failed(authErrorMessage(r.error));
 }
 

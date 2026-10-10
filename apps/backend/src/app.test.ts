@@ -11,7 +11,7 @@ const AUTH_ROUTES: Array<{ method: "POST" | "GET"; path: string }> = [
   { method: "GET", path: "/api/auth/get-session" },
   { method: "POST", path: "/api/auth/email-otp/verify-email" },
   { method: "POST", path: "/api/auth/email-otp/send-verification-otp" },
-  { method: "POST", path: "/api/auth/forget-password/email-otp" },
+  { method: "POST", path: "/api/auth/email-otp/request-password-reset" },
   { method: "POST", path: "/api/auth/email-otp/reset-password" },
   { method: "POST", path: "/api/auth/change-password" },
   { method: "POST", path: "/api/auth/email-otp/request-password-reset" },

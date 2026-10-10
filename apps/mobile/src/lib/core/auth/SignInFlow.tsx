@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, TextInputKeyPressEvent, View } from "react-native";
 import type { AuthResult } from "./types";
 import { PASSWORD_RESET_AVAILABLE, KIT } from "./constants";
 import { labelsWith } from "./labels";
@@ -136,6 +136,12 @@ export function SignInFlow(props: {
       },
     );
 
+  const onKeyPressSignIn = (e: TextInputKeyPressEvent) => {
+    if (e.nativeEvent.key === 'enter') {
+      return step === "signUp" ? onSignUp() : onSignIn()
+    }
+  }
+
   const heading =
     step === "signUp" ? t.signUp : step === "confirm" ? t.confirmTitle : step === "forgot" || step === "reset" ? t.resetTitle : t.signIn;
 
@@ -165,7 +171,7 @@ export function SignInFlow(props: {
           <Field label={t.newPassword} value={password} onChangeText={setPassword} secure textContentType="newPassword" />
           <Text style={{ color: KIT.muted, fontSize: 13, marginBottom: 12 }}>{t.passwordRule}</Text>
           <PrimaryButton title={t.continue} onPress={onReset} busy={busy} disabled={code.trim().length < 4 || password.length < 8} />
-          <LinkButton title={t.cancel} onPress={() => go("signIn")} />
+          <LinkButton title={t.signIn} onPress={() => go("signIn")} />
         </View>
       ) : (
         <View>
@@ -177,6 +183,7 @@ export function SignInFlow(props: {
             secure
             textContentType={step === "signUp" ? "newPassword" : "password"}
             autoComplete={step === "signUp" ? "new-password" : "current-password"}
+            onKeyPress={onKeyPressSignIn}
           />
           {step === "signUp" ? <Text style={{ color: KIT.muted, fontSize: 13, marginBottom: 12 }}>{t.passwordRule}</Text> : null}
           <PrimaryButton

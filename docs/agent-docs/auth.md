@@ -49,7 +49,7 @@ context (`AuthProvider`, `useAuth`, and types), the actions (`signUp`, `signIn`,
 - `signIn(email, password)`: maps "email not verified" to
   `needsEmailConfirmation` so the screen can offer a resend.
 - `sendPasswordReset` / `resetPassword`: the OTP flow via `authCall` to
-  `/forget-password/email-otp` and `/email-otp/reset-password`.
+  `/email-otp/request-password-reset` and `/email-otp/reset-password`.
 - `confirmEmail(email, code)`: `db.auth.verifyOtp({ type: "signup" })`.
 - `updatePassword(password, currentPassword)`: requires the current password;
   reaches the underlying better-auth instance through

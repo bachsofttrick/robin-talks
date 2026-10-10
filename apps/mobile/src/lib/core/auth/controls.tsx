@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, TextInput, TextInputKeyPressEvent, View } from "react-native";
 import { KIT } from "./constants";
 
 export function Field(props: {
@@ -10,6 +10,7 @@ export function Field(props: {
   textContentType?: string;
   autoComplete?: string;
   maxLength?: number;
+  onKeyPress?: (e: TextInputKeyPressEvent) => void;
 }) {
   return (
     <View style={{ marginBottom: 12 }}>
@@ -33,6 +34,7 @@ export function Field(props: {
           fontSize: 16,
           color: KIT.text,
         }}
+        onKeyPress={props.onKeyPress}
       />
     </View>
   );

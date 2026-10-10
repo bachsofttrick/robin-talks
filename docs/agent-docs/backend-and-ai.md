@@ -64,7 +64,7 @@ paths the mobile client issues.
 - **Flows** (emailOTP): sign-up creates an unverified `user` and emails a 6-digit
   code; `POST /email-otp/verify-email` marks the email verified; signing in an
   unverified account is refused and re-sends a code; `POST
-  /forget-password/email-otp` issues a reset code (an unknown address succeeds with
+  /email-otp/request-password-reset` issues a reset code (an unknown address succeeds with
   no code, so accounts cannot be enumerated) and `POST /email-otp/reset-password`
   applies a new password, with `/email-otp/request-password-reset` as the forward
   path; `POST /change-password` changes the password and can retain other sessions;

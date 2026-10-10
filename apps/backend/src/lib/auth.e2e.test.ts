@@ -262,10 +262,10 @@ describe("auth recovery and verification re-send", () => {
     await signUpVerified(address);
 
     resetOutbox();
-    const forget = await call(jsonRequest("/forget-password/email-otp", { email: address }));
+    const forget = await call(jsonRequest("/email-otp/request-password-reset", { email: address }));
     expect(
       forget.status,
-      `POST /forget-password/email-otp -> ${forget.status}: ${forget.body}`,
+      `POST /email-otp/request-password-reset -> ${forget.status}: ${forget.body}`,
     ).toBe(200);
     const otp = otpFor(address, "forget-password").otp;
     expect(otp, `expected a 6-digit reset otp, got ${otp}`).toMatch(/^\d{6}$/);
@@ -293,11 +293,11 @@ describe("auth recovery and verification re-send", () => {
     const unknown = uniqueEmail();
     resetOutbox();
     const unknownForget = await call(
-      jsonRequest("/forget-password/email-otp", { email: unknown }),
+      jsonRequest("/email-otp/request-password-reset", { email: unknown }),
     );
     expect(
       unknownForget.status,
-      `POST /forget-password/email-otp for an unknown address -> ${unknownForget.status}: ${unknownForget.body}`,
+      `POST /email-otp/request-password-reset for an unknown address -> ${unknownForget.status}: ${unknownForget.body}`,
     ).toBe(200);
     expect(
       outbox.filter((entry) => entry.email === unknown).length,
