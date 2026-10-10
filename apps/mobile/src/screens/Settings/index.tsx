@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Screen, Notice } from "../../lib/ui";
 import { colors, fonts, radius, spacing, type } from "../../lib/ui/theme";
@@ -13,6 +13,7 @@ import { useSessions } from "../../lib/api/useSessions";
 import { AccountPanel, RequireAccount } from "../../lib/core/auth";
 import { LegalLinks } from "../../lib/core/legal";
 import type { Level } from "../../lib/api/scenarios";
+import { useFocusEffect } from "@react-navigation/native";
 
 const LEVELS: Level[] = ["Beginner", "Intermediate", "Advanced"];
 
@@ -26,8 +27,16 @@ function SettingsBody() {
   const [message, setMessage] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const enter = useEnter();
+  const { reload: sessionReload } = sessions
 
-  const inSession = !!sessions.open;
+  // Refresh when this screen regains focus
+  useFocusEffect(
+    useCallback(() => {
+      void sessionReload();
+    }, [sessionReload]),
+  );
+
+  const inSession = sessions.open;
 
   const saveProfile = async () => {
     if (!name.trim()) {

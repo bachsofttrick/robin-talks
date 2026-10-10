@@ -43,6 +43,7 @@ function Catalog() {
   const [problem, setProblem] = useState<string | null>(null);
   const enter = useEnter();
 
+  // Refresh when this screen regains focus
   useFocusEffect(
     useCallback(() => {
       void reload();
