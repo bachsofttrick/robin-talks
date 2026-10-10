@@ -185,7 +185,7 @@ async function chatOnce(body: {
 
 export const chatRouter = new Hono();
 
-chatRouter.post("/", async (c) => {
+chatRouter.post("/chat", async (c) => {
   try {
     const body = await jsonBody(c);
     if (!openRouterApiKey()) return c.json(chatFailure(AI_SAYS.failed, 0, { detail: "OPENROUTER_API_KEY is not set." }));

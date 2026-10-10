@@ -137,7 +137,7 @@ learner_profiles  user_id text pk references "user"(id) on delete cascade,
 practice_sessions id text pk default gen_random_uuid()::text,
                   user_id text not null references "user"(id) on delete cascade,
                   scenario_id text, transcript jsonb default '[]',
-                  debrief text, summary text,
+                  debrief jsonb, summary text,
                   started_at timestamptz default now(), ended_at timestamptz
 robin_memory      id text pk default gen_random_uuid()::text,
                   user_id text not null references "user"(id) on delete cascade,

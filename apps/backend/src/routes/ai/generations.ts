@@ -10,7 +10,7 @@ import {
 
 export const generationRouter = new Hono();
 
-generationRouter.post("/", async (c) => {
+generationRouter.post("/images/generations", async (c) => {
   try {
     if (!borelAiUrl()) return c.json({ url: null, error: AI_SAYS.picture, status: 0, reason: null, reused: null } satisfies AiImageResult);
     const body = await jsonBody(c);

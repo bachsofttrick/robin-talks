@@ -199,9 +199,10 @@ describe("AC-17/AC-19: practice session lifecycle", () => {
 
     const transcript = [{ role: "user", text: "One coffee please" }];
     const endedAt = new Date().toISOString();
+    const debrief = { summary: "Nice work.", mistakes: [], tips: [], memory: [] };
     const patched = await dataJson("PATCH", `/sessions/${id}`, cookie, {
       transcript,
-      debrief: "Nice work.",
+      debrief,
       summary: "Ordered a coffee.",
       ended_at: endedAt,
     });
@@ -219,7 +220,7 @@ describe("AC-17/AC-19: practice session lifecycle", () => {
     expect(JSON.parse(byId.body)).toMatchObject({
       id,
       transcript,
-      debrief: "Nice work.",
+      debrief,
       summary: "Ordered a coffee.",
     });
 

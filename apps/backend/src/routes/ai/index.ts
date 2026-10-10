@@ -21,7 +21,7 @@ aiRouter.use("*", async (c, next) => {
   await next();
 });
 
-aiRouter.route("/chat", chatRouter);
-aiRouter.route("/transcribe", transcribeRouter);
-aiRouter.route("/images/generations", generationRouter);
-aiRouter.route("/images/edits", editRouter);
+aiRouter.route("/", chatRouter);
+aiRouter.route("/", transcribeRouter);
+aiRouter.route("/", generationRouter);
+aiRouter.route("/", editRouter);

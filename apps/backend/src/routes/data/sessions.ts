@@ -62,7 +62,7 @@ sessionsRouter.get("/sessions/:id", async (c) => {
 sessionsRouter.patch("/sessions/:id", async (c) => {
   const body = await c.req.json<{
     transcript?: unknown;
-    debrief?: string | null;
+    debrief?: unknown | null;
     summary?: string | null;
     ended_at?: string | null;
   }>();

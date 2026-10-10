@@ -9,6 +9,7 @@ import {
   updateSession,
 } from "../core/db/data";
 import { useAuth } from "../core/auth";
+import type { Debrief } from "./useRobin";
 
 export interface Turn {
   role: "robin" | "user";
@@ -19,7 +20,7 @@ export interface PracticeSession {
   id: string;
   scenario_id: string;
   transcript: Turn[];
-  debrief: string | null;
+  debrief: Debrief | null;
   ended_at: string | null;
   started_at: string;
   summary: string | null;
@@ -30,7 +31,7 @@ function asSession(row: Record<string, unknown>): PracticeSession {
     id: String(row.id),
     scenario_id: String(row.scenario_id),
     transcript: Array.isArray(row.transcript) ? (row.transcript as Turn[]) : [],
-    debrief: (row.debrief as string) ?? null,
+    debrief: row.debrief as Debrief,
     ended_at: (row.ended_at as string) ?? null,
     started_at: String(row.started_at ?? ""),
     summary: (row.summary as string) ?? null,
@@ -89,7 +90,7 @@ export function useSessions() {
     return res.error ? plainError(res.error, "save") : null;
   }, []);
 
-  const finish = useCallback(async (id: string, transcript: Turn[], debrief: string, summary: string) => {
+  const finish = useCallback(async (id: string, transcript: Turn[], debrief: Debrief, summary: string) => {
     const res = await updateSession(id, { transcript, debrief, summary, ended_at: new Date().toISOString() });
     return res.error ? plainError(res.error, "save") : null;
   }, []);

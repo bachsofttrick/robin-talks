@@ -17,7 +17,7 @@ export interface PracticeSessionRow {
   user_id: string;
   scenario_id: string | null;
   transcript: unknown;
-  debrief: string | null;
+  debrief: unknown;
   summary: string | null;
   started_at: string | null;
   ended_at: string | null;
@@ -96,7 +96,7 @@ export function getSession(id: string): Promise<DataResult<PracticeSessionRow>> 
 
 export function updateSession(
   id: string,
-  patch: { transcript?: unknown; debrief?: string; summary?: string; ended_at?: string },
+  patch: { transcript?: unknown; debrief?: unknown; summary?: string; ended_at?: string },
 ): Promise<DataResult<PracticeSessionRow>> {
   return request<PracticeSessionRow>("/sessions/" + encodeURIComponent(id), {
     method: "PATCH",

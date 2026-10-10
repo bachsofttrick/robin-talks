@@ -92,8 +92,8 @@ card rather than the tab bar.
    `db.ai.models.smart`, persists the debrief JSON and summary via
    `sessions.finish`, stores debrief memory notes, and swaps the screen to the
    debrief view.
-7. Raw audio is never stored. Only the transcript and the debrief string reach the
-   database.
+ 7. Raw audio is never stored. Only the transcript and the debrief JSON reach the
+    database.
 
 ## AI boundary
 

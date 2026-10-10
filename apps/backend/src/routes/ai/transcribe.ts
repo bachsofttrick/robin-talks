@@ -53,7 +53,7 @@ async function transcribeOnce(clip: { data: string; format: string }): Promise<A
 
 export const transcribeRouter = new Hono();
 
-transcribeRouter.post("/", async (c) => {
+transcribeRouter.post("/transcribe", async (c) => {
   try {
     if (!openRouterApiKey()) return c.json(transcribeFailure(AI_SAYS.failed, 0, "OPENROUTER_API_KEY is not set."));
     const body = await jsonBody(c);

@@ -50,7 +50,7 @@ cookie as a `Cookie` header; the browser sends its cookie with
 ### `useSessions` (`src/lib/api/useSessions.tsx`)
 
 - `Turn = { role: "robin" | "user"; text: string }`
-- `PracticeSession = { id, scenario_id, transcript: Turn[], debrief: string | null, ended_at, started_at, summary }`
+- `PracticeSession = { id, scenario_id, transcript: Turn[], debrief: Debrief | null, ended_at, started_at, summary }`
 - Actions (`practice_sessions`, `/api/data/sessions/*`): `reload` (the
   open session, `GET /sessions/open`), `create(scenarioId)` (`POST /sessions`,
   closes any open session server-side so each user keeps at most one, then

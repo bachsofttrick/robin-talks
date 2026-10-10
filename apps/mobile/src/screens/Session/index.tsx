@@ -179,7 +179,7 @@ export default function SessionScreen() {
         return;
       }
       setDebrief(result.debrief);
-      await finishSession(sessionId, final, JSON.stringify(result.debrief), result.debrief.summary);
+      await finishSession(sessionId, final, result.debrief, result.debrief.summary);
       for (const note of result.debrief.memory) await remember("profile", note);
       void reloadMemory();
       setFinishing(false);

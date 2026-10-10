@@ -46,7 +46,7 @@ Resolved open questions from spec.md: Q-1 is settled by the exported project: Bo
 Tables (already in this app's Borel cloud; this repo does not define the schema, so a missing table or policy is fixed in Borel, not here):
 
 - `learner_profiles`: `user_id` (text, one row per user, `default auth.user_id()`), `display_name`, `level` in Beginner / Intermediate / Advanced.
-- `practice_sessions`: `id`, `user_id`, `scenario_id`, `transcript` (JSON array of `Turn`), `debrief` (JSON text), `summary`, `ended_at`, `started_at`.
+- `practice_sessions`: `id`, `user_id`, `scenario_id`, `transcript` (JSON array of `Turn`), `debrief` (JSON object), `summary`, `ended_at`, `started_at`.
 - `robin_memory`: `id`, `user_id`, `kind`, `content`, `created_at`.
 
 All three need own-rows RLS policies (`user_id = auth.user_id()`), and every query also scopes with an explicit `.eq("user_id", ...)`.

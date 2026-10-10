@@ -10,7 +10,7 @@ import {
 
 export const editRouter = new Hono();
 
-editRouter.post("/", async (c) => {
+editRouter.post("/images/edits", async (c) => {
   try {
     if (!borelAiUrl()) return c.json({ url: null, error: AI_SAYS.edit, status: 0, reason: null, reused: null } satisfies AiImageResult);
     const body = await jsonBody(c);
