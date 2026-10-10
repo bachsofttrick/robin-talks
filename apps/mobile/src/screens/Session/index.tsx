@@ -172,7 +172,7 @@ export default function SessionScreen() {
         await stopRecording();
       }
       setFinishing(true);
-      const result = await runDebrief(scenario, profile.level, final);
+      const result = await runDebrief(scenario, profile.level, final, memory);
       if (!result.debrief) {
         setFinishing(false);
         setError(result.error);
@@ -181,10 +181,23 @@ export default function SessionScreen() {
       setDebrief(result.debrief);
       await finishSession(sessionId, final, result.debrief, result.debrief.summary);
       for (const note of result.debrief.memory) await remember("profile", note);
+      // The session's score goes into memory, so the next debrief compares
+      // against it and Robin's scene prompt carries the trend forward.
+      if (result.debrief.performance) {
+        await remember(
+          "performance",
+          "Overall " +
+            result.debrief.performance.overall +
+            "/100 in " +
+            scenario.title +
+            ". " +
+            result.debrief.performance.comparison,
+        );
+      }
       void reloadMemory();
       setFinishing(false);
     },
-    [scenario, sessionId, recording, runDebrief, profile.level, finishSession, remember, reloadMemory],
+    [scenario, sessionId, recording, runDebrief, profile.level, memory, finishSession, remember, reloadMemory],
   );
 
   const advance = useCallback(
@@ -312,6 +325,15 @@ export default function SessionScreen() {
           <Text style={styles.heroTitle}>How it went</Text>
           <Text style={styles.body}>{debrief.summary}</Text>
         </Animated.View>
+        {debrief.performance ? (
+          <View style={styles.block}>
+            <Text style={styles.blockTitle}>Performance</Text>
+            <Text style={styles.score}>{debrief.performance.overall}/100</Text>
+            {debrief.performance.comparison ? (
+              <Text style={styles.tip}>{debrief.performance.comparison}</Text>
+            ) : null}
+          </View>
+        ) : null}
         {debrief.mistakes.length ? (
           <View style={styles.block}>
             <Text style={styles.blockTitle}>Better phrasings</Text>
@@ -464,6 +486,7 @@ const styles = StyleSheet.create({
   body: { ...type.body, color: colors.textSecondary },
   block: { gap: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.text },
   blockTitle: { ...type.title, color: colors.text },
+  score: { ...type.title, fontFamily: fonts.bodyMedium, color: colors.accent },
   mistake: { gap: 2, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   said: { ...type.secondary, color: colors.textMuted, textDecorationLine: "line-through" },
   better: { ...type.body, fontFamily: fonts.bodyMedium, color: colors.text },

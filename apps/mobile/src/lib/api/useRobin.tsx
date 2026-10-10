@@ -11,8 +11,14 @@ export interface RobinReply {
   error: string | null;
 }
 
+export interface Performance {
+  overall: number;
+  comparison: string;
+}
+
 export interface Debrief {
   summary: string;
+  performance: Performance | null;
   mistakes: { said: string; better: string }[];
   tips: string[];
   memory: string[];
@@ -52,8 +58,22 @@ const DEBRIEF_SCHEMA: AiJsonSchema = {
       },
       tips: { type: "array", description: "2 to 3 short targeted tips.", items: { type: "string" } },
       memory: { type: "array", description: "Up to 3 durable notes about the learner.", items: { type: "string" } },
+      performance: {
+        type: "object",
+        description: "This session's score and how it compares to the learner's previous performance.",
+        properties: {
+          overall: { type: "number", description: "Overall English performance for this session, 0 to 100." },
+          comparison: {
+            type: "string",
+            description:
+              "One sentence comparing this session to the learner's previous performance, naming what improved or slipped.",
+          },
+        },
+        required: ["overall", "comparison"],
+        additionalProperties: false,
+      },
     },
-    required: ["summary", "mistakes", "tips", "memory"],
+    required: ["summary", "mistakes", "tips", "memory", "performance"],
     additionalProperties: false,
   },
 };
@@ -117,8 +137,14 @@ export function useRobin() {
     [],
   );
 
-  const debrief = useCallback(async (scenario: Scenario, level: string, transcript: Turn[]) => {
+  const debrief = useCallback(async (scenario: Scenario, level: string, transcript: Turn[], memory: MemoryNote[]) => {
     const script = transcript.map((t) => (t.role === "robin" ? "Robin: " : "Learner: ") + t.text).join("\n");
+    // The newest performance note is first; three give the model the trend.
+    const past = memory
+      .filter((m) => m.kind === "performance")
+      .slice(0, 3)
+      .map((m) => "- " + m.content)
+      .join("\n");
     const res = await db.ai.chat({
       jsonSchema: DEBRIEF_SCHEMA,
       model: db.ai.models.smart,
@@ -130,16 +156,28 @@ export function useRobin() {
             level +
             " level scene (" +
             scenario.title +
-            ").",
+            ")." +
+            (past
+              ? "\nThe learner's previous performance from memory (most recent first):\n" + past
+              : "\nThe learner has no previous performance recorded; this is their first scored session."),
         },
         { role: "user", content: script || "The learner ended before speaking." },
       ],
     });
     const data = res.data as Partial<Debrief> | null;
     if (!data) return { debrief: null as Debrief | null, error: res.error ?? "The debrief could not be written." };
+    const raw = data.performance;
+    const overall =
+      raw && typeof raw.overall === "number" && Number.isFinite(raw.overall)
+        ? Math.min(100, Math.max(0, Math.round(raw.overall)))
+        : null;
     return {
       debrief: {
         summary: typeof data.summary === "string" ? data.summary : "",
+        performance:
+          overall === null
+            ? null
+            : { overall, comparison: raw && typeof raw.comparison === "string" ? raw.comparison : "" },
         mistakes: Array.isArray(data.mistakes)
           ? data.mistakes
               .filter((m) => m && typeof m.said === "string" && typeof m.better === "string")
