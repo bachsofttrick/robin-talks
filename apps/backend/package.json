@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
+    "serve": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "bun test",
