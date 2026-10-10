@@ -1,3 +1,5 @@
+import { Resend } from "resend";
+
 type MailConfig = {
   provider?: string;
   apiKey?: string;
@@ -22,6 +24,30 @@ export function resetOutbox(): void {
   outbox.length = 0;
 }
 
+const subjects: Record<OtpType, string> = {
+  "sign-in": "Your Robin Talks sign-in code",
+  "email-verification": "Verify your Robin Talks email",
+  "forget-password": "Reset your Robin Talks password",
+  "change-email": "Confirm your new Robin Talks email",
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function renderOtpEmail(payload: OtpPayload): { subject: string; text: string; html: string } {
+  const subject = subjects[payload.type];
+  const code = payload.otp;
+  const text = `Your Robin Talks code is ${code}. It expires in 5 minutes. If you didn't request this, you can ignore this email.`;
+  const html = `<p>Your Robin Talks code is <strong>${escapeHtml(code)}</strong>.</p><p>It expires in 5 minutes. If you didn't request this, you can ignore this email.</p>`;
+  return { subject, text, html };
+}
+
 function createDevTransport(): OtpTransport {
   return {
     async send(payload) {
@@ -31,30 +57,26 @@ function createDevTransport(): OtpTransport {
   };
 }
 
-function createProviderTransport(config: MailConfig): OtpTransport {
+function createResendTransport(config: MailConfig): OtpTransport {
   return {
     async send(payload) {
-      const { provider, apiKey, from } = config;
-      if (!provider || !apiKey || !from) {
-        throw new Error("Mail provider is not fully configured: provider, apiKey and from are required");
+      const { apiKey, from } = config;
+      if (!apiKey || !from) {
+        throw new Error("Mail provider is not fully configured: apiKey and from are required");
       }
-
-      const response = await fetch(`https://api.${provider}.com/emails`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          from,
-          to: payload.email,
-          otp: payload.otp,
-          type: payload.type,
-        }),
+      const resend = new Resend(apiKey);
+      const { subject, text, html } = renderOtpEmail(payload);
+      const { error } = await resend.emails.send({
+        from,
+        to: payload.email,
+        subject,
+        text,
+        html,
       });
-
-      if (!response.ok) {
-        throw new Error(`Mail provider rejected the request with status ${response.status}`);
+      if (error) {
+        const e = error as { message?: string; error?: string; name?: string };
+        const message = e.message ?? e.error ?? e.name;
+        throw new Error(`Resend rejected the request: ${message}`);
       }
     },
   };
@@ -62,5 +84,6 @@ function createProviderTransport(config: MailConfig): OtpTransport {
 
 export function createOtpTransport(config: MailConfig): OtpTransport {
   if (!config.provider) return createDevTransport();
-  return createProviderTransport(config);
+  if (config.provider === "resend") return createResendTransport(config);
+  throw new Error(`Unsupported mail provider: ${config.provider}`);
 }

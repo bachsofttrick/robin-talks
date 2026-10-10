@@ -1,38 +1,16 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 
-import { createOtpTransport, outbox, resetOutbox, type OtpType } from "./otp-transport.js";
+import type { OtpType } from "./otp-transport.js";
 
-type FetchInput = Parameters<typeof fetch>[0];
-type FetchInit = Parameters<typeof fetch>[1];
-
-type FetchCall = {
-  input: FetchInput;
-  init: FetchInit;
+type SendPayload = {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
 };
 
-const originalFetch = globalThis.fetch;
-
-let calls: FetchCall[];
-let logSpy: ReturnType<typeof spyOn>;
-
-function stubFetch(response: Response): void {
-  globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
-    calls.push({ input: args[0], init: args[1] });
-    return response;
-  }) as typeof fetch;
-}
-
-beforeEach(() => {
-  calls = [];
-  resetOutbox();
-  logSpy = spyOn(console, "log").mockImplementation(() => {});
-});
-
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-  resetOutbox();
-  logSpy.mockRestore();
-});
+type SendResult = { data: unknown; error: unknown };
 
 const OTP_TYPES: OtpType[] = [
   "sign-in",
@@ -40,6 +18,78 @@ const OTP_TYPES: OtpType[] = [
   "forget-password",
   "change-email",
 ];
+
+const SECRET_KEY = "re_secret_test_key";
+
+const constructorCalls: unknown[][] = [];
+const sendCalls: SendPayload[] = [];
+let nextResult: SendResult = { data: { id: "ok" }, error: null };
+
+class FakeResend {
+  constructor(...args: unknown[]) {
+    constructorCalls.push(args);
+  }
+
+  emails = {
+    send: async (payload: SendPayload) => {
+      sendCalls.push(payload);
+      return nextResult;
+    },
+  };
+}
+
+mock.module("resend", () => ({ Resend: FakeResend }));
+
+const { createOtpTransport, renderOtpEmail, outbox, resetOutbox } = await import(
+  "./otp-transport.js"
+);
+
+let consoleCalls: unknown[][];
+let consoleSpies: ReturnType<typeof spyOn>[];
+
+function spyOnConsole(): void {
+  consoleCalls = [];
+  const methods = ["log", "error", "warn", "info", "debug"] as const;
+  consoleSpies = methods.map((method) =>
+    spyOn(console, method).mockImplementation((...args: unknown[]) => {
+      consoleCalls.push(args);
+    }),
+  );
+}
+
+function consoleMentioned(value: string): boolean {
+  return consoleCalls.some((args) =>
+    args.some((arg) => typeof arg === "string" && arg.includes(value)),
+  );
+}
+
+beforeEach(() => {
+  constructorCalls.length = 0;
+  sendCalls.length = 0;
+  nextResult = { data: { id: "ok" }, error: null };
+  resetOutbox();
+  spyOnConsole();
+});
+
+afterEach(() => {
+  resetOutbox();
+  for (const spy of consoleSpies) spy.mockRestore();
+});
+
+describe("renderOtpEmail", () => {
+  test("gives every type a distinct non-empty subject and puts the code in both bodies", () => {
+    const rendered = OTP_TYPES.map((type) => renderOtpEmail({ email: "a@b.c", otp: "654321", type }));
+
+    for (const { subject, text, html } of rendered) {
+      expect(subject.length).toBeGreaterThan(0);
+      expect(text).toContain("654321");
+      expect(html).toContain("654321");
+    }
+
+    const subjects = rendered.map((email) => email.subject);
+    expect(new Set(subjects).size).toBe(OTP_TYPES.length);
+  });
+});
 
 describe("createOtpTransport dev transport", () => {
   test("selects the dev transport when provider is unset and pushes to the outbox", async () => {
@@ -75,40 +125,72 @@ describe("createOtpTransport dev transport", () => {
   });
 });
 
-describe("createOtpTransport provider transport", () => {
-  test("selects the provider transport and posts the otp with authorization", async () => {
-    stubFetch(new Response("", { status: 200 }));
-    const transport = createOtpTransport({ provider: "resend", apiKey: "k", from: "a@b.c" });
+describe("createOtpTransport provider selection", () => {
+  test("selects the Resend transport for provider resend", async () => {
+    const transport = createOtpTransport({ provider: "resend", apiKey: SECRET_KEY, from: "a@b.c" });
 
     await transport.send({ email: "user@example.com", otp: "654321", type: "sign-in" });
 
-    expect(calls).toHaveLength(1);
-    const [call] = calls;
-    expect(String(call.input)).toContain("resend");
-    const headers = call.init?.headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Bearer k");
-    expect(JSON.parse(String(call.init?.body))).toMatchObject({ otp: "654321" });
+    expect(sendCalls).toHaveLength(1);
+  });
+
+  test.each(["sendgrid", "RESEND", " resend "])(
+    "throws for unsupported provider %p",
+    (provider) => {
+      expect(() => createOtpTransport({ provider })).toThrow(/unsupported/i);
+    },
+  );
+});
+
+describe("Resend transport send", () => {
+  test("sends once through the SDK with the config key as the sole constructor argument", async () => {
+    const transport = createOtpTransport({ provider: "resend", apiKey: SECRET_KEY, from: "from@b.c" });
+
+    await transport.send({ email: "user@example.com", otp: "654321", type: "sign-in" });
+
+    expect(constructorCalls).toEqual([[SECRET_KEY]]);
+    expect(sendCalls).toHaveLength(1);
+    expect(sendCalls[0]).toMatchObject({
+      from: "from@b.c",
+      to: "user@example.com",
+      subject: renderOtpEmail({ email: "user@example.com", otp: "654321", type: "sign-in" }).subject,
+    });
+    expect(sendCalls[0].text).toContain("654321");
+    expect(sendCalls[0].html).toContain("654321");
     expect(outbox).toEqual([]);
+    expect(consoleMentioned(SECRET_KEY)).toBe(false);
   });
 
-  test("defers incomplete configuration to send and names the missing config", async () => {
-    stubFetch(new Response("", { status: 200 }));
-
-    const transport = createOtpTransport({ provider: "resend" });
-    expect(transport).toBeDefined();
-    expect(calls).toHaveLength(0);
+  test("rejects with the Resend error message when the send result carries one", async () => {
+    nextResult = { data: null, error: { message: "domain not verified", name: "validation_error" } };
+    const transport = createOtpTransport({ provider: "resend", apiKey: SECRET_KEY, from: "a@b.c" });
 
     await expect(
       transport.send({ email: "a@b.c", otp: "1", type: "sign-in" }),
+    ).rejects.toThrow(/domain not verified/);
+  });
+
+  test("rejects with the nested error text when the send result has no message", async () => {
+    nextResult = { data: null, error: { name: "application_error", error: "invalid api key" } };
+    const transport = createOtpTransport({ provider: "resend", apiKey: SECRET_KEY, from: "a@b.c" });
+
+    await expect(
+      transport.send({ email: "a@b.c", otp: "1", type: "sign-in" }),
+    ).rejects.toThrow(/invalid api key/);
+  });
+
+  test("rejects incomplete configuration before constructing a client or sending", async () => {
+    const missingKey = createOtpTransport({ provider: "resend", from: "a@b.c" });
+    const missingFrom = createOtpTransport({ provider: "resend", apiKey: SECRET_KEY });
+
+    await expect(
+      missingKey.send({ email: "a@b.c", otp: "1", type: "sign-in" }),
     ).rejects.toThrow(/not fully configured/);
-  });
-
-  test("rejects when the provider responds with a non-ok status", async () => {
-    stubFetch(new Response("nope", { status: 500 }));
-    const transport = createOtpTransport({ provider: "resend", apiKey: "k", from: "a@b.c" });
-
     await expect(
-      transport.send({ email: "a@b.c", otp: "1", type: "sign-in" }),
-    ).rejects.toThrow(/status 500/);
+      missingFrom.send({ email: "a@b.c", otp: "1", type: "sign-in" }),
+    ).rejects.toThrow(/not fully configured/);
+
+    expect(constructorCalls).toHaveLength(0);
+    expect(sendCalls).toHaveLength(0);
   });
 });
