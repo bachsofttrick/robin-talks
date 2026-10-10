@@ -73,8 +73,12 @@ paths the mobile client issues.
 - **OTP transport** (`src/lib/mail/otp-transport.ts`): `createOtpTransport(mailConfig())`
   returns the dev transport when `MAIL_PROVIDER` is unset, which logs the code and
   pushes `{ email, otp, type }` to an exported in-process `outbox` (`resetOutbox`
-  clears it, both used by tests), and a `fetch`-based provider transport when it is
-  set. Provider completeness is checked in `send`.
+  clears it, both used by tests), and a Resend transport when it is `resend`. The
+  Resend transport checks completeness in `send`, builds `new Resend(config.apiKey)`,
+  and throws on a returned `{ error }` (the SDK does not throw). An unsupported
+  provider throws `Unsupported mail provider: <value>`. The pure
+  `renderOtpEmail(payload)` maps each `OtpType` to a fixed subject and a shared
+  text/html body carrying the code.
 - **Env vars** (`src/lib/env.ts`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
   `BETTER_AUTH_URL`
   (default `http://localhost:3000`), `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`,

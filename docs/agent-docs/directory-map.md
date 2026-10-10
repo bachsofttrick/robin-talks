@@ -125,7 +125,7 @@ robin-talks/
 │           │   │              (types.ts shared shapes and the FetchSeam seam + AiSession gate type,
 │           │   │              constants.ts models/timeouts/caps, functions.ts looksPlain/openRouterSays/timeout
 │           │   │              fetches/JSON and image proxies, index.ts barrel), and
-│           │   │              mail/otp-transport.ts (dev outbox vs fetch provider transport).
+│           │   │              mail/otp-transport.ts (dev outbox vs Resend transport).
 │           │   └── routes/    data/ (index.ts exporting the dataRouter const with the session gate; profile.ts,
 │           │                  sessions.ts, memory.ts, profiles.ts) and ai/ (index.ts exporting the aiRouter const
 │           │                  with the session gate; chat.ts, transcribe.ts, generations.ts, edits.ts holding the

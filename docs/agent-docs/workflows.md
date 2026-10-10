@@ -143,7 +143,7 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 | `src/lib/db/client.test.ts` | `getDb()` laziness and memoization, the barrel |
 | `src/lib/db/migration.test.ts` | the committed migration in `information_schema` (skips without a database) |
 | `src/lib/env.test.ts` | database URL resolution, auth secret, trusted origins, mail config, port |
-| `src/lib/mail/otp-transport.test.ts` | dev/provider transport selection and the outbox |
+| `src/lib/mail/otp-transport.test.ts` | dev/Resend transport selection and the outbox, with the `resend` module mocked via `mock.module` (no network) |
 
 The database-backed tests (`lib/auth.e2e.test.ts`, `routes/router.test.ts`,
 `lib/db/migration.test.ts`) skip with a reported reason when no `PG*`
@@ -200,7 +200,9 @@ with static dot access only). The root `.env.example` lists the full set:
   `BACKEND_AI_URL`. Both surfaces use it.
 - Backend auth and AI (`apps/backend`): `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`,
   `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`, `MAIL_PROVIDER`,
-  `MAIL_API_KEY`, `MAIL_FROM`, `OPENROUTER_API_KEY`, `BOREL_AI_URL`
+  `MAIL_API_KEY`, `MAIL_FROM`, `OPENROUTER_API_KEY`, `BOREL_AI_URL`. Setting
+  `MAIL_PROVIDER=resend` delivers through the Resend SDK with `MAIL_API_KEY` and
+  `MAIL_FROM`.
 
 The root `.env` exists, is git-ignored, and is shared through the two workspace
 symlinks described above. Missing `OPENROUTER_API_KEY` on the backend makes
@@ -247,7 +249,7 @@ with `jsxImportSource: hono/jsx` and `types: ["node", "bun-types"]`;
 import; `getDb()` in `src/lib/db/client.ts` is lazy and memoized; `requireDatabaseUrl()`
 is the only database thrower and runs inside `index.ts`'s `import.meta.main` guard.
 The OTP email seam is `src/lib/mail/otp-transport.ts`, which selects a dev outbox when
-`MAIL_PROVIDER` is unset and a `fetch` provider otherwise. `drizzle.config.ts` holds
+`MAIL_PROVIDER` is unset and a Resend SDK transport when it is `resend`. `drizzle.config.ts` holds
 the drizzle-kit config, and the committed migrations live in `drizzle/`.
 
 ## Spec workflow
