@@ -1,7 +1,7 @@
 # Spec: Move auth into the Hono backend
 
 Status: verified
-Request: Move auth of this app into our hono backend, reducing dependency on borel.one. Use drizzle, better-auth. Consult context7 on how to proceed. You have permission to use this Neon database: PGHOST=ep-super-forest-arzkb9q6-pooler.c-4.us-west-2.aws.neon.tech, PGHOST_UNPOOLED=ep-super-forest-arzkb9q6.c-4.us-west-2.aws.neon.tech, PGUSER=neondb_owner, PGDATABASE=neondb, PGPASSWORD=<redacted>. Create a spec, a plan. With each, have an `adversaral-agent` review it, come to an agreement then proceed to the next step. No human acceptance required for any step forward.
+Request: Move auth of this app into our hono backend, reducing dependency on borel.one. Use drizzle, better-auth. Consult context7 on how to proceed. Create a spec, a plan. With each, have an `adversaral-agent` review it, come to an agreement then proceed to the next step. No human acceptance required for any step forward.
 
 Request (browser update): move browser preview auth to hono backend. Spec, plan are to be reviewed by `adversarial-agent` until both get into an agreement. No human approval will be involved.
 
