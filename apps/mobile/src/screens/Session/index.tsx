@@ -236,11 +236,12 @@ export default function SessionScreen() {
       if (!aliveRef.current || turnRef.current !== turn) return;
       if (reply.complete) {
         void finish(withRobin);
-      } else {
+      } else if (!typing) {
+        // Prevent mic from turning on with keyboard
         void openMic();
       }
     },
-    [scenario, sessionId, profile, memory, nextTurn, recent, saveTranscript, remember, reloadMemory, say, openMic, finish],
+    [scenario, sessionId, profile, memory, typing, nextTurn, recent, saveTranscript, remember, reloadMemory, say, openMic, finish],
   );
 
   // The async wrapper keeps advance's state updates off the effect's
