@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 
-import { app, createApp } from "./app.js";
+import { app, createApp } from "./appDef.js";
 
 const AUTH_ROUTES: Array<{ method: "POST" | "GET"; path: string }> = [
   { method: "POST", path: "/api/auth/sign-up/email" },
