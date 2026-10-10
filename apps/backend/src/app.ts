@@ -10,15 +10,11 @@ export function createApp() {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
-  app.use("/api/auth/*", cors({ origin: trustedOrigins(), credentials: true }));
+  app.use("/api/*", cors({ origin: trustedOrigins(), credentials: true }));
 
   app.all("/api/auth/*", (c) => auth.handler(c.req.raw));
 
-  app.use("/api/data/*", cors({ origin: trustedOrigins(), credentials: true }));
-
   app.route("/api/data", dataRouter);
-
-  app.use("/api/ai/*", cors({ origin: trustedOrigins(), credentials: true }));
 
   app.route("/api/ai", aiRouter);
 

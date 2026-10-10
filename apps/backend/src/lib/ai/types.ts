@@ -54,7 +54,5 @@ export type AiTranscribeResult = { text: string | null; error: string | null; st
  */
 export type AiImageResult = { url: string | null; error: string | null; status: number; reason: AiRefusal | null; reused: boolean | null };
 
-export type AiSession = { user: { id: string } };
-
 /** A provider fetch that races its own timeout. */
 export type FetchSeam = (url: string, init: RequestInit, timeoutMs: number) => Promise<Response>;
