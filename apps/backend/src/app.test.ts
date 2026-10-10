@@ -235,7 +235,11 @@ describe("AC-26: trusted origin acceptance in a spawned process", () => {
 
 describe("AC-4: missing database configuration", () => {
   test("starting the server without database configuration exits non-zero naming the variables", () => {
-    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: "test" };
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      NODE_ENV: "production",
+      BETTER_AUTH_SECRET: "test-secret",
+    };
     for (const key of DATABASE_ENV_KEYS) delete env[key];
 
     const entry = new URL("./index.ts", import.meta.url).pathname;
