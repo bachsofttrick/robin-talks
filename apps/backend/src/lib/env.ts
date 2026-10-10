@@ -21,9 +21,9 @@ export function databaseUrlOrNull(): string | null {
   return null;
 }
 
-export function requireDatabaseUrl(): string {
+export function requireDatabaseUrl(): void {
   const url = databaseUrlOrNull();
-  if (url) return url;
+  if (url) return;
 
   console.error(
     "Missing required database configuration: set PGHOST, PGUSER, PGPASSWORD, and PGDATABASE",

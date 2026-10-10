@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "robin-talks-backend",
+  "main": "dist/index.js",
+  "compatibility_date": "2026-10-10",
+  "tsconfig": "./tsconfig.json"
+}
