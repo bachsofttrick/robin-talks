@@ -108,7 +108,7 @@ is the thin client that POSTs to it and keeps the public `db.ai` surface:
   key is backend-only (`OPENROUTER_API_KEY` in `apps/backend`); the mobile app
   no longer reads `EXPO_PUBLIC_OPENROUTER_API_KEY`.
 - `ai.transcribe` POSTs to `/api/ai/transcribe`; the backend fetches OpenRouter's
-  `/audio/transcriptions` with model `qwen/qwen3-asr-0.6b`.
+  `/audio/transcriptions` with model `google/gemini-3.5-transcribe`.
 - `ai.image` and `ai.editImage` POST to `/api/ai/images/generations` and
   `/images/edits`, which transparently proxy Borel (`BOREL_AI_URL`), because
   Borel stores generated images in the app's own files.

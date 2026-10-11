@@ -29,11 +29,11 @@ describe("aiConsentWording", () => {
     expect(message).toContain("photos");
   });
 
-  test("audio names OpenRouter and the Qwen3 ASR maker", () => {
+  test("audio names OpenRouter and the Gemini transcribe maker", () => {
     const { key, message } = aiConsentWording("audio", "");
     expect(key).toBe("openrouter:audio");
     expect(message).toContain("OpenRouter.ai");
-    expect(message).toContain("Qwen3 ASR by Alibaba");
+    expect(message).toContain("Gemini 3.5 Transcribe by Google");
   });
 
   test("image and editImage stay on OpenAI", () => {

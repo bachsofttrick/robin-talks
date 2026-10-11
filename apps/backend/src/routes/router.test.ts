@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 
-import { app } from "../app.js";
+import { app } from "../appDef.js";
 import {
   getDb,
   learnerProfiles,

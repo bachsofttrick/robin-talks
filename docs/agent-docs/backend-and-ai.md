@@ -261,7 +261,7 @@ proxies), re-exported by `index.ts`.
   `OPENROUTER_API_KEY` resolves the "failed" sentence (with `detail`) before
   any request.
 - **`POST /transcribe`:** plain `fetch` to OpenRouter's
-  `/audio/transcriptions` with the pinned model `qwen/qwen3-asr-0.6b`
+  `/audio/transcriptions` with the pinned model `google/gemini-3.5-transcribe`
   (`AI_AUDIO_MODEL`); the body is `{ audio: { data, format } }`, so callers'
   `language` and `prompt` are dropped. The 3 MB cap (`MAX_AUDIO_BASE64`)
   and empty-body guards answer locally with the "too long" or "no words"
@@ -327,7 +327,7 @@ AsyncStorage under `borel.aiConsent.v1:<key>` and remembered for the session;
 "Don't Allow" is not stored, so the next use asks again. Keys are per kind:
 `openrouter:chat`, `openrouter:photo`, `openrouter:audio`, and `openai:image`,
 `openai:edit` for the Borel image paths. `AI_MAKERS` maps `openai/gpt-6-luna` to
-"GPT-6 by OpenAI" and `qwen/qwen3-asr-0.6b` to "Qwen3 ASR by Alibaba".
+"GPT-6 by OpenAI" and `google/gemini-3.5-transcribe` to "Gemini 3.5 Transcribe by Google".
 
 ## Polyfills
 

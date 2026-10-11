@@ -15,10 +15,10 @@ import { Alert } from "react-native";
 const AI_CONSENT_KEY = "borel.aiConsent.v1:";
 const AI_MAKERS: Record<string, string> = {
   "openai/gpt-6-luna": "GPT-6 by OpenAI",
-  "qwen/qwen3-asr-0.6b": "Qwen3 ASR by Alibaba",
+  "google/gemini-3.5-transcribe": "Gemini 3.5 Transcribe by Google",
 };
 // The one model that hears a recording (OpenRouter sends every recording to it).
-export const AI_AUDIO_MODEL = "qwen/qwen3-asr-0.6b";
+export const AI_AUDIO_MODEL = "google/gemini-3.5-transcribe";
 export const AI_DECLINED = "This feature shares what you send with AI, so it needs your permission. Use it again and tap Allow to turn it on.";
 const aiConsentGiven = new Set<string>();
 const aiConsentAsking = new Map<string, Promise<boolean>>();

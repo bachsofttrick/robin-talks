@@ -26,7 +26,7 @@ export const MODEL_ALLOWLIST = new Set(["openai/gpt-6-luna"]);
 export const DEFAULT_MODEL = "openai/gpt-6-luna";
 
 // The pinned audio model of the moved transcribe transport.
-export const AI_AUDIO_MODEL = "qwen/qwen3-asr-0.6b";
+export const AI_AUDIO_MODEL = "google/gemini-3.5-transcribe";
 
 // The base64 of the 3 MB audio cap plus the same slack the client allows.
 export const MAX_AUDIO_BASE64 = 4194404;

@@ -33,7 +33,7 @@ jest.mock("./auth", () => ({
 jest.mock("./consent", () => ({
   askAiConsent: jest.fn(async () => true),
   AI_DECLINED: "This feature shares what you send with AI, so it needs your permission. Use it again and tap Allow to turn it on.",
-  AI_AUDIO_MODEL: "qwen/qwen3-asr-0.6b",
+  AI_AUDIO_MODEL: "google/gemini-3.5-transcribe",
 }));
 
 jest.mock("./errors", () => ({
@@ -362,7 +362,7 @@ describe("the consent gate", () => {
   test("the other surfaces ask their own kind", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ text: "hi" }));
     await ai.transcribe({ audio: { base64: "AAAA", mimeType: "audio/m4a" } });
-    expect(consentMock).toHaveBeenLastCalledWith("audio", "qwen/qwen3-asr-0.6b");
+    expect(consentMock).toHaveBeenLastCalledWith("audio", "google/gemini-3.5-transcribe");
     fetchMock.mockResolvedValue(jsonResponse({ url: "https://img.test/g.png", error: null, status: 200, reason: null, reused: true }));
     await ai.image({ prompt: "unique-consent" });
     expect(consentMock).toHaveBeenLastCalledWith("image", "");

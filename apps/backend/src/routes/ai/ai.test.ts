@@ -4,6 +4,10 @@ import * as realFunctions from "../../lib/ai/functions.js";
 import { chatSend as realChatSend } from "@openrouter/sdk/funcs/chatSend";
 import { auth as realAuth } from "../../lib/auth.js";
 
+// Capture the real resolver before the mock below replaces the module, so the
+// fallback answers signed out instead of calling back into the mock itself.
+const realGetSession = realAuth.api.getSession.bind(realAuth.api);
+
 // Loose is any: these fakes mirror the provider's untyped surfaces.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
@@ -30,7 +34,7 @@ mock.module("../../lib/auth.js", () => ({
   auth: {
     api: {
       getSession: async ({ headers }: { headers: Headers }) =>
-        sessionImpl ? sessionImpl(headers) : realAuth.api.getSession({ headers }),
+        sessionImpl ? sessionImpl(headers) : realGetSession({ headers }),
     },
   },
 }));
@@ -544,7 +548,7 @@ describe("AC-4: transcribe", () => {
     const { url, init, timeoutMs } = audio[0];
     expect(url).toBe("https://openrouter.ai/api/v1/audio/transcriptions");
     expect(timeoutMs).toBe(60000);
-    expect(JSON.parse(String(init.body))).toEqual({ model: "qwen/qwen3-asr-0.6b", input_audio: { data: "AAAA", format: "m4a" } });
+    expect(JSON.parse(String(init.body))).toEqual({ model: "google/gemini-3.5-transcribe", input_audio: { data: "AAAA", format: "m4a" } });
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-key");
   });
 
