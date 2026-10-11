@@ -1,0 +1,26 @@
+# Mirrors the root .gitignore (.easignore overrides it for EAS uploads)
+# plus local-only entries EAS Build must not upload.
+
+# Ignore playwright
+.playwright-cli
+.playwright-mcp
+
+node_modules/
+.expo/
+dist/
+web-build/
+.turbo/
+*.log
+.DS_Store
+
+# Native projects, if you run `npx expo prebuild`
+/ios
+/android
+
+# Local env
+.env
+.env.local
+
+# Local code-indexer state. Contains a live socket (daemon.sock) that
+# breaks the EAS upload ("Cannot copy a socket file").
+.codegraph/

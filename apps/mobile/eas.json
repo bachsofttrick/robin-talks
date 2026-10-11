@@ -1,0 +1,14 @@
+{
+  "cli": {
+    "version": ">= 24.12.1",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {}
+  }
+}
