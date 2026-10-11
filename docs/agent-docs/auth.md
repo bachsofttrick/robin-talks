@@ -109,7 +109,8 @@ failure.
   without `AuthProvider` above it.
 - `SignInFlow` (`SignInFlow.tsx`) is one component with steps `signIn`, `signUp`,
   `confirm`, `forgot`, `reset`. It shows the Terms and Privacy links on the
-  sign-up step.
+  sign-up step through `openPrivacyPolicy`/`openTermsOfUse` from
+  `src/lib/core/legalLinks.tsx`.
 - `SignInSheet` wraps `SignInFlow` in a modal. `AccountPanel`
   (`AccountPanel.tsx`) shows the signed-in email with change-password, sign-out,
   and a two-step delete-account flow.

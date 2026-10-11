@@ -8,7 +8,7 @@ Per-workspace commands still work when run inside a workspace.
 ## Root scripts
 
 The root `package.json` is private (`robin-talks-monorepo`), declares
-`"workspaces": ["apps/*"]` and `"packageManager": "bun@1.4.2"`, and maps every
+`"workspaces": ["apps/*"]` and `"packageManager": "bun@1.3.14"`, and maps every
 task to `turbo run <task>`:
 
 | Root command | Runs |
@@ -79,7 +79,8 @@ come from EAS environment variables.
 ## Run
 
 ```bash
-bun start          # ELECTRON_DISABLE_SANDBOX=1 expo start
+bun run dev        # ELECTRON_DISABLE_SANDBOX=1 expo start
+bun run apk        # eas build -p android --profile preview
 bun run android    # expo start --android
 bun run ios        # expo start --ios
 bun run web        # expo start --web
@@ -137,6 +138,7 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 | `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*`, `/api/data/*`, and `/api/ai/*`, the AI 401 gate on all four paths, missing-`PGHOST` subprocess exit |
 | `src/routes/ai/ai.test.ts` | the `/api/ai` router end to end with `mock.module` session, `chatSend`, and fetch seams: structured output and the JSON retry, truncation, model allowlist, transcribe caps and guards, the Borel image proxy and refusal mapping, and the 401 gate (44 tests, no database or network) |
 | `src/lib/auth.e2e.test.ts` | sign-up/verify/sign-in/sign-out, email verification resend, reset, change-password, delete-user, edge cases (skips without a database) |
+| `src/routes/legal/legal.test.ts` | the public `/legal/privacy-policy` and `/legal/terms-of-service` HTML pages, served without an account |
 | `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
 | `src/routes/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
 | `src/lib/db/schema.test.ts` | table and column names, uniques, cascade FKs |
@@ -211,18 +213,21 @@ request.
 
 ## Build and release
 
-`apps/mobile` has no build script, and no EAS config file exists. `app.json`
-holds the Expo config (name, slug, icon/splash, plugins, `newArchEnabled: true`)
-and ships placeholder identifiers `com.example.robintalks`. The root `README.md`
+`apps/mobile` has no build script; EAS owns the mobile build. `eas.json` holds the
+EAS build profiles (`preview` builds an Android `apk`, `production` uses the
+defaults), and `bun run apk` runs `eas build -p android --profile preview`.
+`app.json` holds the Expo config (name, slug, icon/splash, plugins, Android audio
+permissions, and an `extra.eas.projectId`) and still ships placeholder
+identifiers `com.example.robintalks`. The root `README.md`
 says to change the bundle identifier, replace the assets, and build with
 `bunx eas build`. `dist/` and `.expo/` are generated output and git-ignored.
 
 ## Backend (`apps/backend`)
 
 A Hono service, package `@robin-talks/backend`, that runs a better-auth account
-service at `/api/auth/*`, the authenticated data API at `/api/data/*`, and the
+service at `/api/auth/*`, the authenticated data API at `/api/data/*`, the
 AI router at `/api/ai` (OpenRouter chat and transcription, a Borel image proxy)
-over drizzle and Neon Postgres. The mobile app reaches it over HTTP for auth,
+over drizzle and Neon Postgres, and public `/legal/*` HTML pages. The mobile app reaches it over HTTP for auth,
 its own profile, sessions, and memory, and all AI on both surfaces. It
 takes part in the root install and in the root Turbo tasks, so no
 separate install step exists:
@@ -247,7 +252,7 @@ with `jsxImportSource: hono/jsx` and `types: ["node", "bun-types"]`;
 `tsconfig.build.json` extends it with `rootDir: src`, `outDir: dist`, and excludes
 `src/**/*.test.ts`. `src/lib/env.ts` reads `process.env` only and never throws at
 import; `getDb()` in `src/lib/db/client.ts` is lazy and memoized; `requireDatabaseUrl()`
-is the only database thrower and runs inside `index.ts`'s `import.meta.main` guard.
+is the only database thrower and runs at `index.ts` module load.
 The OTP email seam is `src/lib/mail/otp-transport.ts`, which selects a dev outbox when
 `MAIL_PROVIDER` is unset and a Resend SDK transport when it is `resend`. `drizzle.config.ts` holds
 the drizzle-kit config, and the committed migrations live in `drizzle/`.

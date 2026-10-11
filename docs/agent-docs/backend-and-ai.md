@@ -32,14 +32,19 @@ image generation reaches Borel through the backend's proxy. A
 backend test (`src/conformance.test.ts`) proves the backend serves the exact auth
 paths the mobile client issues.
 
-- **Server** (`src/app.ts`, `src/index.ts`): `createApp()` returns a Hono app with
-  `GET /health` -> `{ status: "ok" }`, CORS with
-  `trustedOrigins()` and credentials on `/api/auth/*`, `/api/data/*`, and
-  `/api/ai/*`, `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`,
+- **Server** (`src/appDef.ts`, `src/index.ts`): `createApp()` returns a Hono app with
+  `GET /health` -> `{ status: "ok" }`, `app.route("/legal", legalRouter)`, CORS with
+  `trustedOrigins()` and credentials on `/api/*`, `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`,
   `app.route("/api/data", dataRouter)`, and
-  `app.route("/api/ai", aiRouter)`. `index.ts`
-  default-exports `app` and, under `import.meta.main`, calls
-  `requireDatabaseUrl()` then `Bun.serve`.
+  `app.route("/api/ai", aiRouter)`. Both `createApp` and the built `app` are
+  exported. `index.ts` imports `app`, calls `requireDatabaseUrl()` at module
+  load, and default-exports `app`.
+- **Public legal pages** (`src/routes/legal/`): `legalRouter` serves
+  `GET /legal/privacy-policy` and `GET /legal/terms-of-service` as HTML
+  (`legal-pages.ts` holds the page template and the copy). It is mounted at
+  `/legal`, outside `/api`, so it needs no session and no CORS; `legal.test.ts`
+  asserts both pages render without an account. The mobile app's
+  `src/lib/core/legalLinks.tsx` links here.
 - **Auth config** (`src/lib/auth.ts`): `betterAuth` 1.6.23 with
   `drizzleAdapter(getDb(), { provider: "pg", schema })`; `baseURL`, `secret`, and
   `trustedOrigins` from `src/lib/env.ts`; email+password enabled with
@@ -55,9 +60,9 @@ paths the mobile client issues.
   camelCase columns, unique `user.email` and `session.token`, indexed
   `verification.identifier`, and cascade FKs `session.userId`/`account.userId` ->
   `user.id`; `schema.ts` holds the four app tables (see the data API below);
-  `index.ts` re-exports both. The committed migrations are
-  `drizzle/0000_lean_george_stacy.sql`
-  (auth tables) and `drizzle/0001_complete_silver_fox.sql` (the four app tables).
+  `index.ts` re-exports both. The one committed migration is
+  `drizzle/0000_lyrical_fallen_one.sql`, which creates all eight tables (the
+  better-auth tables and the four app tables).
 - **Database** (`src/lib/db/client.ts`, `src/lib/db/index.ts`): a lazy memoized `getDb()`
   builds one `drizzle(new Pool({ connectionString: databaseUrlOrNull() ?? undefined
   }), { schema })`; it does not connect or throw when no database is configured.
@@ -98,7 +103,7 @@ paths the mobile client issues.
 ## Backend data API (`apps/backend/src/routes/`)
 
 `src/routes/data/index.ts` is mounted at `/api/data` by `createApp()`
-(`src/app.ts:19`). A middleware resolves the caller from the better-auth session
+(`src/appDef.ts:20`). A middleware resolves the caller from the better-auth session
 cookie with `auth.api.getSession({ headers: c.req.raw.headers })`, returns 401
 `{ error: "You need to sign in first." }` when there is no session, and sets the
 route's `userId`. The operations live in four sibling routers,
@@ -128,8 +133,9 @@ projections.
 - `PUT /profiles` `{ email, display_name, avatar_url }` -> upsert on `id`
 
 The four app tables (`learner_profiles`, `practice_sessions`, `robin_memory`,
-`profiles`) are added by `drizzle/0001_complete_silver_fox.sql` with snake_case
-columns, `gen_random_uuid()::text` ids for the two generated-id tables, and
+`profiles`) are created by `drizzle/0000_lyrical_fallen_one.sql` (alongside the
+better-auth tables) with snake_case columns, `gen_random_uuid()::text` ids for
+the two generated-id tables, a `jsonb` `debrief` column defaulting to `'{}'`, and
 `ON DELETE CASCADE` foreign keys to `"user"(id)`. The mobile data client is
 `src/lib/core/db/data.ts` (see [api-layer.md](api-layer.md)). `src/routes/router.test.ts`
 drives `app.request` with a signed-in cookie across the operations, the
@@ -220,11 +226,12 @@ server-side, so no secret is held in `db.ts`.
 ## AI (`apps/backend/src/routes/ai/` and `src/lib/ai/`, plus the thin client `src/lib/core/db/ai.ts`)
 
 All AI transport runs in the backend's `/api/ai` router, mounted by `createApp()`
-(`src/app.ts`). `src/routes/ai/index.ts` exports the `aiRouter` const (same shape
+(`src/appDef.ts`). `src/routes/ai/index.ts` exports the `aiRouter` const (same shape
 as `dataRouter`): a session-gate middleware plus four sub-router consts
 (`chatRouter` in `chat.ts`, `transcribeRouter` in `transcribe.ts`,
-`generationRouter` in `generations.ts`, `editRouter` in `edits.ts`), mounted at
-`/chat`, `/transcribe`, `/images/generations`, and `/images/edits`. There is no
+`generationRouter` in `generations.ts`, `editRouter` in `edits.ts`), each
+mounted at `/` and declaring its own path (`/chat`, `/transcribe`,
+`/images/generations`, and `/images/edits`). There is no
 router factory and no injected deps object: each sub-router is a plain const and
 the provider calls use the real implementations directly: better-auth's
 `auth.api.getSession({ headers })`, the SDK's standalone `chatSend` imported

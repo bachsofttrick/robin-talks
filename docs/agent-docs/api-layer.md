@@ -108,8 +108,9 @@ in the current code (`src/lib/core/db/ai.ts:283`).
 
 ## Database tables used
 
-The four tables live in the backend's Neon Postgres, created by
-`apps/backend/drizzle/0001_complete_silver_fox.sql`, and are scoped to the session
+The four tables live in the backend's Neon Postgres, created (together with the
+four better-auth tables) by
+`apps/backend/drizzle/0000_lyrical_fallen_one.sql`, and are scoped to the session
 user by the `/api/data/*` router rather than row-level security. Tables referenced
 by the app:
 

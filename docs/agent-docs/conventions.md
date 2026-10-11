@@ -20,6 +20,11 @@ The two Borel bridges under `src/lib/core/borel/`, `borel-store.js` and
 `// borel: custom entry` is left alone by regeneration, but none of the current
 files use that marker. Put app logic outside these files.
 
+`src/lib/core/legal.tsx` still carries Borel's hardcoded Borel/Apple URLs and is
+kept so regeneration stays in sync, but nothing imports it. The links the app
+renders come from the app-owned `src/lib/core/legalLinks.tsx`, which derives the
+backend `/legal/*` URLs from `EXPO_PUBLIC_BACKEND_URL` (trailing `/api` stripped).
+
 ## Connector + submodule shape
 
 `db.ts` and `auth.tsx` are thin connectors: they keep the managed header and
@@ -32,7 +37,9 @@ re-export it from the connector.
 ## Imports
 
 - Import from a local barrel where one exists: `../ui`, `../core/db`,
-  `../core/auth`, `../core/legal`, `../navigation`.
+  `../core/auth`, `../navigation`. There is no `core` barrel for legal: the app
+  imports `../legalLinks` from `src/lib/core/auth/` and
+  `../../lib/core/legalLinks` from a screen.
 - `src/lib/api/` is the exception: screens and the navigator import the module
   they need (`../../lib/api/useSessions`, `../../lib/api/scenarios`). The
   `src/lib/api/index.tsx` barrel exports the same surface and nothing imports it

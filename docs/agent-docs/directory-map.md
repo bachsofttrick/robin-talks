@@ -9,9 +9,9 @@ Annotated tree of tracked source. Generated output (`dist/`, `.expo/`,
 ```
 robin-talks/
 ├── package.json               Private root, "robin-talks-monorepo": workspaces ["apps/*"],
-│   │                          packageManager bun@1.4.2, turbo + typescript devDeps, six
+│   │                          packageManager bun@1.3.14, turbo + typescript devDeps, six
 │   │                          turbo scripts (build, dev, lint, typecheck, test, db:migrate) plus env:link.
-├── turbo.json                 Task graph: build, typecheck, lint, test, start, //#env:link;
+├── turbo.json                 Task graph: build, typecheck, lint, test, dev, //#env:link;
 │   │                          agentGuidance false keeps AGENTS.md a symlink.
 ├── bunfig.toml                [install] linker = "hoisted" (required by the mobile Jest
 │   │                          transformIgnorePatterns allow-list).
@@ -52,7 +52,8 @@ robin-talks/
 │   │   │       │   ├── index.tsx      CoreProviders -> AuthProvider.
 │   │   │       │   ├── db.ts          Connector: re-exports db/* and assembles the `db` object.
 │   │   │       │   ├── auth.tsx       Connector: re-exports auth/* public surface.
-│   │   │       │   ├── legal.tsx      Borel-managed LegalLinks component and URLs.
+│   │   │       │   ├── legal.tsx      Borel-managed LegalLinks with hardcoded Borel/Apple URLs; kept for regeneration, nothing imports it.
+│   │   │       │   ├── legalLinks.tsx App-owned legal links the app uses: LEGAL_LINKS, openPrivacyPolicy/openTermsOfUse, LegalLinks; builds the backend /legal/* URLs from EXPO_PUBLIC_BACKEND_URL with its trailing /api stripped.
 │   │   │       │   ├── borel/
 │   │   │       │   │   ├── borel-store.js     Vendor reactive store (createStore, usePersistedState, ...).
 │   │   │       │   │   └── borel-systemui.js  Vendor native-module bridge (permissions, recording, speech, ...).
@@ -101,22 +102,25 @@ robin-talks/
 │   │   │           └── alertPolyfill.ts     DOM Alert for react-native-web.
 │   │   ├── assets/            icon.png, splash-icon.png, favicon.png.
 │   │   ├── app.json           Expo config (name, slug, plugins, identifiers).
-│   │   ├── package.json       @robin-talks/mobile: start/android/ios/web/typecheck/
+│   │   ├── package.json       @robin-talks/mobile: dev/apk/android/ios/web/typecheck/
 │   │   │                      lint/test scripts, deps, and the Jest config block.
+│   │   ├── eas.json           EAS build profiles: preview (android apk) and production.
+│   │   ├── .easignore         Files EAS Build must not upload (mirrors .gitignore plus .codegraph/).
 │   │   ├── babel.config.js    babel-preset-expo.
 │   │   ├── tsconfig.json      Extends expo/tsconfig.base, strict, jest types.
 │   │   ├── eslint.config.mjs  eslint-config-expo flat config with ignores.
 │   │   └── LICENSE
 │   └── backend/               Hono service, package @robin-talks/backend; runs better-auth at
 │       │                      /api/auth/*, the app data API at /api/data/*, and the AI router at
-│       │                      /api/ai over drizzle + Neon Postgres. The native app talks to it over HTTP.
+│       │                      /api/ai over drizzle + Neon Postgres, plus public /legal/* HTML pages.
+│       │                      The native app talks to it over HTTP.
 │           ├── .env           Symlink to ../../.env, maintained by env:link.
 │           ├── drizzle.config.ts  drizzle-kit config (Postgres credentials from PG*, out ./drizzle).
-│           ├── drizzle/       Committed migrations 0000_lean_george_stacy.sql (auth) and
-│           │                  0001_complete_silver_fox.sql (app tables), plus meta/ snapshots.
+│           ├── drizzle/       Committed migration 0000_lyrical_fallen_one.sql (all eight tables: the
+│           │                  four better-auth tables and the four app tables), plus meta/ snapshots.
 │           ├── src/
-│           │   ├── index.ts   Entry: default-exports app; under import.meta.main calls requireDatabaseUrl() then Bun.serve.
-│           │   ├── app.ts     createApp(): GET /health, CORS on /api/auth/*, /api/data/*, and /api/ai/*; auth.handler; app.route("/api/data", dataRouter); app.route("/api/ai", aiRouter).
+│           │   ├── index.ts   Entry: imports app from appDef, calls requireDatabaseUrl() at module load, default-exports app.
+│           │   ├── appDef.ts  createApp(): GET /health; app.route("/legal", legalRouter); CORS on /api/*; auth.handler; app.route("/api/data", dataRouter); app.route("/api/ai", aiRouter); exports createApp and the app instance.
 │           │   ├── conformance.test.ts  Proves the backend serves the auth paths the mobile client issues.
 │           │   ├── lib/       auth.ts (betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0),
 │           │   │              env.ts (process.env readers: database URLs, auth base URL/secret, trusted
@@ -127,10 +131,12 @@ robin-talks/
 │           │   │              fetches/JSON and image proxies, index.ts barrel), and
 │           │   │              mail/otp-transport.ts (dev outbox vs Resend transport).
 │           │   └── routes/    data/ (index.ts exporting the dataRouter const with the session gate; profile.ts,
-│           │                  sessions.ts, memory.ts, profiles.ts) and ai/ (index.ts exporting the aiRouter const
+│           │                  sessions.ts, memory.ts, profiles.ts), ai/ (index.ts exporting the aiRouter const
 │           │                  with the session gate; chat.ts, transcribe.ts, generations.ts, edits.ts holding the
 │           │                  chatRouter, transcribeRouter, generationRouter, and editRouter consts; ai.test.ts
-│           │                  with 44 tests patching the provider modules via mock.module, no database or network).
+│           │                  with 44 tests patching the provider modules via mock.module, no database or network),
+│           │                  and legal/ (index.ts exporting the legalRouter const: GET /privacy-policy and
+│           │                  /terms-of-service as HTML; legal-pages.ts holds the markup; legal.test.ts).
 │           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
 │           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
 │           ├── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, bun-types.
@@ -142,7 +148,7 @@ robin-talks/
 ```
 
 `apps/backend/src/**/*.test.ts` holds the `bun:test` suites next to source (app,
-ai, auth e2e, conformance, data router, db, env, mail); the database-backed ones
+ai, auth e2e, conformance, data router, db, env, legal, mail); the database-backed ones
 (`lib/auth.e2e.test.ts`, `routes/router.test.ts`, `lib/db/migration.test.ts`)
 skip with a reported reason when no database is configured. `routes/ai/ai.test.ts`
 (44 tests) patches the AI provider modules with `mock.module` and needs neither.

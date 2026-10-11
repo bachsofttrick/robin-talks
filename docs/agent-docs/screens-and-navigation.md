@@ -131,7 +131,8 @@ Wrapped in `RequireAccount`. Edits name and level (`useProfile().save`). Under
 "Your data" it shows a spinner while `memory.loading` or `sessions.loading` is
 true, then the memory-note count and destructive clears for all sessions and all
 memory, blocked while a session is open. Under "Account" it renders `AccountPanel`
-and `LegalLinks`.
+and `LegalLinks` (from `src/lib/core/legalLinks.tsx`, the app-owned links to the
+backend's `/legal/*` pages).
 
 ## Session screen dependencies
 
