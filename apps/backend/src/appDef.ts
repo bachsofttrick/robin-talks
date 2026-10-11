@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { auth } from "./lib/auth.js";
 import { dataRouter } from "./routes/data/index.js";
 import { aiRouter } from "./routes/ai/index.js";
-import { legalRouter } from "./routes/legal.js";
+import { legalRouter } from "./routes/legal/index.js";
 import { trustedOrigins } from "./lib/env.js";
 
 export function createApp() {

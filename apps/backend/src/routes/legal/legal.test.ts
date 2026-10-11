@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { app } from "../appDef.js";
+import { app } from "../../appDef.js";
 
 describe("public legal pages", () => {
   test("serves the privacy policy without an account", async () => {
