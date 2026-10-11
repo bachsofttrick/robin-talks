@@ -11,7 +11,7 @@ import { useProfile } from "../../lib/api/useProfile";
 import { useMemory } from "../../lib/api/useMemory";
 import { useSessions } from "../../lib/api/useSessions";
 import { AccountPanel, RequireAccount } from "../../lib/core/auth";
-import { LegalLinks } from "../../lib/core/legal";
+import { LegalLinks } from "../../lib/core/legalLinks";
 import type { Level } from "../../lib/api/scenarios";
 import { useFocusEffect } from "@react-navigation/native";
 

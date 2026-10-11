@@ -7,7 +7,7 @@ import type { AccountKitLabels } from "./labels";
 import { Field, PrimaryButton, LinkButton, Note, Problem } from "./controls";
 import { signIn, signUp, confirmEmail, resendConfirmation, sendPasswordReset, resetPassword } from "./actions";
 import { useKitSession } from "./context";
-import { openPrivacyPolicy, openTermsOfUse } from "../legal";
+import { openPrivacyPolicy, openTermsOfUse } from "../legalLinks";
 import { db } from "../db";
 
 export type SignInStep = "signIn" | "signUp" | "confirm" | "forgot" | "reset";

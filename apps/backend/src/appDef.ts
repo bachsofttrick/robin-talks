@@ -3,12 +3,15 @@ import { cors } from "hono/cors";
 import { auth } from "./lib/auth.js";
 import { dataRouter } from "./routes/data/index.js";
 import { aiRouter } from "./routes/ai/index.js";
+import { legalRouter } from "./routes/legal.js";
 import { trustedOrigins } from "./lib/env.js";
 
 export function createApp() {
   const app = new Hono();
 
   app.get("/health", (c) => c.json({ status: "ok" }));
+  
+  app.route("/legal", legalRouter);
 
   app.use("/api/*", cors({ origin: trustedOrigins(), credentials: true }));
 
