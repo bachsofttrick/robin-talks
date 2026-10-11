@@ -64,18 +64,26 @@ function loadSessionCookies(): Promise<void> {
         if (parsed && typeof parsed === "object") sessionCookies = parsed;
       })
       .catch(() => {
-        // Unreadable storage means signed out, never a crash.
+        // Unreadable storage means signed out, never a crash. Warn so a
+        // release-only read failure is visible, and clear the memo so a later
+        // call can retry instead of caching the failure forever.
+        console.warn("Could not read your saved sign-in on this device.");
+        sessionLoad = null;
       });
   }
   return sessionLoad;
 }
 
-function saveSessionCookies(): void {
+function saveSessionCookies(): Promise<void> {
   const write = Object.keys(sessionCookies).length
     ? AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionCookies))
     : AsyncStorage.removeItem(SESSION_STORAGE_KEY);
-  write.catch(() => {
-    // The session still works for this launch; it just won't survive a restart.
+  // A sign-in that returns before this write lands loses the session to a
+  // force-quit, so callers await the returned promise. The catch keeps a
+  // storage failure from rejecting that awaited call, and warns so a
+  // release-only write failure is visible.
+  return write.catch(() => {
+    console.warn("Could not save your sign-in on this device.");
   });
 }
 
@@ -149,7 +157,7 @@ export async function sessionCookieHeader(): Promise<string> {
     .join("; ");
 }
 
-const sessionPlugin = {
+export const sessionPlugin = {
   id: "borel-session",
   name: "borel-session",
   hooks: {
@@ -161,6 +169,9 @@ const sessionPlugin = {
       return { ...context, headers, credentials: "omit" };
     },
     async onResponse(context: any) {
+      // Load the persisted jar before merging, so a response that arrives
+      // before the load finishes can never overwrite it with a partial set.
+      await loadSessionCookies();
       const response = context.response;
       if (!response || !response.headers) return;
       const lines: string[] =
@@ -173,7 +184,10 @@ const sessionPlugin = {
         sessionCookies = {};
         changed = true;
       }
-      if (changed) saveSessionCookies();
+      // Await the write so the auth call only resolves once the cookie is
+      // durably stored. A caller who force-quits right after signing in then
+      // still finds the session on the next launch.
+      if (changed) await saveSessionCookies();
     },
   },
 };

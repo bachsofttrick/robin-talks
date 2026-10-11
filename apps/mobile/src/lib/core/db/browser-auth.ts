@@ -1,5 +1,5 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
-import { BACKEND_AUTH_URL, BACKEND_DATA_URL } from "./config";
+import { BACKEND_AUTH_URL, BACKEND_DATA_URL, IN_BROWSER } from "./config";
 import { forgetModeration } from "./moderation-state";
 
 type AuthCallback = (event: string, session: any) => void;
@@ -66,9 +66,30 @@ export function createBrowserAuth(auth: any) {
   };
 }
 
-const browserClient: any = createClient({
-  auth: { url: BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() },
-  dataApi: { url: BACKEND_DATA_URL },
-});
+type BrokerAuth = ReturnType<typeof createBrowserAuth>;
 
-export const brokerAuth = createBrowserAuth(browserClient.auth);
+// Build the brokered client only in the browser. On a phone the auth provider's
+// useSession subscribe would otherwise fire a stray unauthenticated
+// /get-session at every launch, and nothing on native reads brokerAuth (db.ts
+// picks native().auth off IN_BROWSER).
+const browserClient: any = IN_BROWSER
+  ? createClient({
+      auth: { url: BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter() },
+      dataApi: { url: BACKEND_DATA_URL },
+    })
+  : null;
+
+// Same shape as the real broker, so the re-export from auth.ts stays type-safe
+// in strict mode without touching the network on a device.
+const nativeBrokerAuth: BrokerAuth = {
+  signUp: async () => ({ data: { session: null }, error: null }),
+  signInWithPassword: async () => ({ data: { session: null }, error: null }),
+  verifyOtp: async () => ({ data: { session: null }, error: null }),
+  getSession: async () => ({ data: { session: null }, error: null }),
+  signOut: async () => ({ error: null }),
+  onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+  getBetterAuthInstance: () => undefined,
+  notify: async () => {},
+};
+
+export const brokerAuth: BrokerAuth = IN_BROWSER ? createBrowserAuth(browserClient.auth) : nativeBrokerAuth;
