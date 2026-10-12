@@ -2,6 +2,9 @@
 .playwright-cli
 .playwright-mcp
 
+# Ignore android build
+apps/mobile/android/*
+
 node_modules/
 .expo/
 dist/
@@ -17,3 +20,7 @@ web-build/
 # Local env
 .env
 .env.local
+
+# Local EAS credentials
+apps/mobile/credentials.json
+apps/mobile/credentials/
