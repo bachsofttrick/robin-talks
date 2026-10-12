@@ -1,8 +1,6 @@
 import "hono";
 import { app } from "./appDef.js";
-import { port, requireDatabaseUrl } from "./lib/env.js";
-
-requireDatabaseUrl();
+import { port } from "./lib/env.js";
 
 export default {
     ...app,

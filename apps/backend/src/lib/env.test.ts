@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   authSecret,
   baseUrl,
-  databaseUrlOrNull,
+  databaseUrl,
   mailConfig,
   port,
   trustedOrigins,
@@ -46,13 +46,13 @@ describe("databaseUrlOrNull", () => {
     process.env.PGHOST = "db.example.com";
     process.env.PGDATABASE = "app";
 
-    expect(databaseUrlOrNull()).toBe(
+    expect(databaseUrl()).toBe(
       "postgresql://user%20name:p%40ss%3Aword@db.example.com:5432/app?sslmode=verify-full",
     );
   });
 
   test("returns null when database variables are absent", () => {
-    expect(databaseUrlOrNull()).toBeNull();
+    expect(databaseUrl()).toBeNull();
   });
 });
 

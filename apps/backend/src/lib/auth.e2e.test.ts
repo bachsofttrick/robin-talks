@@ -3,10 +3,10 @@ import { eq } from "drizzle-orm";
 
 import { auth } from "./auth.js";
 import { account, getDb, session, user } from "./db/index.js";
-import { baseUrl, databaseUrlOrNull } from "./env.js";
+import { baseUrl, databaseUrl } from "./env.js";
 import { outbox, resetOutbox, type OtpPayload, type OtpType } from "./mail/otp-transport.js";
 
-const noDb = databaseUrlOrNull() === null;
+const noDb = databaseUrl() === null;
 
 if (noDb) {
   console.warn(

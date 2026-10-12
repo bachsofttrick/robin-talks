@@ -12,29 +12,20 @@ function connectionString(user: string, password: string, host: string, database
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:5432/${database}?sslmode=verify-full`;
 }
 
-export function databaseUrlOrNull(): string | null {
+export function databaseUrl(): string {
   const { PGUSER, PGPASSWORD, PGHOST, PGDATABASE } = process.env;
   if (PGUSER && PGPASSWORD && PGHOST && PGDATABASE) {
     return connectionString(PGUSER, PGPASSWORD, PGHOST, PGDATABASE);
   }
-
-  return null;
-}
-
-export function requireDatabaseUrl(): void {
-  const url = databaseUrlOrNull();
-  if (url) return;
-
-  console.error(
-    "Missing required database configuration: set PGHOST, PGUSER, PGPASSWORD, and PGDATABASE",
-  );
+  console.error("Missing required database configuration: set PGHOST, PGUSER, PGPASSWORD, and PGDATABASE");
   process.exit(1);
 }
 
 export function authSecret(): string {
   if (process.env.BETTER_AUTH_SECRET) return process.env.BETTER_AUTH_SECRET;
   if (process.env.NODE_ENV !== "production") return DEV_AUTH_SECRET;
-  throw new Error("Missing required environment variable: BETTER_AUTH_SECRET");
+  console.error("Missing required environment variable: BETTER_AUTH_SECRET");
+  process.exit(1);
 }
 
 export function baseUrl(): string {

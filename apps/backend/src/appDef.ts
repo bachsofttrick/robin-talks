@@ -9,6 +9,16 @@ import { trustedOrigins } from "./lib/env.js";
 export function createApp() {
   const app = new Hono();
 
+  // Measure CPU time in development
+  if (process.env.NODE_ENV !== 'production') {
+    app.use("*", async (c, next) => {
+      const start = performance.now();
+      await next();
+      const cpuTime = performance.now() - start;
+      console.log(`${c.req.method} ${c.req.path} - CPU time: ${cpuTime.toFixed(4)}ms`);
+    });
+  }
+
   app.get("/health", (c) => c.json({ status: "ok" }));
   
   app.route("/legal", legalRouter);

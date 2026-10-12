@@ -10,10 +10,10 @@ import {
   robinMemory,
   user,
 } from "../lib/db/index.js";
-import { baseUrl, databaseUrlOrNull } from "../lib/env.js";
+import { baseUrl, databaseUrl } from "../lib/env.js";
 import { outbox, resetOutbox, type OtpPayload, type OtpType } from "../lib/mail/otp-transport.js";
 
-const noDb = databaseUrlOrNull() === null;
+const noDb = databaseUrl() === null;
 
 if (noDb) {
   console.warn(

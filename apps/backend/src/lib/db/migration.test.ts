@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Client } from "pg";
-import { databaseUrlOrNull } from "../env.js";
+import { databaseUrl } from "../env.js";
 
-const databaseUrl = databaseUrlOrNull();
+const databaseUrl = databaseUrl();
 const noDb = databaseUrl === null;
 
 if (noDb) {

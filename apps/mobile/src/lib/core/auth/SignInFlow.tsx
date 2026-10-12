@@ -137,7 +137,6 @@ export function SignInFlow(props: {
     );
 
   const onKeyPressSignIn = (e: TextInputKeyPressEvent) => {
-    debugger
     if (e.nativeEvent.key === 'Enter') {
       return step === "signUp" ? onSignUp() : onSignIn()
     }
