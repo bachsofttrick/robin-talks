@@ -36,9 +36,11 @@ paths the mobile client issues.
   `GET /health` -> `{ status: "ok" }`, `app.route("/legal", legalRouter)`, CORS with
   `trustedOrigins()` and credentials on `/api/*`, `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`,
   `app.route("/api/data", dataRouter)`, and
-  `app.route("/api/ai", aiRouter)`. Both `createApp` and the built `app` are
-  exported. `index.ts` imports `app`, calls `requireDatabaseUrl()` at module
-  load, and default-exports `app`.
+  `app.route("/api/ai", aiRouter)`. When `NODE_ENV !== "production"` it first
+  installs a middleware that logs each request's method, path, and elapsed
+  milliseconds as `CPU time`. Both `createApp` and the built `app` are exported.
+  `index.ts` imports `app` and `port`, and default-exports
+  `{ ...app, port: port(), hostname: "0.0.0.0" }` rather than the bare app.
 - **Public legal pages** (`src/routes/legal/`): `legalRouter` serves
   `GET /legal/privacy-policy` and `GET /legal/terms-of-service` as HTML
   (`legal-pages.ts` holds the page template and the copy). It is mounted at
@@ -64,8 +66,12 @@ paths the mobile client issues.
   `drizzle/0000_lyrical_fallen_one.sql`, which creates all eight tables (the
   better-auth tables and the four app tables).
 - **Database** (`src/lib/db/client.ts`, `src/lib/db/index.ts`): a lazy memoized `getDb()`
-  builds one `drizzle(new Pool({ connectionString: databaseUrlOrNull() ?? undefined
-  }), { schema })`; it does not connect or throw when no database is configured.
+  builds one `drizzle(postgres(databaseUrl()), { schema })` through
+  `drizzle-orm/postgres-js` and the `postgres` client, which replaced the `pg`
+  `Pool`; the connection opens on first query. `databaseUrl()` exits the process
+  with code 1 and a message naming the missing `PG*` variables when they are
+  absent, so calling `getDb()` on an unconfigured host exits rather than building
+  a client. `pg` stays a dependency for the migration test's `Client`.
 - **Flows** (emailOTP): sign-up creates an unverified `user` and emails a 6-digit
   code; `POST /email-otp/verify-email` marks the email verified; signing in an
   unverified account is refused and re-sends a code; `POST
@@ -89,16 +95,21 @@ paths the mobile client issues.
   (default `http://localhost:3000`), `BETTER_AUTH_SECRET`, `TRUSTED_ORIGINS`,
   `MAIL_PROVIDER`/`MAIL_API_KEY`/`MAIL_FROM`, `OPENROUTER_API_KEY` and
   `BOREL_AI_URL` (the AI router's keys, read at call time by
-  `openRouterApiKey()`/`borelAiUrl()`), and `PORT`. Migrations derive the
-  unpooled host by stripping `-pooler` from `PGHOST`. `authSecret()` returns a
-  documented dev constant when `NODE_ENV !== "production"` and throws otherwise;
-  the module never throws at import. `.env.example` lists the full set.
+  `openRouterApiKey()`/`borelAiUrl()`), and `PORT`. `databaseUrl()` composes the
+  connection string (with `sslmode=verify-full`) and exits the process when any
+  `PG*` variable is absent; it replaced the earlier `databaseUrlOrNull()` and
+  `requireDatabaseUrl()`. Migrations derive the unpooled host by stripping
+  `-pooler` from `PGHOST`. `authSecret()` returns a documented dev constant when
+  `NODE_ENV !== "production"` and otherwise exits the process naming
+  `BETTER_AUTH_SECRET`. No checker runs at import; each exits only when called.
+  `.env.example` lists the full set.
 - **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,
-  and `db:verify` (runs `migrate` once, then asserts the auth and app tables
-  through `information_schema`). The database-backed tests skip with a reported
-  reason when no database is configured, so the suite stays green in a
-  database-less environment. `build` compiles `src` (excluding `*.test.ts`) through
-  `tsconfig.build.json`.
+  and `db:verify` (`bun run db:migrate && bun test src/db/migration.test.ts`, a
+  filter that names no existing file, so the assertion exits 1 without running;
+  the migration test lives at `src/lib/db/migration.test.ts`). The database-backed
+  tests skip with a reported reason when no `PG*` configuration is present, so the
+  suite stays green in a database-less environment. `build` compiles `src`
+  (excluding `*.test.ts`) through `tsconfig.build.json`.
 
 ## Backend data API (`apps/backend/src/routes/`)
 

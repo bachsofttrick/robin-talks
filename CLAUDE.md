@@ -153,4 +153,4 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: f4e54912ca359b4b0a64689952aa0a58e2a60306 -->
+<!-- docs-baseline: c8303b13ff683a2123220aa8357cf9fe603f3c9e -->

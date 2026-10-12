@@ -49,11 +49,13 @@ Two root config choices exist only to keep the hoisted install working:
   the mobile Jest `transformIgnorePatterns` allow-list, which only matches paths
   under `/node_modules/`.
 - The root pins `typescript: "~6.0.3"` so hoisted `@typescript-eslint` and
-  `ts-api-utils` resolve a TypeScript whose API they support. `apps/backend` keeps
-  `typescript@7.0.2` nested in its own `node_modules` for its build.
+  `ts-api-utils` resolve a TypeScript whose API they support. Both workspaces
+  depend on `6.0.3` (mobile `~6.0.3`, backend `^6.0.3`) and resolve it from the
+  root `node_modules`; no nested compiler is installed.
 
-Both workspaces therefore have a `node_modules` directory holding only
-`typescript`; everything else resolves from the root `node_modules`.
+Most dependencies resolve from the root `node_modules`, though a few tool
+packages (ESLint in both workspaces) install into a workspace-local
+`node_modules`.
 
 ## Environment files
 
@@ -142,9 +144,9 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 | `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
 | `src/routes/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
 | `src/lib/db/schema.test.ts` | table and column names, uniques, cascade FKs |
-| `src/lib/db/client.test.ts` | `getDb()` laziness and memoization, the barrel |
+| `src/lib/db/client.test.ts` | `getDb()` laziness and memoization, the barrel, and the non-zero exit when `PG*` is unset |
 | `src/lib/db/migration.test.ts` | the committed migration in `information_schema` (skips without a database) |
-| `src/lib/env.test.ts` | database URL resolution, auth secret, trusted origins, mail config, port |
+| `src/lib/env.test.ts` | `databaseUrl()` composition and the unset-`PG*` exit, the auth secret (dev constant and production exit), trusted origins, mail config, port |
 | `src/lib/mail/otp-transport.test.ts` | dev/Resend transport selection and the outbox, with the `resend` module mocked via `mock.module` (no network) |
 
 The database-backed tests (`lib/auth.e2e.test.ts`, `routes/router.test.ts`,
@@ -240,19 +242,23 @@ bun run lint         # eslint .
 bun run build        # tsc -p tsconfig.build.json, emits dist/
 bun run db:generate  # drizzle-kit generate
 bun run db:migrate   # drizzle-kit migrate
-bun run db:verify    # migrate once, then assert the auth and app tables via bun test
+bun run db:verify    # drizzle-kit migrate then bun test src/db/migration.test.ts (that filter matches no file)
 ```
 
 `bun run dev` is `apps/backend`-only; `typecheck`, `test`, `lint`, `build`, and
 `db:migrate` also run from the repository root through Turbo.
 
-The `build` and `typecheck` tasks run under TypeScript `7.0.2`, nested in
-`apps/backend/node_modules`. `tsconfig.json` targets ESNext/NodeNext in strict mode
+The `build` and `typecheck` tasks run under the root TypeScript `6.0.3`.
+`tsconfig.json` targets ESNext/NodeNext in strict mode
 with `jsxImportSource: hono/jsx` and `types: ["node", "bun-types"]`;
 `tsconfig.build.json` extends it with `rootDir: src`, `outDir: dist`, and excludes
-`src/**/*.test.ts`. `src/lib/env.ts` reads `process.env` only and never throws at
-import; `getDb()` in `src/lib/db/client.ts` is lazy and memoized; `requireDatabaseUrl()`
-is the only database thrower and runs at `index.ts` module load.
+`src/**/*.test.ts`. `src/lib/env.ts` reads `process.env` only and never exits at
+import; `getDb()` in `src/lib/db/client.ts` is lazy and memoized and builds a
+`postgres` client through `drizzle-orm/postgres-js`; `databaseUrl()` exits the
+process (code 1) with a message when any `PG*` variable is absent, and
+`authSecret()` exits likewise when `NODE_ENV` is production and
+`BETTER_AUTH_SECRET` is unset. `index.ts` default-exports
+`{ ...app, port: port(), hostname: "0.0.0.0" }`.
 The OTP email seam is `src/lib/mail/otp-transport.ts`, which selects a dev outbox when
 `MAIL_PROVIDER` is unset and a Resend SDK transport when it is `resend`. `drizzle.config.ts` holds
 the drizzle-kit config, and the committed migrations live in `drizzle/`.

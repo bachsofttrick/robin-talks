@@ -100,7 +100,9 @@ robin-talks/
 │   │   │           ├── cryptoPolyfill.ts    crypto.randomUUID for Hermes.
 │   │   │           ├── responsePolyfill.ts  Response.json static.
 │   │   │           └── alertPolyfill.ts     DOM Alert for react-native-web.
-│   │   ├── assets/            icon.png, splash-icon.png, favicon.png.
+│   │   ├── assets/            icon.png (512x512), favicon.png, and bird-viewer.html
+│   │   │                      (a standalone SVG viewer used while designing the bird mark).
+│   │   │                      splash-icon.png was removed.
 │   │   ├── app.json           Expo config (name, slug, plugins, identifiers).
 │   │   ├── package.json       @robin-talks/mobile: dev/apk/android/ios/web/typecheck/
 │   │   │                      lint/test scripts, deps, and the Jest config block.
@@ -119,13 +121,18 @@ robin-talks/
 │           ├── drizzle/       Committed migration 0000_lyrical_fallen_one.sql (all eight tables: the
 │           │                  four better-auth tables and the four app tables), plus meta/ snapshots.
 │           ├── src/
-│           │   ├── index.ts   Entry: imports app from appDef, calls requireDatabaseUrl() at module load, default-exports app.
-│           │   ├── appDef.ts  createApp(): GET /health; app.route("/legal", legalRouter); CORS on /api/*; auth.handler; app.route("/api/data", dataRouter); app.route("/api/ai", aiRouter); exports createApp and the app instance.
+│           │   ├── index.ts   Entry: imports app and port, default-exports { ...app, port: port(), hostname: "0.0.0.0" }.
+│           │   ├── appDef.ts  createApp(): a dev-only CPU-timing middleware when NODE_ENV !== "production";
+│           │   │              GET /health; app.route("/legal", legalRouter); CORS on /api/*; auth.handler;
+│           │   │              app.route("/api/data", dataRouter); app.route("/api/ai", aiRouter); exports
+│           │   │              createApp and the app instance.
 │           │   ├── conformance.test.ts  Proves the backend serves the auth paths the mobile client issues.
 │           │   ├── lib/       auth.ts (betterAuth 1.6.23 + drizzle adapter + emailOTP plugin, session freshAge 0),
-│           │   │              env.ts (process.env readers: database URLs, auth base URL/secret, trusted
-│           │   │              origins, mail, port, openRouterApiKey, borelAiUrl), db/ (client.ts lazy
-│           │   │              memoized pg Pool + drizzle; schema/ auth-schema.ts + schema.ts + index.ts), ai/
+│           │   │              env.ts (process.env readers: databaseUrl/auth base URL/secret, trusted
+│           │   │              origins, mail, port, openRouterApiKey, borelAiUrl; databaseUrl and
+│           │   │              authSecret exit the process instead of returning null or throwing),
+│           │   │              db/ (client.ts lazy memoized postgres-js client + drizzle through
+│           │   │              drizzle-orm/postgres-js; schema/ auth-schema.ts + schema.ts + index.ts), ai/
 │           │   │              (types.ts shared shapes and the FetchSeam seam + AiSession gate type,
 │           │   │              constants.ts models/timeouts/caps, functions.ts looksPlain/openRouterSays/timeout
 │           │   │              fetches/JSON and image proxies, index.ts barrel), and
@@ -154,6 +161,8 @@ skip with a reported reason when no database is configured. `routes/ai/ai.test.t
 (44 tests) patches the AI provider modules with `mock.module` and needs neither.
 `routes/router.test.ts` still lives at `routes/`, not under `routes/data/`.
 
-Both workspaces have a `node_modules` holding only `typescript` (`~6.0.3` in
-mobile, `7.0.2` in backend); every other dependency is hoisted to the root
+Both workspaces depend on TypeScript `6.0.3` (mobile `~6.0.3`, backend `^6.0.3`)
+and resolve it from the root `node_modules`; there is no nested compiler. Most
+other dependencies hoist to the root `node_modules` as well, though a few tool
+packages (ESLint in both workspaces) install into a workspace-local
 `node_modules`. There is no per-workspace lockfile.

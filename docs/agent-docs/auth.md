@@ -73,7 +73,10 @@ failure.
   `BACKEND_AUTH_URL` (derived from `EXPO_PUBLIC_BACKEND_URL`, an `/api` base). A `sessionPlugin`
   writes every `Set-Cookie` to AsyncStorage under
   `backend-auth-session:<BACKEND_AUTH_URL>` and replays it as a `Cookie` header,
-  with the platform cookie jar off. `sessionCookieHeader()` is exported and async:
+  with the platform cookie jar off. `saveSessionCookies()` returns the storage
+  write and the plugin's `onResponse` awaits it, so an auth call resolves only
+  once the cookie is persisted and a force-quit right after sign-in still finds
+  the session on the next launch. `sessionCookieHeader()` is exported and async:
   it awaits the cookie-jar load, then returns every unexpired cookie as one
   `name=value; ...` string. The data client (`src/lib/core/db/data.ts`) awaits it
   and sends it on every `/api/data/*` request, because better-auth accepts no

@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.build.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:verify": "bun run db:migrate && bun test src/db/migration.test.ts"
+    "db:verify": "bun run db:migrate && bun test src/lib/db/migration.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.4",
