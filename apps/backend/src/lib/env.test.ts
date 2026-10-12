@@ -47,7 +47,7 @@ describe("databaseUrlOrNull", () => {
     process.env.PGDATABASE = "app";
 
     expect(databaseUrlOrNull()).toBe(
-      "postgresql://user%20name:p%40ss%3Aword@db.example.com:5432/app?sslmode=require",
+      "postgresql://user%20name:p%40ss%3Aword@db.example.com:5432/app?sslmode=verify-full",
     );
   });
 

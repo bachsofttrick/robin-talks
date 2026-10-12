@@ -19,7 +19,7 @@ function databaseUrl(): string {
     throw new Error("PGUSER, PGPASSWORD, PGHOST, and PGDATABASE must be set");
   }
 
-  return `postgresql://${encodeURIComponent(PGUSER)}:${encodeURIComponent(PGPASSWORD)}@${host}:5432/${PGDATABASE}?sslmode=require`;
+  return `postgresql://${encodeURIComponent(PGUSER)}:${encodeURIComponent(PGPASSWORD)}@${host}:5432/${PGDATABASE}?sslmode=verify-full`;
 }
 
 export default defineConfig({

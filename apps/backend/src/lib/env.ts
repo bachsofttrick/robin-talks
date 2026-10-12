@@ -9,7 +9,7 @@ const DEV_AUTH_SECRET = "robin-talks-dev-secret-not-for-production";
 const DEV_BASE_URL = "http://localhost:3000";
 
 function connectionString(user: string, password: string, host: string, database: string): string {
-  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:5432/${database}?sslmode=require`;
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:5432/${database}?sslmode=verify-full`;
 }
 
 export function databaseUrlOrNull(): string | null {
