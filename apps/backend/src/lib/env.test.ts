@@ -24,6 +24,20 @@ const ENV_KEYS = [
   "NODE_ENV",
 ] as const;
 
+function runEnvProbe(expression: string, env: Record<string, string | undefined>) {
+  const script =
+    "const { authSecret, databaseUrl } = await import('./env.js');" +
+    expression +
+    "process.exit(0);";
+  return Bun.spawnSync({
+    cmd: ["bun", "--no-env-file", "-e", script],
+    cwd: new URL(".", import.meta.url).pathname,
+    env,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+}
+
 let saved: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -39,7 +53,7 @@ afterEach(() => {
   }
 });
 
-describe("databaseUrlOrNull", () => {
+describe("databaseUrl", () => {
   test("composes a connection string from PG variables with encoded credentials", () => {
     process.env.PGUSER = "user name";
     process.env.PGPASSWORD = "p@ss:word";
@@ -51,8 +65,14 @@ describe("databaseUrlOrNull", () => {
     );
   });
 
-  test("returns null when database variables are absent", () => {
-    expect(databaseUrl()).toBeNull();
+  test("exits non-zero naming the variables when database variables are absent", () => {
+    const env: Record<string, string | undefined> = { ...process.env };
+    for (const key of ["PGUSER", "PGPASSWORD", "PGHOST", "PGDATABASE"]) delete env[key];
+
+    const result = runEnvProbe("databaseUrl();", env);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(new TextDecoder().decode(result.stderr)).toContain("PGHOST");
   });
 });
 
@@ -109,9 +129,14 @@ describe("authSecret", () => {
     expect(authSecret()).toBe("robin-talks-dev-secret-not-for-production");
   });
 
-  test("throws when NODE_ENV is production and the variable is unset", () => {
-    process.env.NODE_ENV = "production";
-    expect(() => authSecret()).toThrow("Missing required environment variable: BETTER_AUTH_SECRET");
+  test("exits non-zero when NODE_ENV is production and the variable is unset", () => {
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: "production" };
+    delete env.BETTER_AUTH_SECRET;
+
+    const result = runEnvProbe("authSecret();", env);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(new TextDecoder().decode(result.stderr)).toContain("BETTER_AUTH_SECRET");
   });
 });
 

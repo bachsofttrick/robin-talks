@@ -10,10 +10,15 @@ import {
   robinMemory,
   user,
 } from "../lib/db/index.js";
-import { baseUrl, databaseUrl } from "../lib/env.js";
+import { baseUrl } from "../lib/env.js";
 import { outbox, resetOutbox, type OtpPayload, type OtpType } from "../lib/mail/otp-transport.js";
 
-const noDb = databaseUrl() === null;
+const noDb = !(
+  process.env.PGUSER &&
+  process.env.PGPASSWORD &&
+  process.env.PGHOST &&
+  process.env.PGDATABASE
+);
 
 if (noDb) {
   console.warn(

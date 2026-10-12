@@ -3,10 +3,15 @@ import { eq } from "drizzle-orm";
 
 import { auth } from "./auth.js";
 import { account, getDb, session, user } from "./db/index.js";
-import { baseUrl, databaseUrl } from "./env.js";
+import { baseUrl } from "./env.js";
 import { outbox, resetOutbox, type OtpPayload, type OtpType } from "./mail/otp-transport.js";
 
-const noDb = databaseUrl() === null;
+const noDb = !(
+  process.env.PGUSER &&
+  process.env.PGPASSWORD &&
+  process.env.PGHOST &&
+  process.env.PGDATABASE
+);
 
 if (noDb) {
   console.warn(

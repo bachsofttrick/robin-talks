@@ -2,8 +2,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Client } from "pg";
 import { databaseUrl } from "../env.js";
 
-const databaseUrl = databaseUrl();
-const noDb = databaseUrl === null;
+const hasPgConfig = Boolean(
+  process.env.PGUSER && process.env.PGPASSWORD && process.env.PGHOST && process.env.PGDATABASE,
+);
+const noDb = !hasPgConfig;
+const connectionString = noDb ? undefined : databaseUrl();
 
 if (noDb) {
   console.warn(
@@ -11,7 +14,7 @@ if (noDb) {
   );
 }
 
-const client = new Client({ connectionString: databaseUrl ?? undefined });
+const client = new Client({ connectionString });
 
 beforeAll(async () => {
   if (!noDb) await client.connect();

@@ -1,5 +1,4 @@
 import { drizzle } from "drizzle-orm/postgres-js";
-// import { Pool } from "pg";
 import postgres from 'postgres';
 import { databaseUrl } from "../env.js";
 import { schema } from "./schema/index.js";

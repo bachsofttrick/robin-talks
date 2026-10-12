@@ -12,7 +12,11 @@ const ENV_KEYS = [
 
 const saved: Record<string, string | undefined> = {};
 for (const key of ENV_KEYS) saved[key] = process.env[key];
-for (const key of ENV_KEYS) delete process.env[key];
+
+process.env.PGUSER = "user";
+process.env.PGPASSWORD = "password";
+process.env.PGHOST = "db.example.com";
+process.env.PGDATABASE = "app";
 
 afterAll(() => {
   for (const key of ENV_KEYS) {
@@ -22,7 +26,7 @@ afterAll(() => {
 });
 
 describe("getDb", () => {
-  it("does not throw or connect when no database is configured", () => {
+  it("creates a lazy client without connecting when a database is configured", () => {
     expect(() => getDb()).not.toThrow();
   });
 
@@ -34,6 +38,26 @@ describe("getDb", () => {
 
   it("returns the same instance without awaiting a query", () => {
     expect(getDb() === getDb()).toBe(true);
+  });
+});
+
+describe("getDb without database configuration", () => {
+  it("exits non-zero naming the variables when PG* variables are absent", () => {
+    const env: Record<string, string | undefined> = { ...process.env };
+    for (const key of ENV_KEYS) delete env[key];
+
+    const script =
+      "const { getDb } = await import('./client.js'); getDb(); process.exit(0);";
+    const result = Bun.spawnSync({
+      cmd: ["bun", "--no-env-file", "-e", script],
+      cwd: new URL(".", import.meta.url).pathname,
+      env,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(new TextDecoder().decode(result.stderr)).toContain("PGHOST");
   });
 });
 

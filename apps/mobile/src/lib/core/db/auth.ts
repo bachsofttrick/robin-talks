@@ -70,11 +70,11 @@ function loadSessionCookies(): Promise<void> {
   return sessionLoad;
 }
 
-function saveSessionCookies(): void {
+function saveSessionCookies(): Promise<void> {
   const write = Object.keys(sessionCookies).length
     ? AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionCookies))
     : AsyncStorage.removeItem(SESSION_STORAGE_KEY);
-  write.catch(() => {
+  return write.catch(() => {
     // The session still works for this launch; it just won't survive a restart.
   });
 }
@@ -173,7 +173,7 @@ const sessionPlugin = {
         sessionCookies = {};
         changed = true;
       }
-      if (changed) saveSessionCookies();
+      if (changed) await saveSessionCookies();
     },
   },
 };
