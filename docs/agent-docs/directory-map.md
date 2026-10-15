@@ -9,7 +9,7 @@ Annotated tree of tracked source. Generated output (`dist/`, `.expo/`,
 ```
 robin-talks/
 ├── package.json               Private root, "robin-talks-monorepo": workspaces ["apps/*"],
-│   │                          packageManager bun@1.3.14, turbo + typescript devDeps, six
+│   │                          packageManager bun@1.4.2, turbo + typescript devDeps, six
 │   │                          turbo scripts (build, dev, lint, typecheck, test, db:migrate) plus env:link.
 ├── turbo.json                 Task graph: build, typecheck, lint, test, dev, //#env:link;
 │   │                          agentGuidance false keeps AGENTS.md a symlink.
@@ -58,17 +58,22 @@ robin-talks/
 │   │   │       │   │   ├── borel-store.js     Vendor reactive store (createStore, usePersistedState, ...).
 │   │   │       │   │   └── borel-systemui.js  Vendor native-module bridge (permissions, recording, speech, ...).
 │   │   │       │   ├── db/
-│   │   │       │   │   ├── config.ts     EXPO_PUBLIC_* reads, IN_BROWSER, SURFACE, borelHeaders; BACKEND_URL (an /api base) with /auth, /data, /ai appended.
+│   │   │       │   │   ├── config.ts     EXPO_PUBLIC_BACKEND_URL only: BACKEND_AUTH_URL, BACKEND_DATA_URL,
+│   │   │       │   │   │                 BACKEND_AI_URL, IN_BROWSER, SURFACE, BUILD_STAMP, borelHeaders.
+│   │   │       │   │   │                 (The Borel URL consts were removed.)
 │   │   │       │   │   ├── errors.ts     Neutral error sentences, plainError, looksPlain, refusals.
 │   │   │       │   │   ├── consent.ts    AI consent prompts and AI_AUDIO_MODEL.
 │   │   │       │   │   ├── auth.ts       neon-js client, cookie session (native), tellScreens, sessionCookieHeader; re-exports brokerAuth.
 │   │   │       │   │   ├── browser-auth.ts  Browser wrapper over the backend neon-js client: own onAuthStateChange, getBetterAuthInstance.
 │   │   │       │   │   ├── data.ts       Backend data client for /api/data/* on both surfaces: profile, sessions, memory, profiles.
-│   │   │       │   │   ├── storage.ts    File upload/presign and account deletion.
+│   │   │       │   │   ├── storage.ts    File upload/presign and account deletion; posts to the literal
+│   │   │       │   │   │                 'BOREL_STORAGE'/'BOREL_ACCOUNT' placeholders.
 │   │   │       │   │   ├── ai.ts         Thin client over the backend's /api/ai router: consent, device-file normalization, image dedupe, metering.
-│   │   │       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration.
+│   │   │       │   │   ├── moderation.ts Report/block/check content; re-exports forgetModeration; posts to
+│   │   │       │   │   │                 the literal 'BOREL_MODERATION' placeholder.
 │   │   │       │   │   ├── moderation-state.ts  Reported/blocked cache, imported by db/auth.ts.
-│   │   │       │   │   └── notify.ts     borelFetch, push notify, device linking.
+│   │   │       │   │   └── notify.ts     borelFetch, push notify, device linking; posts to the literal
+│   │   │       │   │                     'BOREL_PROXY' placeholder.
 │   │   │       │   └── auth/
 │   │   │       │       ├── types.ts      User, Session, AuthResult.
 │   │   │       │       ├── constants.ts  Labels/URLs, KIT colours.

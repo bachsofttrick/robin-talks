@@ -8,7 +8,7 @@ Per-workspace commands still work when run inside a workspace.
 ## Root scripts
 
 The root `package.json` is private (`robin-talks-monorepo`), declares
-`"workspaces": ["apps/*"]` and `"packageManager": "bun@1.3.14"`, and maps every
+`"workspaces": ["apps/*"]` and `"packageManager": "bun@1.4.2"`, and maps every
 task to `turbo run <task>`:
 
 | Root command | Runs |
@@ -194,10 +194,6 @@ bun run typecheck  # tsc --noEmit
 Environment variables are read from `EXPO_PUBLIC_*` values (Expo inlines them
 with static dot access only). The root `.env.example` lists the full set:
 
-- Borel: `EXPO_PUBLIC_DATA_API_URL`, `EXPO_PUBLIC_AUTH_URL`,
-  `EXPO_PUBLIC_PREVIEW_AUTH_URL`, `EXPO_PUBLIC_BOREL_STORAGE`,
-  `EXPO_PUBLIC_BOREL_ACCOUNT`, `EXPO_PUBLIC_BOREL_USAGE_URL`,
-  `EXPO_PUBLIC_BOREL_INVITE_URL`
 - `EXPO_PUBLIC_BACKEND_URL`, whose value is an `/api` base
   (`http://localhost:3000/api`); the mobile config appends `/auth`, `/data`,
   and `/ai` to it for `BACKEND_AUTH_URL`, `BACKEND_DATA_URL`, and
@@ -207,6 +203,15 @@ with static dot access only). The root `.env.example` lists the full set:
   `MAIL_API_KEY`, `MAIL_FROM`, `OPENROUTER_API_KEY`, `BOREL_AI_URL`. Setting
   `MAIL_PROVIDER=resend` delivers through the Resend SDK with `MAIL_API_KEY` and
   `MAIL_FROM`.
+
+The earlier Borel proxy vars (`EXPO_PUBLIC_DATA_API_URL`, `EXPO_PUBLIC_AUTH_URL`,
+`EXPO_PUBLIC_PREVIEW_AUTH_URL`, `EXPO_PUBLIC_BOREL_STORAGE`,
+`EXPO_PUBLIC_BOREL_ACCOUNT`, `EXPO_PUBLIC_BOREL_USAGE_URL`,
+`EXPO_PUBLIC_BOREL_INVITE_URL`) were removed from `.env.example` and from
+`src/lib/core/db/config.ts`. `storage.ts`, `notify.ts`, `moderation.ts`, and
+`errors.ts` still reference those endpoints, but now through literal placeholder
+strings (`'BOREL_STORAGE'`, `'BOREL_ACCOUNT'`, `'BOREL_PROXY'`,
+`'BOREL_MODERATION'`, `'BOREL_USAGE_URL'`) instead of configured URLs.
 
 The root `.env` exists, is git-ignored, and is shared through the two workspace
 symlinks described above. Missing `OPENROUTER_API_KEY` on the backend makes
@@ -242,7 +247,7 @@ bun run lint         # eslint .
 bun run build        # tsc -p tsconfig.build.json, emits dist/
 bun run db:generate  # drizzle-kit generate
 bun run db:migrate   # drizzle-kit migrate
-bun run db:verify    # drizzle-kit migrate then bun test src/db/migration.test.ts (that filter matches no file)
+bun run db:verify    # bun run db:migrate then bun test src/lib/db/migration.test.ts
 ```
 
 `bun run dev` is `apps/backend`-only; `typecheck`, `test`, `lint`, `build`, and

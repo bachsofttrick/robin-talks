@@ -14,11 +14,13 @@ the reply, coaches English inline, and writes a debrief at the end. The mobile a
 is client-only: it holds no server, API layer, or build step of its own. All AI
 transport runs in the backend's `/api/ai` router, which calls OpenRouter for chat
 and speech-to-text and proxies the Borel cloud at `api.borel.one` for AI image
-generation; Borel remains the direct remote layer for file storage, moderation,
-notifications, and the account and usage/invite links.
+generation. The mobile source still carries Borel storage, moderation,
+notification, and account modules, but their endpoint URLs were removed from
+config; they now request literal placeholder host strings and cannot reach
+Borel.
 
 ## Tech Stack
-- Bun `1.3.14` as the package manager, one root install for both workspaces
+- Bun `1.4.2` as the package manager, one root install for both workspaces
 - Turborepo `^2.11.7` at the root for `build`, `lint`, `typecheck`, `test`, `dev`
 - Expo `~57.0.26` with React Native `0.86.3` and React `19.2.3` (`apps/mobile`)
 - TypeScript `~6.0.3` in `strict` mode (`apps/mobile/tsconfig.json`, and the root
@@ -31,12 +33,12 @@ notifications, and the account and usage/invite links.
 - Hono `^4.13.13` in `apps/backend`, mounting better-auth at `/api/auth/*`, the
   data API at `/api/data/*`, and the AI router at `/api/ai`
 - `better-auth` `1.6.23` (email/password + emailOTP plugin, drizzle adapter)
-- `drizzle-orm` `0.45.3`, `drizzle-kit` `0.31.11` and `pg` `8.23.1` against Neon Postgres
+- `drizzle-orm` `0.45.2`, `drizzle-kit` `0.31.11` and `pg` `8.23.1` against Neon Postgres
 - Jest `~29.7` with the `jest-expo` preset in `apps/mobile`; `bun test` (`bun:test`) in `apps/backend`
 - ESLint flat configs: `eslint-config-expo` (mobile), `@eslint/js` + `typescript-eslint` (backend)
 
 ## Directory Layout
-- `package.json` - private `robin-talks-monorepo` root: `workspaces: ["apps/*"]`, `packageManager: bun@1.3.14`, six Turbo scripts plus `env:link`
+- `package.json` - private `robin-talks-monorepo` root: `workspaces: ["apps/*"]`, `packageManager: bun@1.4.2`, six Turbo scripts plus `env:link`
 - `turbo.json` - task graph; `agentGuidance: false` keeps Turbo from rewriting `AGENTS.md`
 - `bunfig.toml` - `[install] linker = "hoisted"`, required by the mobile Jest transform allow-list
 - `bun.lock` - the single lockfile for both workspaces
@@ -143,7 +145,7 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - [directory-map.md](docs/agent-docs/directory-map.md) - Annotated tree of the repository
 - [screens-and-navigation.md](docs/agent-docs/screens-and-navigation.md) - Navigators, screens, and their flows
 - [api-layer.md](docs/agent-docs/api-layer.md) - Domain hooks, scenarios, and the database tables they read
-- [backend-and-ai.md](docs/agent-docs/backend-and-ai.md) - The `db` module, Borel cloud, the Hono better-auth service, the backend AI router, and AI consent
+- [backend-and-ai.md](docs/agent-docs/backend-and-ai.md) - The `db` module, the Borel-facing modules, the Hono better-auth service, the backend AI router, and AI consent
 - [auth.md](docs/agent-docs/auth.md) - The `core/auth` connector, provider, actions, and account UI
 - [ui-kit.md](docs/agent-docs/ui-kit.md) - Theme tokens, shared components, motion, and texture
 - [conventions.md](docs/agent-docs/conventions.md) - Code style, naming, and patterns observed in the source
@@ -153,4 +155,4 @@ the database scripts `db:generate`, `db:migrate`, `db:verify`.
 - Feature specs (sdd workflow): `docs/agent-docs/specs/<YYMMDD>-<slug>/`
 - Implementation plans (pdd workflow): `docs/agent-docs/plans/<YYMMDD>-<slug>/`
 
-<!-- docs-baseline: c8303b13ff683a2123220aa8357cf9fe603f3c9e -->
+<!-- docs-baseline: cfd4138b17a4d28d376a1928b27516373c366748 -->

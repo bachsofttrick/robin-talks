@@ -4,12 +4,13 @@ Source paths are relative to `apps/mobile/` unless noted.
 
 The app is client-only. Remote work is split between the backend
 service in `apps/backend` (auth, the app's data, and all AI transport) and the
-Borel cloud proxy (file storage, moderation, notifications, and the account and
-usage/invite links); AI image generation reaches Borel through the backend's
+Borel cloud proxy; AI image generation reaches Borel through the backend's
 proxy, so the device never talks to OpenRouter or Borel's AI endpoints directly.
 The `db`
 object is assembled in `src/lib/core/db.ts` and every submodule is reachable from
-there.
+there. The Borel storage, moderation, notification, and account modules remain in
+the source, but their configured URLs were removed, so they now request literal
+placeholder host strings and cannot reach Borel.
 
 `apps/backend/` is the `@robin-talks/backend` Hono workspace. It shares the
 repository's single root install and root `.env` (see [workflows.md](workflows.md)),
@@ -26,8 +27,9 @@ an authenticated data API at `/api/data/*`, and an authenticated AI router at
 Postgres database. Both surfaces authenticate against it through
 `EXPO_PUBLIC_BACKEND_URL` (an `/api` base from which `config.ts` derives the
 `/auth`, `/data`, and `/ai` mounts) and read and write their profile, sessions,
-and memory through `/api/data/*`. File storage, moderation, notifications, and
-the account and usage/invite links still go through `api.borel.one` directly; AI
+and memory through `/api/data/*`. The file-storage, moderation, notification, and
+account code paths remain in the mobile source, but their Borel URLs were removed
+from config, so they now target literal placeholder hosts; AI
 image generation reaches Borel through the backend's proxy. A
 backend test (`src/conformance.test.ts`) proves the backend serves the exact auth
 paths the mobile client issues.
@@ -104,12 +106,11 @@ paths the mobile client issues.
   `BETTER_AUTH_SECRET`. No checker runs at import; each exits only when called.
   `.env.example` lists the full set.
 - **Tests and scripts**: `bun test` with `bun:test`; `db:generate`, `db:migrate`,
-  and `db:verify` (`bun run db:migrate && bun test src/db/migration.test.ts`, a
-  filter that names no existing file, so the assertion exits 1 without running;
-  the migration test lives at `src/lib/db/migration.test.ts`). The database-backed
-  tests skip with a reported reason when no `PG*` configuration is present, so the
-  suite stays green in a database-less environment. `build` compiles `src`
-  (excluding `*.test.ts`) through `tsconfig.build.json`.
+  and `db:verify` (`bun run db:migrate && bun test src/lib/db/migration.test.ts`,
+  which runs the migration test at `src/lib/db/migration.test.ts`). The
+  database-backed tests skip with a reported reason when no `PG*` configuration is
+  present, so the suite stays green in a database-less environment. `build`
+  compiles `src` (excluding `*.test.ts`) through `tsconfig.build.json`.
 
 ## Backend data API (`apps/backend/src/routes/`)
 
@@ -183,36 +184,40 @@ underlying client, which `updatePassword` and `deleteAccount` use.
 
 ## Configuration (`src/lib/core/db/config.ts`)
 
-All configuration is `EXPO_PUBLIC_*` values inlined by Expo:
+`config.ts` reads `EXPO_PUBLIC_BACKEND_URL` (an `/api` base) and derives the only
+three URLs the app still configures:
 
-- `DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`, `BACKEND_AUTH_URL`,
-  `BACKEND_DATA_URL`, `BACKEND_AI_URL`, `BOREL_STORAGE`, `BOREL_ACCOUNT`,
-  `BOREL_USAGE_URL`, `BOREL_INVITE_URL`
+- `BACKEND_AUTH_URL`, `BACKEND_DATA_URL`, and `BACKEND_AI_URL` append `/auth`,
+  `/data`, and `/ai` to `EXPO_PUBLIC_BACKEND_URL`, and are `""` when that
+  variable is unset.
 - `IN_BROWSER` (`typeof document !== "undefined"`), `SURFACE`
   (`"preview" | "dev" | "release"`), `BUILD_STAMP`, and `borelHeaders()` which
   sends `X-Borel-Surface` (and `X-Borel-Build` in a release build).
-- `BACKEND_AUTH_URL`, `BACKEND_DATA_URL`, and `BACKEND_AI_URL` append `/auth`,
-  `/data`, and `/ai` to `EXPO_PUBLIC_BACKEND_URL` (an `/api` base), and are `""`
-  when that variable is unset.
-- `createInviteLink(code)` composes `BOREL_INVITE_URL`.
 
-## Borel cloud proxy
+The earlier Borel URL exports (`DATA_API_URL`, `AUTH_URL`, `PREVIEW_AUTH_URL`,
+`BOREL_STORAGE`, `BOREL_ACCOUNT`, `BOREL_USAGE_URL`, `BOREL_INVITE_URL`) and
+`createInviteLink(code)` were removed. Nothing imports them any more; the modules
+that used to read them now use literal placeholder strings (see below).
 
-`api.borel.one` fronts the app's own cloud. Borel attaches credentials
-server-side, so no secret is held in `db.ts`.
+## Borel-facing modules
 
-- **Data API** (`DATA_API_URL`): the neon-js client is still built against it and
-  `db.from` is still exposed, but no screen calls it; the app's tables live behind
-  the backend's `/api/data` on both surfaces.
-- **Auth** (`AUTH_URL` / `PREVIEW_AUTH_URL`): these Borel endpoints remain in
-  config, but the auth flows target the backend on both surfaces. See
-  [auth.md](auth.md).
-- **Storage** (`BOREL_STORAGE`, `src/lib/core/db/storage.ts`): presign, upload,
-  confirm, sign, remove, and `getPublicUrl`. Limits are 25 MB per file, 200 MB
-  per video.
-- **Account** (`BOREL_ACCOUNT`): `account.delete()` removes the account, its
-  rows, and its files. Account deletion from the app now calls the backend's
-  `/api/auth/delete-user` instead.
+`config.ts` no longer exports a Borel URL and no `.env` variable feeds one. The
+storage, account, moderation, and notification code paths remain in the source,
+but each now builds its request from a literal placeholder host string, so those
+calls cannot reach Borel:
+
+- **Data API** (the neon-js client, `src/lib/core/db/auth.ts`): the client is
+  built against `BACKEND_DATA_URL` and `db.from` stays exposed, but no screen
+  calls it; the app's tables live behind the backend's `/api/data` on both
+  surfaces.
+- **Auth**: the auth flows target the backend on both surfaces (see
+  [auth.md](auth.md)); `AUTH_URL` and `PREVIEW_AUTH_URL` are gone.
+- **Storage** (`src/lib/core/db/storage.ts`): presign, upload, confirm, sign,
+  remove, and `getPublicUrl`, built from the literal `'BOREL_STORAGE'` host.
+  Limits are 25 MB per file, 200 MB per video.
+- **Account** (`src/lib/core/db/storage.ts`): `account.delete()` posts to the
+  literal `'BOREL_ACCOUNT'` host. Account deletion from the app calls the
+  backend's `/api/auth/delete-user` instead.
 - **AI images** (`BOREL_AI_URL`, backend-only): `ai.image` and `ai.editImage`
   POST to the backend's `/api/ai/images/generations` and `/images/edits`, and
   the backend forwards them to `BOREL_AI_URL` + path (see the AI section
@@ -220,19 +225,25 @@ server-side, so no secret is held in `db.ts`.
   and returns a ready URL; identical prompts reuse the stored image. The
   client still sends `borelHeaders()` and the auth bearer so Borel's metering
   and surface policy behave as when it was called directly.
-- **Moderation** (`BOREL_ACCOUNT`'s sibling `/moderation`,
-  `src/lib/core/db/moderation.ts`): report, block/unblock, load state, and
-  `check(text)`. The reported/blocked cache lives in
+- **Moderation** (`src/lib/core/db/moderation.ts`): report, block/unblock, load
+  state, and `check(text)`, built from the literal `'BOREL_MODERATION'` host; the
+  old `BOREL_ACCOUNT`-derived `/moderation` computation is commented out. The
+  reported/blocked cache lives in
   `src/lib/core/db/moderation-state.ts`, which `db/auth.ts` imports directly so
   `auth` can forget a person's state on sign-in and sign-out without importing
   the client, which needs auth for its bearer token. `moderation.ts` re-exports
   `forgetModeration` from there.
 - **Notifications** (`src/lib/core/db/notify.ts`): `borelFetch(url, body,
   timeoutMs)` (now used only by the notify call), `notify.notify(input)` to push to named
-  users, and device-token linking that follows the signed-in user. This file also
+  users, and device-token linking that follows the signed-in user, all built from
+  the literal `'BOREL_PROXY'` host; the old `BOREL_ACCOUNT`-derived proxy is
+  commented out and `PUSH_LINKED_KEY` is `"borel.push.linked:BOREL_PROXY"`. This
+  file also
   runs `watchDevice()` at import time. Telling the screens who is signed in
   lives in `db/auth.ts` as `tellScreens` and `announceSessionChanges`, because
   it has to wrap the auth client's own methods.
+- **Usage link** (`src/lib/core/db/errors.ts`): the "Open Borel" button in a
+  refusal alert calls `Linking.openURL('BOREL_USAGE_URL')`.
 
 ## AI (`apps/backend/src/routes/ai/` and `src/lib/ai/`, plus the thin client `src/lib/core/db/ai.ts`)
 
