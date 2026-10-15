@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert } from "react-native";
-import { BOREL_ACCOUNT, borelHeaders } from "./config";
+import { borelHeaders } from "./config";
 import { authHeader } from "./auth";
 import { hiddenContent, blockedAuthors, moderationListeners, moderationChanged, loadModeration } from "./moderation-state";
 export { forgetModeration } from "./moderation-state";
@@ -21,13 +21,13 @@ export interface ModerationTarget {
   excerpt?: string;
 }
 
-const BOREL_MODERATION = BOREL_ACCOUNT.slice(0, BOREL_ACCOUNT.lastIndexOf("/")) + "/moderation";
+// const BOREL_MODERATION = BOREL_ACCOUNT.slice(0, BOREL_ACCOUNT.lastIndexOf("/")) + "/moderation";
 
 async function moderationCall(path: string, body?: unknown): Promise<{ ok: boolean; json: any }> {
   try {
     const bearer = await authHeader();
     if (!bearer || bearer === "bps_anon") return { ok: false, json: { error: "Sign in to report or block." } };
-    const res = await fetch(BOREL_MODERATION + path, {
+    const res = await fetch('BOREL_MODERATION' + path, {
       method: body === undefined ? "GET" : "POST",
       headers: { "Content-Type": "application/json", ...borelHeaders(), Authorization: "Bearer " + bearer },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -175,7 +175,7 @@ export const moderation = {
    */
   async check(text: string): Promise<{ allowed: boolean; error: string | null }> {
     try {
-      const res = await fetch(BOREL_MODERATION + "/check", {
+      const res = await fetch('BOREL_MODERATION' + "/check", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...borelHeaders() },
         body: JSON.stringify({ text: String(text || "").slice(0, 20000) }),

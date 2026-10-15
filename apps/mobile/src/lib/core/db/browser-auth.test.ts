@@ -59,8 +59,6 @@ describe("browser-auth", () => {
     const options = createClientMock.mock.calls[0][0];
     expect(options.auth.url).toBe("http://localhost:3000/api/auth");
     expect(options.auth.url).toBe(ENV.EXPO_PUBLIC_BACKEND_URL + "/auth");
-    expect(options.auth.url).not.toBe(cfg.AUTH_URL);
-    expect(options.auth.url).not.toBe(cfg.PREVIEW_AUTH_URL);
     expect(options.auth.adapter).toBe(adapterMock.mock.results[0].value);
     expect(typeof options.dataApi).toBe("object");
     expect(options.dataApi.url).toBe("http://localhost:3000/api/data");

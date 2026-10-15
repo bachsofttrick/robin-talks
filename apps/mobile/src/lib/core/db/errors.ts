@@ -1,5 +1,5 @@
 import { Alert, Linking } from "react-native";
-import { IN_BROWSER, SURFACE, BOREL_USAGE_URL } from "./config";
+import { IN_BROWSER, SURFACE } from "./config";
 
 export type AiRefusal = "wallet_empty" | "daily_allowance_used" | "cloud_paused";
 
@@ -126,7 +126,7 @@ export function noteRefusal(reason: AiRefusal, kind: "ai" | "cloud" = "ai"): voi
       {
         text: "Open Borel",
         onPress: () => {
-          Linking.openURL(BOREL_USAGE_URL).catch(() => {});
+          Linking.openURL('BOREL_USAGE_URL').catch(() => {});
         },
       },
     ]);
