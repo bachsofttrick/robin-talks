@@ -4,6 +4,7 @@
 
 # Ignore android build
 apps/mobile/android/*
+apps/mobile/*.apk
 
 node_modules/
 .expo/
