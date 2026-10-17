@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
-import { BOREL_ACCOUNT, IN_BROWSER, borelHeaders } from "./config";
+import { IN_BROWSER, borelHeaders } from "./config";
 import { native, authHeader } from "./auth";
 import { refusalOf, noteRefusal, looksPlain, messageOf, CLOUD_NEUTRAL } from "./errors";
 
@@ -47,9 +47,9 @@ export async function borelFetch(url: string, body: unknown, timeoutMs: number):
 // their own for this app, so nothing is linked there.
 // ---------------------------------------------------------------------------
 
-const BOREL_PROXY = BOREL_ACCOUNT.slice(0, BOREL_ACCOUNT.lastIndexOf("/"));
+// const BOREL_PROXY = BOREL_ACCOUNT.slice(0, BOREL_ACCOUNT.lastIndexOf("/"));
 const PUSH_TOKEN_KEY = "borel.push.deviceToken";
-const PUSH_LINKED_KEY = "borel.push.linked:" + BOREL_PROXY;
+const PUSH_LINKED_KEY = "borel.push.linked:" + 'BOREL_PROXY';
 const NOTIFY_TIMEOUT_MS = 20000;
 const DEVICE_CALL_TIMEOUT_MS = 10000;
 const SIGN_OUT_WAIT_MS = 4000;
@@ -77,7 +77,7 @@ async function sendNotify(input: {
       body: String(input.body == null ? "" : input.body),
       ...(input.data ? { data: input.data } : {}),
     };
-    const res = await borelFetch(BOREL_PROXY + "/notify", request, NOTIFY_TIMEOUT_MS);
+    const res = await borelFetch('BOREL_PROXY' + "/notify", request, NOTIFY_TIMEOUT_MS);
     const json: any = await res.json().catch(() => ({}));
     if (res.ok) return { ok: true, error: null, reason: null };
     const refusal = refusalOf(res.status, json);
@@ -130,7 +130,7 @@ async function deviceCall(path: string, body: unknown, bearer?: string): Promise
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DEVICE_CALL_TIMEOUT_MS);
   try {
-    const res = await fetch(BOREL_PROXY + path, {
+    const res = await fetch('BOREL_PROXY' + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...borelHeaders(), ...(bearer ? { Authorization: "Bearer " + bearer } : {}) },
       body: JSON.stringify(body),

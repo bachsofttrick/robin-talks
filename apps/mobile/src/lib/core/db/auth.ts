@@ -1,6 +1,6 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BACKEND_AUTH_URL, DATA_API_URL, IN_BROWSER, borelHeaders } from "./config";
+import { BACKEND_AUTH_URL, BACKEND_DATA_URL, IN_BROWSER, borelHeaders } from "./config";
 import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation-state";
 
@@ -210,7 +210,7 @@ export function native(): any {
   if (!nativeClient) {
     nativeClient = createClient({
       auth: { url: BACKEND_AUTH_URL, adapter: SupabaseAuthAdapter({ fetchOptions: { plugins: [sessionPlugin] } }), allowAnonymous: true },
-      dataApi: { url: DATA_API_URL, options: { global: { fetch: dataFetch } } },
+      dataApi: { url: BACKEND_DATA_URL, options: { global: { fetch: dataFetch } } },
     });
   }
   return nativeClient;
@@ -221,7 +221,7 @@ export function native(): any {
 export const client: any = IN_BROWSER
   ? createClient({
       dataApi: {
-        url: DATA_API_URL,
+        url: BACKEND_DATA_URL,
         getToken: async () => "bps_anon",
         options: { global: { fetch: dataFetch } },
       },

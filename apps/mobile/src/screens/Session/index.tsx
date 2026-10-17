@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import type { ScrollViewInstance } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Keyboard, Mic, Send, Volume2, X } from "lucide-react-native";
 import { Screen, Notice, EmptyState } from "../../lib/ui";
@@ -53,7 +54,7 @@ export default function SessionScreen() {
   const [debrief, setDebrief] = useState<Debrief | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [ready, setReady] = useState(false);
-  const scroller = useRef<ScrollView | null>(null);
+  const scroller = useRef<ScrollViewInstance | null>(null);
   // Which session's opening turn was already requested, so a failed opening
   // never re-fires from the auto-start effect below.
   const openedRef = useRef<string | null>(null);

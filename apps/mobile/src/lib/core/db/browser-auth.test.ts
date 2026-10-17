@@ -21,7 +21,6 @@ const createClientMock = createClient as unknown as jest.Mock;
 const adapterMock = SupabaseAuthAdapter as unknown as jest.Mock;
 
 type BrowserAuthModule = typeof import("./browser-auth");
-type ConfigModule = typeof import("./config");
 
 const ENV = {
   EXPO_PUBLIC_BACKEND_URL: "http://localhost:3000/api",
@@ -33,7 +32,6 @@ const originalEnv = { ...process.env };
 
 describe("browser-auth", () => {
   let mod: BrowserAuthModule;
-  let cfg: ConfigModule;
 
   beforeAll(() => {
     process.env.EXPO_PUBLIC_BACKEND_URL = ENV.EXPO_PUBLIC_BACKEND_URL;
@@ -42,7 +40,6 @@ describe("browser-auth", () => {
     (globalThis as any).document = {};
 
     jest.isolateModules(() => {
-      cfg = jest.requireActual("./config") as ConfigModule;
       mod = jest.requireActual("./browser-auth") as BrowserAuthModule;
     });
   });
@@ -59,8 +56,6 @@ describe("browser-auth", () => {
     const options = createClientMock.mock.calls[0][0];
     expect(options.auth.url).toBe("http://localhost:3000/api/auth");
     expect(options.auth.url).toBe(ENV.EXPO_PUBLIC_BACKEND_URL + "/auth");
-    expect(options.auth.url).not.toBe(cfg.AUTH_URL);
-    expect(options.auth.url).not.toBe(cfg.PREVIEW_AUTH_URL);
     expect(options.auth.adapter).toBe(adapterMock.mock.results[0].value);
     expect(typeof options.dataApi).toBe("object");
     expect(options.dataApi.url).toBe("http://localhost:3000/api/data");

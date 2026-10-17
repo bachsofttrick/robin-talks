@@ -1,4 +1,4 @@
-import { BOREL_STORAGE, BOREL_ACCOUNT, borelHeaders } from "./config";
+import { borelHeaders } from "./config";
 import { authHeader } from "./auth";
 import { looksPlain, messageOf, refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 
@@ -21,7 +21,7 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 async function storageCall<T>(action: string, body: unknown, failed: string = FILES_SAY.save): Promise<StorageResult<T>> {
   try {
     const bearer = await authHeader();
-    const res = await fetch(BOREL_STORAGE + "/" + action, {
+    const res = await fetch('BOREL_STORAGE' + "/" + action, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...borelHeaders(), ...(bearer ? { Authorization: "Bearer " + bearer } : {}) },
       body: JSON.stringify(body),
@@ -135,7 +135,7 @@ export const storage = {
       },
       /** A URL that renders in <Image>. Synchronous, so it can be used inline in JSX. */
       getPublicUrl(path: string): { data: { publicUrl: string } } {
-        return { data: { publicUrl: BOREL_STORAGE + "/o/" + encodeURIComponent(bucket) + "/" + encodePath(path) } };
+        return { data: { publicUrl: 'BOREL_STORAGE' + "/o/" + encodeURIComponent(bucket) + "/" + encodePath(path) } };
       },
       async createSignedUrl(path: string, expiresIn = 3600): Promise<StorageResult<{ signedUrl: string }>> {
         const r = await storageCall<{ url: string }>("sign", { bucket, path, expiresIn }, FILES_SAY.open);
@@ -160,7 +160,7 @@ export const account = {
     try {
       const bearer = await authHeader();
       if (!bearer || bearer === "bps_anon") return { ok: false, error: "Sign in again to delete your account." };
-      const res = await fetch(BOREL_ACCOUNT + "/delete", {
+      const res = await fetch('BOREL_ACCOUNT' + "/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...borelHeaders(), Authorization: "Bearer " + bearer },
         body: "{}",

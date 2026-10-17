@@ -42,7 +42,9 @@
         }
       ],
       "expo-sharing",
-      "expo-video"
+      "expo-video",
+      "expo-font",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
