@@ -20,7 +20,8 @@ robin-talks/
 │   │   └── link-env.mjs       bun run env:link; points each workspace .env symlink at ../../.env.
 ├── .env / .env.example        The only real env files (git-ignored .env). EAS gets its
 │   │                          EXPO_PUBLIC_* values from EAS environment variables.
-├── AGENTS.md                  Symlink to CLAUDE.md. Keep it a symlink.
+├── AGENTS.md                  Repository agent orientation and conventions.
+├── generate-local-credential-apk  Creates the local Android signing keystore.
 ├── apps/
 │   ├── mobile/                The Expo React Native app, package @robin-talks/mobile
 │   │   │                      (was the repo root before the move).
@@ -109,9 +110,10 @@ robin-talks/
 │   │   │                      (a standalone SVG viewer used while designing the bird mark).
 │   │   │                      splash-icon.png was removed.
 │   │   ├── app.json           Expo config (name, slug, plugins, identifiers).
-│   │   ├── package.json       @robin-talks/mobile: dev/apk/android/ios/web/typecheck/
+│   │   ├── package.json       @robin-talks/mobile: dev/build/build-online/android/ios/web/typecheck/
 │   │   │                      lint/test scripts, deps, and the Jest config block.
-│   │   ├── eas.json           EAS build profiles: preview (android apk) and production.
+│   │   ├── eas.json           EAS build profiles: preview and local (Android APK), plus production.
+│   │   ├── credentials.json   Local Android keystore credentials configuration.
 │   │   ├── .easignore         Files EAS Build must not upload (mirrors .gitignore plus .codegraph/).
 │   │   ├── babel.config.js    babel-preset-expo.
 │   │   ├── tsconfig.json      Extends expo/tsconfig.base, strict, jest types.
@@ -155,7 +157,6 @@ robin-talks/
 │           └── tsconfig.build.json  Extends the base; rootDir src, outDir dist, excludes *.test.ts.
 ├── docs/agent-docs/           This knowledge base plus specs/ and plans/.
 ├── README.md                  The monorepo README (app overview, run, scripts, backend).
-├── CLAUDE.md                  Root orientation doc (AGENTS.md symlinks to it).
 └── .gitignore                 Ignores node_modules, .expo, dist, .turbo, .env, playwright dirs.
 ```
 
