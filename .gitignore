@@ -23,5 +23,4 @@ web-build/
 .env.local
 
 # Local EAS credentials
-apps/mobile/credentials.json
 apps/mobile/credentials/

@@ -45,7 +45,7 @@ describe("aiConsentWording", () => {
 describe("askAiConsent", () => {
   test("a stored old-style key does not satisfy the new chat key", async () => {
     getItemMock.mockImplementation(async (key: string) => (key === "borel.aiConsent.v1:neon:GPT-6 by OpenAI" ? "yes" : null));
-    alertSpy.mockImplementation((_title: string, _message?: string, buttons?: { onPress?: () => void }[]) => {
+    alertSpy.mockImplementation((_title, _message, buttons) => {
       buttons?.[0].onPress?.();
     });
     const allowed = await askAiConsent("chat", "openai/gpt-6-luna");

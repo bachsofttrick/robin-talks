@@ -21,7 +21,6 @@ const createClientMock = createClient as unknown as jest.Mock;
 const adapterMock = SupabaseAuthAdapter as unknown as jest.Mock;
 
 type BrowserAuthModule = typeof import("./browser-auth");
-type ConfigModule = typeof import("./config");
 
 const ENV = {
   EXPO_PUBLIC_BACKEND_URL: "http://localhost:3000/api",
@@ -33,7 +32,6 @@ const originalEnv = { ...process.env };
 
 describe("browser-auth", () => {
   let mod: BrowserAuthModule;
-  let cfg: ConfigModule;
 
   beforeAll(() => {
     process.env.EXPO_PUBLIC_BACKEND_URL = ENV.EXPO_PUBLIC_BACKEND_URL;
@@ -42,7 +40,6 @@ describe("browser-auth", () => {
     (globalThis as any).document = {};
 
     jest.isolateModules(() => {
-      cfg = jest.requireActual("./config") as ConfigModule;
       mod = jest.requireActual("./browser-auth") as BrowserAuthModule;
     });
   });
