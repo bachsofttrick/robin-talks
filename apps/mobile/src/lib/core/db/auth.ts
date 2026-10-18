@@ -79,6 +79,11 @@ function saveSessionCookies(): Promise<void> {
   });
 }
 
+async function clearSessionCookies(): Promise<void> {
+  sessionCookies = {};
+  await saveSessionCookies();
+}
+
 // A joined Set-Cookie header splits on a comma only where a new name=value
 // starts, since an Expires date carries a comma of its own.
 function splitSetCookie(header: string): string[] {
@@ -168,11 +173,6 @@ const sessionPlugin = {
           ? response.headers.getSetCookie()
           : splitSetCookie(response.headers.get("set-cookie") || "");
       let changed = rememberCookies(lines);
-      const url = String((context.request && context.request.url) || "");
-      if (response.ok && url.includes("/sign-out") && Object.keys(sessionCookies).length) {
-        sessionCookies = {};
-        changed = true;
-      }
       if (changed) await saveSessionCookies();
     },
   },
@@ -281,9 +281,13 @@ function announceSessionChanges(): void {
       if (!auth || typeof auth[name] !== "function") continue;
       const original = auth[name].bind(auth);
       auth[name] = async (...args: any[]) => {
-        const result = await original(...args);
-        await tellScreens();
-        return result;
+        try {
+          const result = await original(...args);
+          if (name === "signOut") await clearSessionCookies();
+          return result;
+        } finally {
+          await tellScreens();
+        }
       };
     }
     if (auth && typeof auth.onAuthStateChange === "function") {

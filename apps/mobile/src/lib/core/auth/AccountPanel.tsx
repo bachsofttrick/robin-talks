@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Linking, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { labelsWith } from "./labels";
 import type { AccountKitLabels } from "./labels";
 import { Field, PrimaryButton, LinkButton, Note, Problem } from "./controls";
 import { useKitSession } from "./context";
 import { updatePassword, deleteAccount, signOut } from "./actions";
-import { WRONG_CURRENT_PASSWORD, MANAGE_SUBSCRIPTIONS_URL, KIT } from "./constants";
+import { WRONG_CURRENT_PASSWORD, KIT } from "./constants";
 import { RequireAccount } from "./RequireAccount";
 
 /**
@@ -108,7 +108,6 @@ export function AccountPanel(props: {
           <Text style={{ color: KIT.text, fontSize: 16, fontWeight: "600", marginBottom: 8 }}>{t.deleteTitle}</Text>
           <Text style={{ color: KIT.muted, fontSize: 14, marginBottom: 12 }}>{t.deleteBody}</Text>
           <Text style={{ color: KIT.muted, fontSize: 14, marginBottom: 6 }}>{t.deleteSubscription}</Text>
-          <LinkButton title={t.manageSubscriptions} onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)} />
           <View style={{ height: 8 }} />
           <PrimaryButton title={t.deleteConfirm} onPress={onDelete} busy={busy} tone="danger" />
           <LinkButton title={t.cancel} onPress={() => setStage("idle")} />
@@ -118,8 +117,8 @@ export function AccountPanel(props: {
           <LinkButton title={t.changePassword} onPress={() => setStage("password")} />
           <LinkButton
             title={t.signOut}
-            onPress={() => {
-              void signOut();
+            onPress={async () => {
+              await signOut();
               if (props.onSignedOut) props.onSignedOut();
             }}
           />

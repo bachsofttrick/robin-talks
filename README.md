@@ -68,8 +68,8 @@ values as EAS environment variables instead.
 
 ## How to build APK file (Linux)
 
-1. Install `openjdk`.
+1. Install `openjdk-jdk`.
 2. Get the Android SDK from [https://developer.android.com/studio](https://developer.android.com/studio) and install it. Later, add an environment key `ANDROID_HOME` to `~/.bashrc`.
 3. Add a temporary build folder in `EAS_LOCAL_BUILD_WORKINGDIR` to `.env`, for example, `/opt/Android/tmp`, so it doesn't build in RAM (the build takes a lot of RAM).
 4. Run `./generate-local-credential-apk` to generate local credential to build an APK.
-5. Run `bun run build`.
+5. Go inside `apps/mobile`. Run `bun run build`.
