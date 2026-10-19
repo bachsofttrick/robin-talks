@@ -71,30 +71,39 @@ export default function RootNavigator() {
   const { user, loading: authLoading } = useAuth();
   const { data, loading: profileLoading } = useProfile();
 
-  // Without login profile, show beginning screen with no tab bar
-  if (!user) {
+  // Wait for authentication before choosing the signed-out stack.
+  if (authLoading || (user && profileLoading)) {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Practice" component={PracticeScreen} />
-      </Stack.Navigator>
+      <View style={styles.root}>
+        <Splash />
+      </View>
     );
   }
 
-  // Prevent loading onBoarding BEFORE getting profile data
-  if (authLoading || (user && profileLoading)) return <Splash />;
+  // Without login profile, show beginning screen with no tab bar
+  if (!user) {
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Practice" component={PracticeScreen} />
+        </Stack.Navigator>
+    );
+  }
 
   const needsOnboarding = !data.onboarded;
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {needsOnboarding ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      ) : (
-        <Stack.Screen name="Tabs" component={Tabs} />
-      )}
-    </Stack.Navigator>
+    <View style={styles.root}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {needsOnboarding ? (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        ) : (
+          <Stack.Screen name="Tabs" component={Tabs} />
+        )}
+      </Stack.Navigator>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   splash: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
 });

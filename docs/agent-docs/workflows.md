@@ -124,11 +124,12 @@ files are colocated with source as `*.test.ts`:
 | `src/lib/core/db/data.test.ts` | backend data client URLs, the native session-cookie header, the browser credentials mode, and error mapping |
 | `src/lib/api/data-hooks.test.tsx` | `useProfile`/`useSessions`/`useMemory` call the data client on both surfaces (never `db.from`) and keep each hook's shape |
 | `src/lib/core/auth/actions.test.ts` | `updatePassword`/`deleteAccount` through `getBetterAuthInstance` and the password-reset constants |
+| `src/lib/core/auth/context.test.tsx` | forced startup restoration, stale initial callbacks and lookup results, bounded retries, foreground recovery, cleanup, and providerless account UI |
 | `src/lib/core/auth/errors.test.ts` | `authErrorMessage` translation |
 | `src/lib/core/auth/labels.test.ts` | `labelsWith` overrides |
 | `src/lib/polyfills/responsePolyfill.test.ts` | `Response.json` polyfill |
 
-Current totals: 10 suites, 148 tests in `apps/mobile`. Root `bun run test` runs both
+Current totals: 11 suites, 160 tests in `apps/mobile`. Root `bun run test` runs both
 workspaces: `apps/mobile` via Jest and `apps/backend` via `bun test`. Mobile tests
 mock `./config`, `./notify`, `./consent`, and `fetch` rather than making
 network calls. The `ai.transcribe` suite covers the empty-base64 and uri-only-empty

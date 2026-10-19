@@ -26,15 +26,24 @@ context (`AuthProvider`, `useAuth`, and types), the actions (`signUp`, `signIn`,
 
 ## Provider and hooks (`src/lib/core/auth/context.tsx`)
 
-- `AuthProvider` reads the stored session with `db.auth.getSession()`, subscribes
-  to `db.auth.onAuthStateChange`, and exposes `{ loading, session, user,
-  signedIn }` plus every action. A session that cannot be read resolves to signed
-  out rather than stuck.
+- `AuthProvider` restores the session with `db.auth.getSession({ forceFetch: true })`,
+  subscribes to `db.auth.onAuthStateChange`, and exposes `{ loading, session, user,
+  signedIn }` plus every action. Before fetching on native, `restoreSession()`
+  awaits `sessionCookieHeader()` and settles signed out if it is empty. Browser
+  restoration uses its cookie jar directly. The forced lookup bypasses
+  the SDK cache and request deduplication.
+- The shared session hook ignores the adapter's separate `INITIAL_SESSION`
+  callback. New sign-in/sign-out events supersede pending lookups and cancel
+  scheduled retries, so stale startup results cannot overwrite newer auth state.
+- Failed lookups retry after 500 ms and 1,500 ms. After the final failure, loading
+  settles and an established session is preserved. Returning to the foreground
+  starts a fresh lookup and retry budget; a successful empty result signs out.
 - On every user change it calls `syncProfile(user)` (best-effort, once per user
   per launch).
 - `useAuth()` throws outside the provider. `useKitSession()` is the providerless
   variant: it reads the context when present, otherwise subscribes on its own, so
-  account UI also works in apps that never mount `AuthProvider`.
+  account UI also works in apps that never mount `AuthProvider`. Both paths use
+  the same restoration and foreground-recovery hook.
 - `loading` is what the rest of the app gates on: `RootNavigator` holds its
   splash while it is true, so a launch with a stored session never flashes the
   signed-out screen. Settings waits on `memory.loading` and `sessions.loading`
@@ -122,3 +131,5 @@ failure.
   (`src/lib/core/auth/constants.ts`) rather than the app theme.
 
 Tests for the pure helpers are `errors.test.ts` and `labels.test.ts`.
+`context.test.tsx` covers startup hydration, stale callbacks and lookups, bounded
+retries, foreground recovery, session preservation, cleanup, and providerless UI.

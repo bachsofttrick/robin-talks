@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { AppState } from "react-native";
 import { db } from "../db";
+import { sessionCookieHeader } from "../db/auth";
 import type { User, Session } from "./types";
 import { syncProfile, signUp, signIn, signOut, sendPasswordReset, updatePassword, resendConfirmation, deleteAccount, confirmEmail, resetPassword } from "./actions";
-import { sessionCookieHeader } from "../db/auth";
 
 export interface AuthState {
   /** True until the stored session has been read. Show a splash, not a login screen. */
@@ -26,6 +27,84 @@ export interface AuthContextValue extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const SESSION_RETRY_DELAYS_MS = [500, 1500];
+
+// Shared by the provider and standalone account UI; enabled prevents duplicate subscriptions.
+function useSessionState(enabled: boolean): AuthState {
+  const [state, setState] = useState<AuthState>({ loading: true, session: null, user: null, signedIn: false });
+
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    // A newer lookup or auth event invalidates results from earlier async work.
+    let revision = 0;
+    let retryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const apply = (session: Session | null) => {
+      if (!active) return;
+      const user = session ? (session.user as User) : null;
+      setState({ loading: false, session, user, signedIn: Boolean(session) });
+      if (user) syncProfile(user);
+    };
+
+    const restoreSession = async () => {
+      const requestRevision = ++revision;
+      clearTimeout(retryTimer);
+      try {
+        const cookieHeader = await sessionCookieHeader();
+        if (!active || requestRevision !== revision) return;
+        if (cookieHeader.length === 0) {
+          retryCount = 0;
+          apply(null);
+          return;
+        }
+        // Read the backend directly instead of reusing SDK cache or another in-flight lookup.
+        const { data, error } = await db.auth.getSession({ forceFetch: true });
+        if (!active || requestRevision !== revision) return;
+        if (error) throw error;
+        retryCount = 0;
+        apply((data?.session as Session | null) ?? null);
+      } catch {
+        if (!active || requestRevision !== revision) return;
+        // Keep startup loading through retries instead of treating a failed lookup as sign-out.
+        const delay = SESSION_RETRY_DELAYS_MS[retryCount++];
+        if (delay !== undefined) {
+          retryTimer = setTimeout(() => void restoreSession(), delay);
+        } else {
+          // Exhausted retries release the splash while preserving any established session.
+          setState((previous) => ({ ...previous, loading: false }));
+        }
+      }
+    };
+
+    const { data } = db.auth.onAuthStateChange((event: string, session: unknown) => {
+      // The adapter starts its own initial lookup, whose stale result could overwrite ours.
+      if (event === "INITIAL_SESSION") return;
+      // Live auth events take priority over pending restoration and scheduled retries.
+      revision++;
+      retryCount = 0;
+      clearTimeout(retryTimer);
+      apply((session as Session | null) ?? null);
+    });
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+      // Recover from an earlier failed lookup when the user returns to the app.
+      retryCount = 0;
+      void restoreSession();
+    });
+    void restoreSession();
+
+    return () => {
+      active = false;
+      clearTimeout(retryTimer);
+      data.subscription.unsubscribe();
+      appStateSubscription.remove();
+    };
+  }, [enabled]);
+
+  return state;
+}
 
 /**
  * Wrap the app in this once, at the root, above the navigator.
@@ -35,41 +114,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  * flashes it at every already-signed-in user, every single launch.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({ loading: true, session: null, user: null, signedIn: false });
-
-  const hasStoredSession = async () => {
-    const cookieHeader = await sessionCookieHeader();
-    return cookieHeader.length > 0;
-  };
-
-  useEffect(() => {
-    let active = true;
-    const apply = (session: Session | null) => {
-      if (!active) return;
-      const user = session ? (session.user as User) : null;
-      setState({ loading: false, session, user, signedIn: Boolean(session) });
-      if (user) syncProfile(user);
-    };
-
-    hasStoredSession()
-      .then((stored) => {
-        if (!stored) {
-          apply(null);
-          return;
-        }
-        return db.auth
-          .getSession()
-          .then(({ data }: { data: { session: unknown } }) => apply((data.session as Session | null) ?? null));
-      })
-      // A session that cannot be read is a signed-OUT app, not a stuck one.
-      .catch(() => apply(null));
-
-    const { data } = db.auth.onAuthStateChange((_event: string, session: unknown) => apply((session as Session | null) ?? null));
-    return () => {
-      active = false;
-      data.subscription.unsubscribe();
-    };
-  }, []);
+  const state = useSessionState(true);
 
   const value = useMemo<AuthContextValue>(
     () => ({ ...state, signUp, signIn, signOut, sendPasswordReset, updatePassword, resendConfirmation, deleteAccount, confirmEmail, resetPassword }),
@@ -96,28 +141,7 @@ export function useAuth(): AuthContextValue {
  */
 export function useKitSession(): AuthState {
   const fromProvider = useContext(AuthContext);
-  const hasProvider = fromProvider !== null;
-  const [own, setOwn] = useState<AuthState>({ loading: true, session: null, user: null, signedIn: false });
+  const own = useSessionState(fromProvider === null);
 
-  useEffect(() => {
-    if (hasProvider) return;
-    let active = true;
-    const apply = (session: Session | null) => {
-      if (!active) return;
-      const user = session ? (session.user as User) : null;
-      setOwn({ loading: false, session, user, signedIn: Boolean(session) });
-      if (user) void syncProfile(user);
-    };
-    db.auth
-      .getSession()
-      .then(({ data }: { data: { session: unknown } }) => apply((data.session as Session | null) ?? null))
-      .catch(() => apply(null));
-    const { data } = db.auth.onAuthStateChange((_event: string, session: unknown) => apply((session as Session | null) ?? null));
-    return () => {
-      active = false;
-      data.subscription.unsubscribe();
-    };
-  }, [hasProvider]);
-
-  return hasProvider ? (fromProvider as AuthState) : own;
+  return fromProvider ?? own;
 }
