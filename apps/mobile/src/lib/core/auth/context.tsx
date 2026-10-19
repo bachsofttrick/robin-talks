@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { db } from "../db";
 import type { User, Session } from "./types";
 import { syncProfile, signUp, signIn, signOut, sendPasswordReset, updatePassword, resendConfirmation, deleteAccount, confirmEmail, resetPassword } from "./actions";
+import { sessionCookieHeader } from "../db/auth";
 
 export interface AuthState {
   /** True until the stored session has been read. Show a splash, not a login screen. */
@@ -36,18 +37,30 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ loading: true, session: null, user: null, signedIn: false });
 
+  const hasStoredSession = async () => {
+    const cookieHeader = await sessionCookieHeader();
+    return cookieHeader.length > 0;
+  };
+
   useEffect(() => {
     let active = true;
     const apply = (session: Session | null) => {
       if (!active) return;
       const user = session ? (session.user as User) : null;
       setState({ loading: false, session, user, signedIn: Boolean(session) });
-      if (user) void syncProfile(user);
+      if (user) syncProfile(user);
     };
 
-    db.auth
-      .getSession()
-      .then(({ data }: { data: { session: unknown } }) => apply((data.session as Session | null) ?? null))
+    hasStoredSession()
+      .then((stored) => {
+        if (!stored) {
+          apply(null);
+          return;
+        }
+        return db.auth
+          .getSession()
+          .then(({ data }: { data: { session: unknown } }) => apply((data.session as Session | null) ?? null));
+      })
       // A session that cannot be read is a signed-OUT app, not a stuck one.
       .catch(() => apply(null));
 
