@@ -5,7 +5,9 @@
   "main": "expo-entry.js",
   "scripts": {
     "dev": "ELECTRON_DISABLE_SANDBOX=1 expo start",
-    "build": "dotenv -e .env -- eas build -p android --profile local --local --output ./robin-talks.apk",
+    "preview": "dotenv -e .env -- eas build -p android --profile preview --local --output ./robin-talks.apk",
+    "local": "dotenv -e .env -- eas build -p android --profile local --local --output ./robin-talks.apk",
+    "build": "dotenv -e .env -- eas build -p android --profile production --local --output ./robin-talks.aab",
     "build-online": "eas build -p android --profile preview",
     "android": "ELECTRON_DISABLE_SANDBOX=1 expo run:android",
     "ios": "expo run:ios",
