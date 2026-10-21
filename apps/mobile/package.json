@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "main": "expo-entry.js",
+  "packageManager": "bun@1.4.2",
   "scripts": {
     "dev": "ELECTRON_DISABLE_SANDBOX=1 expo start",
     "preview": "dotenv -e .env -- eas build -p android --profile preview --local --output ./robin-talks.apk",

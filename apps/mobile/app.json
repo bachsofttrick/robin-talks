@@ -8,10 +8,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.example.robintalks"
+      "bundleIdentifier": "com.lesteuai.robintalks"
     },
     "android": {
-      "package": "com.example.robintalks",
+      "package": "com.lesteuai.robintalks",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
