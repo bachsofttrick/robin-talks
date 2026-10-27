@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
+export const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 export const BACKEND_AUTH_URL = BACKEND_URL ? BACKEND_URL + "/auth" : "";
 export const BACKEND_DATA_URL = BACKEND_URL ? BACKEND_URL + "/data" : "";
 export const BACKEND_AI_URL = BACKEND_URL ? BACKEND_URL + "/ai" : "";

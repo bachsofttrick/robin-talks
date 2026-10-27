@@ -107,7 +107,6 @@ export function AccountPanel(props: {
         <View style={{ marginBottom: 8 }}>
           <Text style={{ color: KIT.text, fontSize: 16, fontWeight: "600", marginBottom: 8 }}>{t.deleteTitle}</Text>
           <Text style={{ color: KIT.muted, fontSize: 14, marginBottom: 12 }}>{t.deleteBody}</Text>
-          <Text style={{ color: KIT.muted, fontSize: 14, marginBottom: 6 }}>{t.deleteSubscription}</Text>
           <View style={{ height: 8 }} />
           <PrimaryButton title={t.deleteConfirm} onPress={onDelete} busy={busy} tone="danger" />
           <LinkButton title={t.cancel} onPress={() => setStage("idle")} />

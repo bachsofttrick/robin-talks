@@ -1,6 +1,6 @@
 import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BACKEND_AUTH_URL, BACKEND_DATA_URL, IN_BROWSER, borelHeaders } from "./config";
+import { BACKEND_AUTH_URL, BACKEND_DATA_URL, BACKEND_URL, IN_BROWSER, borelHeaders } from "./config";
 import { refusalOf, noteRefusal, CLOUD_NEUTRAL } from "./errors";
 import { forgetModeration } from "./moderation-state";
 
@@ -160,6 +160,7 @@ const sessionPlugin = {
   hooks: {
     async onRequest(context: any) {
       const headers = new Headers(context.headers || {});
+      headers.set("Origin", BACKEND_URL);
       const cookie = await sessionCookieHeader();
       if (cookie) headers.set("cookie", cookie);
       else headers.delete("cookie");

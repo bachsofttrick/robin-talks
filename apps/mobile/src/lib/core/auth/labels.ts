@@ -68,7 +68,7 @@ export const LABELS: AccountKitLabels = {
   deleteAccount: "Delete account",
   deleteTitle: "Delete your account?",
   deleteBody: "This deletes your account and everything in it, on this phone and on our servers. It cannot be undone.",
-  deleteSubscription: "A subscription is not cancelled by this. Cancel it in your Apple ID settings.",
+  deleteSubscription: "A subscription is not cancelled by this.",
   manageSubscriptions: "Manage subscriptions",
   deleteConfirm: "Delete my account",
   deleted: "Your account has been deleted.",
