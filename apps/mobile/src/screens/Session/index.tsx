@@ -157,6 +157,7 @@ export default function SessionScreen() {
       return;
     }
     setMicDenied(false);
+    setTyping(false);
     setRecording(true);
   }, []);
 

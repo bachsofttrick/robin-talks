@@ -3,13 +3,11 @@ import { useMemory } from "./useMemory";
 import { useProfile } from "./useProfile";
 import { useSessions } from "./useSessions";
 import { syncProfile } from "../core/auth/actions";
+import { useAuth } from "../core/auth";
 import { db } from "../core/db";
 import * as data from "../core/db/data";
 
-jest.mock("../core/auth", () => {
-  const user = { id: "u1", email: "u1@example.com" };
-  return { useAuth: () => ({ user }) };
-});
+jest.mock("../core/auth", () => ({ useAuth: jest.fn() }));
 
 jest.mock("../core/db/config", () => ({
   ...jest.requireActual("../core/db/config"),
@@ -47,22 +45,30 @@ jest.mock("../core/db/data", () => ({
 }));
 
 jest.mock("../core/borel/borel-store", () => {
+  const { useSyncExternalStore } = jest.requireActual("react");
   const state: { value: unknown } = {
     value: { displayName: "", level: "Beginner", onboarded: false },
   };
+  const listeners = new Set<() => void>();
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
   const store = {
-    use: () => state.value,
+    use: () => useSyncExternalStore(subscribe, () => state.value),
     useStatus: () => ({ ready: true, error: null, detail: null, retry: jest.fn() }),
     get: () => state.value,
     set: (next: unknown) => {
       state.value = next;
+      listeners.forEach((listener) => listener());
     },
-    subscribe: () => () => {},
+    subscribe,
   };
   return { createStore: () => store };
 });
 
 const getProfileMock = data.getProfile as unknown as jest.Mock;
+const useAuthMock = useAuth as jest.Mock;
 const saveProfileMock = data.saveProfile as unknown as jest.Mock;
 const getOpenSessionMock = data.getOpenSession as unknown as jest.Mock;
 const createSessionMock = data.createSession as unknown as jest.Mock;
@@ -79,11 +85,181 @@ const fromMock = (db as unknown as { from: jest.Mock }).from;
 const LOAD_FAILED = "Couldn't load this right now, so please try again.";
 const SAVE_FAILED = "That didn't save, so check your connection and try again.";
 
+function deferredProfile() {
+  let resolve!: (value: Awaited<ReturnType<typeof data.getProfile>>) => void;
+  const promise = new Promise<Awaited<ReturnType<typeof data.getProfile>>>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  useAuthMock.mockReturnValue({ user: { id: "u1", email: "u1@example.com" } });
+  getProfileMock.mockReset().mockResolvedValue({
+    data: { user_id: "u1", display_name: "Ana", level: "Beginner" },
+    error: null,
+  });
 });
 
 describe("useProfile", () => {
+  test("same-account auth refresh preserves profile, callbacks, and loaded state", async () => {
+    const loadingStates: boolean[] = [];
+    const { result, rerender } = await renderHook(() => {
+      const profile = useProfile();
+      loadingStates.push(profile.loading);
+      return profile;
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const { data: profile, reload, save } = result.current;
+    loadingStates.length = 0;
+    getProfileMock.mockImplementationOnce(() => new Promise(() => {}));
+
+    useAuthMock.mockReturnValue({ user: { id: "u1", email: "updated@example.com" } });
+    await rerender({});
+
+    expect(loadingStates).not.toContain(true);
+    expect(getProfileMock).toHaveBeenCalledTimes(1);
+    expect(result.current.data).toEqual(profile);
+    expect(result.current.reload).toBe(reload);
+    expect(result.current.save).toBe(save);
+  });
+
+  test("explicit reload still fetches and shows loading", async () => {
+    const { result } = await renderHook(() => useProfile());
+    const pending = deferredProfile();
+    getProfileMock.mockReturnValueOnce(pending.promise);
+    let reload!: Promise<void>;
+    await act(async () => {
+      reload = result.current.reload();
+    });
+    expect(result.current.loading).toBe(true);
+    expect(getProfileMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      pending.resolve({ data: null, error: null });
+      await reload;
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data.onboarded).toBe(false);
+  });
+
+  test("account changes load the new profile and signout clears it", async () => {
+    const { result, rerender } = await renderHook(() => useProfile());
+    const pending = deferredProfile();
+    getProfileMock.mockReturnValueOnce(pending.promise);
+    useAuthMock.mockReturnValue({ user: { id: "u2" } });
+    await rerender({});
+    expect(getProfileMock).toHaveBeenCalledTimes(2);
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      pending.resolve({
+        data: { user_id: "u2", display_name: "Bo", level: "Advanced" },
+        error: null,
+      });
+    });
+    expect(result.current.data).toEqual({ displayName: "Bo", level: "Advanced", onboarded: true });
+    expect(result.current.loading).toBe(false);
+
+    useAuthMock.mockReturnValue({ user: null });
+    await rerender({});
+    expect(result.current.data).toEqual({ displayName: "", level: "Beginner", onboarded: false });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(getProfileMock).toHaveBeenCalledTimes(2);
+    await expect(result.current.save("Ana", "Beginner")).resolves.toBe("You need an account first.");
+    expect(saveProfileMock).not.toHaveBeenCalled();
+
+    useAuthMock.mockReturnValue({ user: { id: "u1" } });
+    await rerender({});
+    expect(getProfileMock).toHaveBeenCalledTimes(3);
+    expect(result.current.data.displayName).toBe("Ana");
+  });
+
+  test.each([
+    { data: { user_id: "u1", display_name: "Old", level: "Beginner" }, error: null },
+    { data: null, error: { message: "old account load failed" } },
+  ])("old account result %j cannot complete the new account's load", async (oldResult) => {
+    const oldLoad = deferredProfile();
+    const newLoad = deferredProfile();
+    getProfileMock.mockReturnValueOnce(oldLoad.promise).mockReturnValueOnce(newLoad.promise);
+    const { result, rerender } = await renderHook(() => useProfile());
+    useAuthMock.mockReturnValue({ user: { id: "u2" } });
+    await rerender({});
+    const profileBefore = result.current.data;
+
+    await act(async () => { oldLoad.resolve(oldResult); });
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toEqual(profileBefore);
+
+    await act(async () => {
+      newLoad.resolve({
+        data: { user_id: "u2", display_name: "Bo", level: "Advanced" },
+        error: null,
+      });
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data.displayName).toBe("Bo");
+  });
+
+  test("a pending load cannot restore profile data after signout", async () => {
+    const pending = deferredProfile();
+    getProfileMock.mockReturnValueOnce(pending.promise);
+    const { result, rerender } = await renderHook(() => useProfile());
+    useAuthMock.mockReturnValue({ user: null });
+    await rerender({});
+
+    await act(async () => {
+      pending.resolve({
+        data: { user_id: "u1", display_name: "Old", level: "Beginner" },
+        error: null,
+      });
+    });
+    expect(result.current.data).toEqual({ displayName: "", level: "Beginner", onboarded: false });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  test("an unmounted hook's pending load cannot overwrite the shared profile", async () => {
+    const pending = deferredProfile();
+    getProfileMock.mockReturnValueOnce(pending.promise);
+    const oldHook = await renderHook(() => useProfile());
+    await oldHook.unmount();
+    const { result } = await renderHook(() => useProfile());
+    expect(result.current.data.displayName).toBe("Ana");
+
+    await act(async () => {
+      pending.resolve({
+        data: { user_id: "u1", display_name: "Old", level: "Beginner" },
+        error: null,
+      });
+    });
+    expect(result.current.data.displayName).toBe("Ana");
+  });
+
+  test("a pending save cannot overwrite a different account's profile", async () => {
+    const { result, rerender } = await renderHook(() => useProfile());
+    const pending = deferredProfile();
+    saveProfileMock.mockReturnValueOnce(pending.promise);
+    let save!: Promise<string | null>;
+    await act(async () => { save = result.current.save("Old edit", "Advanced"); });
+    useAuthMock.mockReturnValue({ user: { id: "u2" } });
+    getProfileMock.mockResolvedValueOnce({
+      data: { user_id: "u2", display_name: "Bo", level: "Beginner" },
+      error: null,
+    });
+    await rerender({});
+
+    await act(async () => {
+      pending.resolve({ data: null, error: null });
+      await save;
+    });
+    expect(result.current.data.displayName).toBe("Bo");
+    await expect(save).resolves.toBeNull();
+  });
+
   test("loads through getProfile on mount", async () => {
     await renderHook(() => useProfile());
     await waitFor(() => expect(getProfileMock).toHaveBeenCalledTimes(1));
@@ -96,6 +272,7 @@ describe("useProfile", () => {
       await result.current.save("Ana", "Beginner");
     });
     expect(saveProfileMock).toHaveBeenCalledWith("Ana", "Beginner");
+    expect(result.current.data).toEqual({ displayName: "Ana", level: "Beginner", onboarded: true });
   });
 
   test("a failed load carries the plain load sentence", async () => {
