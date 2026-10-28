@@ -73,6 +73,6 @@ values as EAS environment variables instead.
 3. Add a temporary build folder in `EAS_LOCAL_BUILD_WORKINGDIR` to `.env`, for example, `/opt/Android/tmp`, so it doesn't build in RAM (the build takes a lot of RAM).
 4. Run `./generate-local-credential-apk` to generate local credential to build an APK.
 5. Go inside `apps/mobile`. Run `./clear-gradle` first to remove old gradle files (it will screw up APK building)
-6. Run `bun run local`.
-6a. Run `bun run build` for production AAB file.
+6. Run `bun run local`.  
+6a. Run `bun run build` for production AAB file.  
 6b. Run `bun run preview` for preview APK file using Expo Service credential.
