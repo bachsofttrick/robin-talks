@@ -148,7 +148,7 @@ Backend test files are colocated with source as `*.test.ts` and use `bun:test`:
 | `src/app.test.ts` | `/health` and `/api/auth/ok` bodies, each auth path routed (not 404), untrusted-origin rejection, trusted-origin CORS on `/api/auth/*`, `/api/data/*`, and `/api/ai/*`, the AI 401 gate on all four paths, missing-`PGHOST` subprocess exit |
 | `src/routes/ai/ai.test.ts` | the `/api/ai` router end to end with `mock.module` session, `chatSend`, and fetch seams: structured output and the JSON retry, truncation, model allowlist, transcribe caps and guards, the Borel image proxy and refusal mapping, and the 401 gate (44 tests, no database or network) |
 | `src/lib/auth.e2e.test.ts` | sign-up/verify/sign-in/sign-out, email verification resend, reset, change-password, delete-user, edge cases (skips without a database) |
-| `src/routes/legal/legal.test.ts` | the public `/legal/privacy-policy` and `/legal/terms-of-service` HTML pages, served without an account |
+| `src/routes/legal/legal.test.ts` | the public `/legal/privacy-policy`, `/legal/terms-of-service`, and `/legal/delete-account` HTML pages, served without an account |
 | `src/conformance.test.ts` | `SupabaseAuthAdapter` requests the paths the mobile client issues, including change-password and delete-user |
 | `src/routes/router.test.ts` | `/api/data/*` CRUD, session rejection (401), per-user isolation, and the account-deletion cascade (skips without a database) |
 | `src/lib/db/schema.test.ts` | table and column names, uniques, cascade FKs |

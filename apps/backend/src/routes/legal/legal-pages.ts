@@ -140,3 +140,12 @@ export const TERMS_OF_SERVICE_HTML = page(
     <p>For questions about these Terms, contact the developer using the contact information on the app store listing where you downloaded Robin Talks.</p>
   `,
 );
+
+export const ACCOUNT_DELETION_HTML = page(
+  "Robin Talks Account Deletion",
+  "How to request deletion of your Robin Talks account.",
+  `
+    <h2>Delete your account</h2>
+    <p>To request deletion of your Robin Talks account, email <a href="mailto:support@lesteuai.com">support@lesteuai.com</a>.</p>
+  `,
+);

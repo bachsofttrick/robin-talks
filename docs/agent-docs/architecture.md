@@ -13,7 +13,7 @@ client-only: it holds no server code and no build step. `apps/backend/` is a
 separate Hono service that runs a better-auth account service at `/api/auth/*`,
 an authenticated data API at `/api/data/*`, an authenticated AI router at
 `/api/ai` over drizzle and Neon Postgres, and public `/legal/*` HTML pages (the
-privacy policy and terms of service)
+privacy policy, terms of service, and account deletion instructions)
 (see [backend-and-ai.md](backend-and-ai.md)); the native app authenticates against
 it and stores its profile, sessions, and memory through `/api/data/*`, and the
 browser preview uses the same backend with cookie credentials.

@@ -149,8 +149,9 @@ robin-talks/
 │           │                  with the session gate; chat.ts, transcribe.ts, generations.ts, edits.ts holding the
 │           │                  chatRouter, transcribeRouter, generationRouter, and editRouter consts; ai.test.ts
 │           │                  with 44 tests patching the provider modules via mock.module, no database or network),
-│           │                  and legal/ (index.ts exporting the legalRouter const: GET /privacy-policy and
-│           │                  /terms-of-service as HTML; legal-pages.ts holds the markup; legal.test.ts).
+│           │                  and legal/ (index.ts exporting the legalRouter const: GET /privacy-policy,
+│           │                  /terms-of-service, and /delete-account as HTML; legal-pages.ts holds the markup;
+│           │                  legal.test.ts).
 │           ├── package.json   Private, type module: dev/typecheck/lint/test/build + db:generate/db:migrate/db:verify.
 │           ├── eslint.config.mjs  @eslint/js + typescript-eslint flat config; ignores dist.
 │           ├── tsconfig.json  ESNext/NodeNext, strict, jsxImportSource hono/jsx, bun-types.
